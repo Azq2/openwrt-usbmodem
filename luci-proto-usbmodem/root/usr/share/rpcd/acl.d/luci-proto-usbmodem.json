@@ -1,0 +1,10 @@
+{
+	"luci-proto-usbmodem": {
+		"description": "Grant access to LuCI proto usbmodem",
+		"write": {
+			"file": {
+				"/usr/sbin/usbmodem discover": ["exec"]
+			}
+		}
+	}
+}
