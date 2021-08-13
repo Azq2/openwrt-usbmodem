@@ -26,7 +26,7 @@ proto_usbmodem_setup() {
 	json_get_vars modem_device
 	
 	# Check device
-	avail=$(usb-modem-service check "$modem_device")
+	avail=$(usbmodem check "$modem_device")
 	[ $avail != "1" ] && {
 		echo "Device not found: $modem_device"
 		proto_set_available $interface 0
@@ -34,7 +34,7 @@ proto_usbmodem_setup() {
 	}
 	
 	# Get network device
-	ifname=$(usb-modem-service ifname "$modem_device")
+	ifname=$(usbmodem ifname "$modem_device")
 	
 	[ -z $ifname ] && {
 		echo "Network device not found for modem: $modem_device"
@@ -46,7 +46,7 @@ proto_usbmodem_setup() {
 	proto_send_update "$interface"
 	
 	# Start modem service daemon
-	proto_run_command "$interface" usb-modem-service daemon "$interface"
+	proto_run_command "$interface" usbmodem daemon "$interface"
 	
 	echo "proto_usbmodem_setup: $interface"
 }

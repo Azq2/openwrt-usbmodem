@@ -120,7 +120,7 @@ class Modem {
 		static const char *getTechName(NetworkTech tech);
 		static const char *getNetRegStatusName(NetworkReg reg);
 		
-		bool getIpInfo(int ipv, IpInfo *ip_info);
+		bool getIpInfo(int ipv, IpInfo *ip_info) const;
 		
 		inline void setNetIface(const std::string &iface) {
 			m_iface = iface;

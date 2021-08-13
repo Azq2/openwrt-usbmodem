@@ -14,7 +14,7 @@ check_usbmodem() {
 	local modem_device
 	config_get modem_device "$interface" modem_device
 	
-	avail=$(usb-modem-service check "$modem_device")
+	avail=$(usbmodem check "$modem_device")
 	proto_set_available "$interface" $avail
 	
 	echo "check_usbmodem('$interface', '$modem_device', '$ACTION')" >> /tmp/check_usbmodem.log

@@ -35,7 +35,7 @@ bool Netifd::createDynamicIface(const std::string &proto, const std::string &ifa
 	
 	bool result = m_ubus->call("network", "add_dynamic", request);
 	json_object_put(request);
-	return true;
+	return result;
 }
 
 json_object *Netifd::newIpAddItem(const std::string &ipaddr, const std::string &mask, const std::string &broadcast) {

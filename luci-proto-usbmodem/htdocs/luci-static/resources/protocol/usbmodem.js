@@ -10,7 +10,7 @@ network.registerPatternVirtual(/^usbmodem-.+$/);
 
 function loadUsbDevices(option) {
 	return new Promise(function (resovle, reject) {
-		fs.exec("/usr/sbin/usb-modem-service", ["discover"]).then(function (res) {
+		fs.exec("/usr/sbin/usbmodem", ["discover"]).then(function (res) {
 			var json = JSON.parse(res.stdout.trim());
 			
 			option.value('', _('-- Please choose --'), '');
