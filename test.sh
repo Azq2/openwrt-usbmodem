@@ -18,7 +18,7 @@ fi
 
 # Build package
 echo "Build..."
-make compile || exit 1
+make -C "$DIR/usbmodem" compile || exit 1
 
 function install_links {
 	src="$1"
@@ -29,10 +29,10 @@ function install_links {
 }
 
 function copy_files {
-	scp "$DIR/../luci-proto-usbmodem/htdocs/luci-static/resources/protocol/usbmodem.js" $TEST_ROUTER:/tmp
-	scp "$DIR/../luci-proto-usbmodem/root/usr/share/rpcd/acl.d/luci-proto-usbmodem.json" $TEST_ROUTER:/tmp
-	scp "$DIR/files/usbmodem.usb" $TEST_ROUTER:/tmp
-	scp "$DIR/files/usbmodem.sh" $TEST_ROUTER:/tmp
+	scp "$DIR/luci-proto-usbmodem/htdocs/luci-static/resources/protocol/usbmodem.js" $TEST_ROUTER:/tmp
+	scp "$DIR/luci-proto-usbmodem/root/usr/share/rpcd/acl.d/luci-proto-usbmodem.json" $TEST_ROUTER:/tmp
+	scp "$DIR/usbmodem/files/usbmodem.usb" $TEST_ROUTER:/tmp
+	scp "$DIR/usbmodem/files/usbmodem.sh" $TEST_ROUTER:/tmp
 	ssh $TEST_ROUTER killall -9 usbmodem
 	scp $TOPDIR/build_dir/*/usbmodem/ipkg-install/usr/sbin/usbmodem $TEST_ROUTER:/tmp
 }

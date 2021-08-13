@@ -72,7 +72,7 @@ bool Modem::handshake() {
 	return false;
 }
 
-bool Modem::getIpInfo(int ipv, IpInfo *ip_info) {
+bool Modem::getIpInfo(int ipv, IpInfo *ip_info) const {
 	if (ipv == 6) {
 		ip_info->ip = m_ipv6_ip;
 		ip_info->mask = m_ipv6_mask;
