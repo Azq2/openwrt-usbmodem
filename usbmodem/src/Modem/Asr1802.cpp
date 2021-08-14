@@ -685,15 +685,24 @@ bool ModemAsr1802::init() {
 	// Handle disconnects
 	Loop::on<EvDataDisconnected>([=](const auto &event) {
 		startDataConnection();
+		startNetRegWhatchdog();
+	});
+	
+	Loop::on<EvDataConnected>([=](const auto &event) {
+		stopNetRegWhatchdog();
 	});
 	
 	Loop::on<EvTechChanged>([=](const auto &event) {
 		startDataConnection();
+		stopNetRegWhatchdog();
 	});
 	
 	// Poweron
 	if (!setRadioOn(true))
 		return false;
+	
+	if (m_data_state != CONNECTED)
+		startNetRegWhatchdog();
 	
 	return true;
 }

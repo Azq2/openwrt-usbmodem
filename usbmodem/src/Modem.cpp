@@ -116,6 +116,23 @@ bool Modem::getIpInfo(int ipv, IpInfo *ip_info) const {
 	}
 }
 
+void Modem::stopNetRegWhatchdog() {
+	if (m_data_connect_timeout_id >= 0) {
+		Loop::clearTimeout(m_data_connect_timeout_id);
+		m_data_connect_timeout_id = -1;
+	}
+}
+
+void Modem::startNetRegWhatchdog() {
+	if (m_data_connect_timeout_id >= 0 || m_data_connect_timeout <= 0)
+		return;
+	
+	m_data_connect_timeout_id = Loop::setTimeout([=]() {
+		m_data_connect_timeout_id = -1;
+		Loop::emit<EvDataConnectTimeout>({});
+	}, m_data_connect_timeout);
+}
+
 bool Modem::open() {
 	// Try open serial
 	if (m_serial.open(m_tty, m_speed) != 0) {
@@ -123,11 +140,15 @@ bool Modem::open() {
 		return false;
 	}
 	
+	// Detect TTY device lost
 	m_at.onIoBroken([=]() {
-		Loop::emit<EvIoBroken>({});
-		m_at.stop();
+		Loop::setTimeout([=]() {
+			Loop::emit<EvIoBroken>({});
+			m_at.stop();
+		}, 0);
 	});
 	
+	// Detect modem hangs
 	m_at.onAnyError([=](AtChannel::Errors error, int64_t start) {
 		if (error == AtChannel::AT_IO_ERROR || error == AtChannel::AT_TIMEOUT) {
 			if (!m_self_test) {
@@ -143,6 +164,7 @@ bool Modem::open() {
 		}
 	});
 	
+	// Start AT channel
 	if (!m_at.start()) {
 		LOGE("Can't start AT channel...\n");
 		return false;
@@ -155,6 +177,7 @@ bool Modem::open() {
 		return false;
 	}
 	
+	// Init modem
 	if (!init()) {
 		LOGE("Can't init modem...\n");
 		close();

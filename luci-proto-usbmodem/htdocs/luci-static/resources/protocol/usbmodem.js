@@ -139,7 +139,7 @@ return network.registerProtocol('usbmodem', {
 		
 		// PIN code
 		var pin = s.taboption('general', form.Value, 'pincode', _('PIN'));
-		pin.datatype = 'and(uinteger,minlength(4),maxlength(8))';
+		pin.datatype = 'integer';
 		pin.rmempty = true;
 		
 		// Auth type
@@ -167,24 +167,43 @@ return network.registerProtocol('usbmodem', {
 		auth_password.depends('auth_type', 'chap');
 		auth_password.rmempty = true;
 		
+		s.tab('modem', _('Modem Settings'));
+		
+		// Connect timeout
+		var connect_timeout = s.taboption(
+			'modem',
+			form.Value,
+			'connect_timeout',
+			_('Connect timeout'),
+			_('Maximum amount of seconds to wait for the modem connects to internet (for worth case).') + '<br />' +
+			_('After this timeout expired, the modem will be reinitialized (or the interface will be down if auto-connect is disabled).') + '<br />' +
+			_('Use 0 for infinity timeout.')
+		);
+		connect_timeout.default = '300';
+		connect_timeout.datatype = 'integer';
+		connect_timeout.rmempty = true;
+		
 		// DHCP
 		var force_use_dhcp = s.taboption(
-			'advanced',
+			'modem',
 			form.Flag,
 			'force_use_dhcp',
 			_('Force use DHCP'),
-			_('By default used manual interface configuration using information from modem (fastest way). But fallback to DHCP also available (for worth case).')
+			_('By default, the usbmodem daemon monitors IP address changes and manually sets it to a static interface.') + '<br />' +
+			_('This is the fastest way to reconnect to the Internet when the ISP resets the session.') + '<br />' +
+			_('But a rollback to DHCP is also available (for worth case).')
 		);
 		force_use_dhcp.depends('modem_type', 'ncm');
 		force_use_dhcp.depends('modem_type', 'asr1802');
 		
 		// Network restart
 		var force_network_restart = s.taboption(
-			'advanced',
+			'modem',
 			form.Flag,
 			'force_network_restart',
 			_('Force network restart'),
-			_('Triggers flight mode for few time on first run. May be useful for some modems, but slowdown connect time after reboot.')
+			_('Switching the modem to flight mode for some time at the first connection.') + '<br />' +
+			_('May be useful for some weird modems, but slows down internet connection after reboot.')
 		);
 		force_use_dhcp.depends('modem_type', 'asr1802');
 	}

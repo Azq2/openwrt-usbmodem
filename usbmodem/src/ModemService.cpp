@@ -22,6 +22,7 @@ ModemService::ModemService(const std::string &iface): m_iface(iface) {
 	m_uci_options["pincode"] = "";
 	m_uci_options["force_use_dhcp"] = "0";
 	m_uci_options["force_network_restart"] = "0";
+	m_uci_options["connect_timeout"] = "300";
 }
 
 bool ModemService::validateOptions() {
@@ -172,6 +173,8 @@ bool ModemService::runModem() {
 	m_modem->setForceNetworkRestart(m_uci_options["force_network_restart"] == "1");
 	m_modem->setPdpConfig(m_uci_options["pdp_type"], m_uci_options["apn"], m_uci_options["auth_type"], m_uci_options["username"], m_uci_options["password"]);
 	m_modem->setPinCode(m_uci_options["pincode"]);
+	m_modem->setDataConnectTimeout(strToInt(m_uci_options["connect_timeout"]) * 1000);
+	
 	m_modem->setSerial(m_tty_path, m_tty_speed);
 	
 	Loop::on<Modem::EvNetworkChanged>([=](const auto &event) {
@@ -313,6 +316,11 @@ bool ModemService::runModem() {
 	Loop::on<Modem::EvIoBroken>([=](const auto &event) {
 		LOGE("TTY device is lost...\n");
 		setError("IO_ERROR");
+	});
+	
+	Loop::on<Modem::EvDataConnectTimeout>([=](const auto &event) {
+		LOGE("Internet connection timeout...\n");
+		setError("CONNECT_TIMEOUT");
 	});
 	
 	if (!m_modem->open()) {

@@ -79,6 +79,8 @@ class Modem {
 		};
 		
 		struct EvIoBroken { };
+		
+		struct EvDataConnectTimeout { };
 	protected:
 		Serial m_serial;
 		AtChannel m_at;
@@ -121,6 +123,11 @@ class Modem {
 		
 		bool m_prefer_dhcp = false;
 		bool m_force_restart_network = false;
+		int m_data_connect_timeout = 0;
+		int m_data_connect_timeout_id = -1;
+		
+		void startNetRegWhatchdog();
+		void stopNetRegWhatchdog();
 		
 		virtual bool init() = 0;
 		virtual bool ping();
@@ -186,6 +193,10 @@ class Modem {
 		inline void setSerial(const std::string &tty, int speed) {
 			m_tty = tty;
 			m_speed = speed;
+		}
+		
+		inline void setDataConnectTimeout(int timeout) {
+			m_data_connect_timeout = timeout;
 		}
 		
 		bool open();
