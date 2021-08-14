@@ -2,12 +2,15 @@
 
 #include <signal.h>
 #include <unistd.h>
+#include <stdexcept>
 
 const std::string AtChannel::empty_line;
 
 AtChannel::AtChannel() {
-	if (sem_init(&at_cmd_sem, 0, 0) != 0)
-		throw std::string("Can't init semaphore, fatal error...");
+	if (sem_init(&at_cmd_sem, 0, 0) != 0) {
+		LOGE("sem_init() failed, errno = %d\n", errno);
+		throw std::runtime_error("sem_init fatal error");
+	}
 }
 
 AtChannel::~AtChannel() {
@@ -15,8 +18,6 @@ AtChannel::~AtChannel() {
 }
 
 void AtChannel::stop() {
-	LOGD("send stop...\n");
-	
 	m_stop = true;
 }
 
@@ -33,12 +34,19 @@ void AtChannel::readerLoop() {
 	
 	m_stop = false;
 	
-	LOGD("loop start...\n");
-	
 	while (!m_stop) {
 		int readed = m_serial->readChunk(tmp, sizeof(tmp), 30000);
 		if (m_stop)
 			break;
+		
+		// Serial device lost
+		if (readed == Serial::ERR_BROKEN) {
+			if (m_curr_response) {
+				m_curr_response->error = AT_IO_BROKEN;
+				postAtCmdSem();
+			}
+			m_stop = true;
+		}
 		
 		if (readed < 0) {
 			LOGE("Serial::readChunk error: %d\n", readed);
@@ -60,8 +68,6 @@ void AtChannel::readerLoop() {
 			}
 		}
 	}
-	
-	LOGD("Reader loop exit...");
 }
 
 bool AtChannel::isErrorResponse(const std::string &line, bool dial) {
@@ -98,20 +104,32 @@ void AtChannel::handleUnsolicitedLine() {
 	}
 }
 
+void AtChannel::postAtCmdSem() {
+	int ret;
+	do {
+		ret = sem_post(&at_cmd_sem);
+	} while (ret < 0 && errno == EINTR && !m_stop);
+	
+	if (ret != 0) {
+		LOGE("sem_post() failed, errno = %d\n", errno);
+		
+		if (errno != EINTR)
+			throw std::runtime_error("sem_post fatal error");
+	}
+}
+
 void AtChannel::handleLine() {
 	if (m_curr_response) {
 		if (isSuccessResponse(m_buffer, m_curr_type == DIAL)) {
 			m_curr_response->error = AT_SUCCESS;
 			m_curr_response->status = m_buffer;
 			
-			if (sem_post(&at_cmd_sem) != 0)
-				LOGE("sem_post error: %d\n", errno);
+			postAtCmdSem();
 		} else if (isErrorResponse(m_buffer, m_curr_type == DIAL)) {
 			m_curr_response->error = AT_ERROR;
 			m_curr_response->status = m_buffer;
 			
-			if (sem_post(&at_cmd_sem) != 0)
-				LOGE("sem_post error: %d\n", errno);
+			postAtCmdSem();
 		} else if (m_curr_type == DEFAULT) {
 			if (strStartsWith(m_buffer, m_curr_prefix)) {
 				m_curr_response->lines.push_back(m_buffer);
@@ -143,6 +161,11 @@ void AtChannel::handleLine() {
 int AtChannel::sendCommand(ResultType type, const std::string &cmd, const std::string &prefix, Response *response, int timeout) {
 	at_cmd_mutex.lock();
 	
+	if (m_stop) {
+		LOGE("[ %s ] error, AT channel already closed...\n", cmd.c_str());
+		return AT_ERROR;
+	}
+	
 	if (!timeout)
 		timeout = m_default_at_timeout;
 	
@@ -173,7 +196,7 @@ int AtChannel::sendCommand(ResultType type, const std::string &cmd, const std::s
 		do {
 			setTimespecTimeout(&tm, getNewTimeout(start, timeout));
 			ret = sem_timedwait(&at_cmd_sem, &tm);
-		} while (ret == -1 && errno == EINTR);
+		} while (ret == -1 && errno == EINTR && !m_stop);
 		
 		// Command timeout
 		if (ret == -1) {
@@ -183,6 +206,9 @@ int AtChannel::sendCommand(ResultType type, const std::string &cmd, const std::s
 				LOGE("[%s] command timeout, elapsed = %u\n", cmd.c_str(), elapsed);
 			} else {
 				LOGE("[%s] sem_timedwait = %d\n", cmd.c_str(), errno);
+				
+				if (errno != EINTR)
+					throw std::runtime_error("sem_timedwait fatal error");
 			}
 		}
 	}

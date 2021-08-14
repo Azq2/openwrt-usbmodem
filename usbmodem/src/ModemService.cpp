@@ -106,6 +106,15 @@ bool ModemService::stopDhcp(const std::string &iface) {
 	return true;
 }
 
+int ModemService::handleFatalError(const std::string &code, bool do_exit) {
+	
+	LOGE("fatal error: %s\n", code.c_str());
+	
+	if (do_exit)
+		exit(-1);
+	return -1;
+}
+
 int ModemService::run(const std::string &iface) {
 	m_start_time = getCurrentTimestamp();
 	
@@ -123,16 +132,16 @@ int ModemService::run(const std::string &iface) {
 	
 	if (!Uci::loadIfaceConfig(iface, &m_uci_options)) {
 		LOGE("Can't read config for interface: %s\n", iface.c_str());
-		return -1;
+		return handleFatalError("INVALID_CONFIG");
 	}
 	
 	if (!Uci::loadIfaceFwZone(iface, &m_firewall_zone)) {
 		LOGE("Can't find fw3 zone for interface: %s\n", iface.c_str());
-		return -1;
+		return handleFatalError("INVALID_CONFIG");
 	}
 	
 	if (!validateOptions())
-		return -1;
+		return handleFatalError("INVALID_CONFIG");
 	
 	int tty_speed = strToInt(m_uci_options["modem_speed"]);
 	std::string tty_path = findTTY(m_uci_options["modem_device"]);
@@ -140,24 +149,24 @@ int ModemService::run(const std::string &iface) {
 	
 	if (!tty_path.size()) {
 		LOGE("Device not found: %s\n", tty_path.c_str());
-		return -1;
+		return handleFatalError("DEVICE_NOT_FOUND");
 	}
 	
 	if (!net_iface.size()) {
 		LOGE("Network device not found: %s\n", tty_path.c_str());
-		return -1;
+		return handleFatalError("DEVICE_NOT_FOUND");
 	}
 	
 	if (!m_netifd.updateIface(iface, net_iface, nullptr, nullptr)) {
 		LOGE("Can't init iface...\n");
-		return -1;
+		return handleFatalError("INTERNAL_ERROR");
 	}
 	
 	if (m_uci_options["modem_type"] == "asr1802") {
 		m_modem = new ModemAsr1802();
 	} else {
 		LOGE("Unsupported modem type: %s\n", m_uci_options["modem_type"].c_str());
-		return -1;
+		return handleFatalError("INVALID_CONFIG");
 	}
 	
 	m_modem->setNetIface(net_iface);
@@ -297,28 +306,18 @@ int ModemService::run(const std::string &iface) {
 	
 	if (!m_modem->open()) {
 		LOGE("Can't initialize modem.\n");
-		delete m_modem;
-		return -1;
+		return handleFatalError("DEVICE_INIT_ERROR");
 	}
 	
 	Loop::run();
 	
-	auto start = getCurrentTimestamp();
-	Loop::done();
-	LOGD("loop done\n");
-	
-	LOGD("finish modem\n");
+	// Finish modem
 	m_modem->finish();
-	
-	LOGD("close modem\n");
 	m_modem->close();
-	
-	LOGD("delete modem\n");
 	delete m_modem;
-	auto end = getCurrentTimestamp();
 	
-	int diff = end - start;
-	LOGD("finish time: %d ms\n", diff);
+	int diff = getCurrentTimestamp() - m_start_time;
+	LOGD("Done, total uptime: %d ms\n", diff);
 	
 	return 0;
 }

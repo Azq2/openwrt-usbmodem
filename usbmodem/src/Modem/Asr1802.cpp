@@ -699,8 +699,11 @@ bool ModemAsr1802::init() {
 }
 
 void ModemAsr1802::finish() {
+	// Disable unsolicited for prevent side effects
 	m_at.resetUnsolicitedHandlers();
-	m_at.sendCommandNoResponse("AT+CFUN=4", TIMEOUT_CFUN);
+	
+	// Poweroff radio
+	setRadioOn(false);
 }
 
 ModemAsr1802::~ModemAsr1802() {

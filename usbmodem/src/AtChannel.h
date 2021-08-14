@@ -38,7 +38,8 @@ class AtChannel {
 			AT_SUCCESS		= 0,
 			AT_TIMEOUT		= -1,
 			AT_ERROR		= -2,
-			AT_IO_ERROR		= -3
+			AT_IO_ERROR		= -3,
+			AT_IO_BROKEN	= -4
 		};
 		
 		enum {
@@ -75,6 +76,8 @@ class AtChannel {
 		
 		void handleLine();
 		void handleUnsolicitedLine();
+		
+		void postAtCmdSem();
 	public:
 		AtChannel();
 		~AtChannel();

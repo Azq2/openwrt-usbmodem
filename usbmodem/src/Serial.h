@@ -11,6 +11,12 @@ class Serial {
 		bool m_ignore_eintr = false;
 	
 	public:
+		enum Errors {
+			ERR_SUCCESS		= 0,
+			ERR_IO			= -1,
+			ERR_BROKEN		= -2
+		};
+		
 		Serial();
 		~Serial();
 		

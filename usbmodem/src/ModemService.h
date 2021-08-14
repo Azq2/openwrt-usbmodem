@@ -29,6 +29,8 @@ class ModemService {
 		bool validateOptions();
 		bool startDhcp(const std::string &iface);
 		bool stopDhcp(const std::string &iface);
+		
+		int handleFatalError(const std::string &code, bool do_exit = false);
 	public:
 		ModemService();
 		int run(const std::string &iface);
