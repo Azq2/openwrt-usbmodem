@@ -41,6 +41,22 @@ class Modem {
 			IFACE_PPP		= 2
 		};
 		
+		enum PinState {
+			PIN_UNKNOWN		= 0,
+			PIN_REQUIRED	= 1,
+			PIN_ERROR		= 2,
+			PIN_READY		= 3
+		};
+		
+		struct SignalLevels {
+			float rssi_dbm;
+			float bit_err_pct;
+			float rscp_dbm;
+			float eclo_db;
+			float rsrq_db;
+			float rsrp_dbm;
+		};
+		
 		struct EvDataConnected {
 			bool is_update;
 		};
@@ -57,6 +73,11 @@ class Modem {
 			const NetworkReg status;
 		};
 		
+		struct EvSignalLevels { };
+		
+		struct EvPinStateChaned {
+			PinState state;
+		};
 	protected:
 		Serial m_serial;
 		AtChannel m_at;
@@ -76,6 +97,7 @@ class Modem {
 		
 		// Pin
 		std::string m_pincode;
+		bool m_pincode_entered = false;
 		
 		// Current connection
 		std::string m_ipv4_gw;
@@ -90,12 +112,21 @@ class Modem {
 		std::string m_ipv6_dns1;
 		std::string m_ipv6_dns2;
 		
+		float m_rssi_dbm = NAN;
+		float m_bit_err_pct = NAN;
+		float m_rscp_dbm = NAN;
+		float m_eclo_db = NAN;
+		float m_rsrq_db = NAN;
+		float m_rsrp_dbm = NAN;
+		
 		bool m_prefer_dhcp = false;
 		bool m_force_restart_network = false;
 		
 		virtual bool init() = 0;
 		virtual bool handshake();
 		virtual int getDefaultAtTimeout();
+		
+		PinState m_pin_state = PIN_UNKNOWN;
 		
 		// Current network tech
 		NetworkTech m_tech = TECH_NO_SERVICE;
@@ -121,6 +152,19 @@ class Modem {
 		static const char *getNetRegStatusName(NetworkReg reg);
 		
 		bool getIpInfo(int ipv, IpInfo *ip_info) const;
+		void getSignalLevels(SignalLevels *levels) const;
+		
+		inline NetworkReg getNetRegStatus() const {
+			return m_net_reg;
+		}
+		
+		inline NetworkTech getTech() const {
+			return m_tech;
+		}
+		
+		inline PinState getPinState() const {
+			return m_pin_state;
+		}
 		
 		inline void setNetIface(const std::string &iface) {
 			m_iface = iface;

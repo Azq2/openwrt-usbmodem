@@ -16,6 +16,9 @@ proto_usbmodem_init_config() {
 	proto_config_add_string auth_type
 	proto_config_add_string username
 	proto_config_add_string password
+	proto_config_add_string force_use_dhcp
+	proto_config_add_string force_network_restart
+	proto_config_add_string force_network_restart
 	proto_config_add_defaults
 }
 
@@ -33,27 +36,12 @@ proto_usbmodem_setup() {
 		return 1
 	}
 	
-	# Get network device
-	ifname=$(usbmodem ifname "$modem_device")
-	
-	[ -z $ifname ] && {
-		echo "Network device not found for modem: $modem_device"
-		proto_set_available $interface 0
-		return 1
-	}
-	
-	proto_init_update "$ifname" 1
-	proto_send_update "$interface"
-	
 	# Start modem service daemon
 	proto_run_command "$interface" usbmodem daemon "$interface"
-	
-	echo "proto_usbmodem_setup: $interface"
 }
 
 proto_usbmodem_teardown() {
 	local interface=$1
-	echo "proto_usbmodem_teardown: $interface"
 	
 	proto_init_update "*" 0
 	proto_send_update "$interface"

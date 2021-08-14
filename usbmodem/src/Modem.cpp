@@ -72,6 +72,15 @@ bool Modem::handshake() {
 	return false;
 }
 
+void Modem::getSignalLevels(SignalLevels *levels) const {
+	levels->rssi_dbm = m_rssi_dbm;
+	levels->bit_err_pct = m_bit_err_pct;
+	levels->rscp_dbm = m_rscp_dbm;
+	levels->eclo_db = m_eclo_db;
+	levels->rsrq_db = m_rsrq_db;
+	levels->rsrp_dbm = m_rsrp_dbm;
+}
+
 bool Modem::getIpInfo(int ipv, IpInfo *ip_info) const {
 	if (ipv == 6) {
 		ip_info->ip = m_ipv6_ip;

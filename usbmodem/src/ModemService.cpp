@@ -1,12 +1,11 @@
 #include "ModemService.h"
 
-#include <uci.h>
 #include "Modem/Asr1802.h"
+#include "Uci.h"
 
-bool ModemService::loadUciConfig(const std::string &iface) {
-	uci_context *context = uci_alloc_context();
-	uci_package *package = nullptr;
-	
+#include <vector>
+
+ModemService::ModemService() {
 	// Default options
 	m_uci_options["proto"] = "";
 	m_uci_options["modem_device"] = "";
@@ -21,36 +20,6 @@ bool ModemService::loadUciConfig(const std::string &iface) {
 	m_uci_options["force_use_dhcp"] = "0";
 	m_uci_options["force_network_restart"] = "0";
 	m_uci_options["allow_flight_mode"] = "0";
-	
-	if (!context)
-		return false;
-	
-	if (uci_load(context, "network", &package) != UCI_OK) {
-		uci_perror(context, "uci_load()");
-		uci_free_context(context);
-		return false;
-	}
-	
-	bool found = false;
-	uci_element *section_el, *option_el;
-	uci_foreach_element(&package->sections, section_el) {
-		uci_section *section = uci_to_section(section_el);
-		
-		if (strcmp(section->type, "interface") == 0 && strcmp(section_el->name, iface.c_str()) == 0) {
-			uci_foreach_element(&section->options, option_el) {
-				uci_option *option = uci_to_option(option_el);
-				if (option->type == UCI_TYPE_STRING) {
-					m_uci_options[option_el->name] = option->v.string;
-					found = true;
-				}
-			};
-			break;
-		}
-	}
-	
-	uci_free_context(context);
-	
-	return found;
 }
 
 bool ModemService::validateOptions() {
@@ -153,8 +122,13 @@ int ModemService::run(const std::string &iface) {
 	
 	m_netifd.setUbus(&m_ubus);
 	
-	if (!loadUciConfig(iface)) {
+	if (!Uci::loadIfaceConfig(iface, &m_uci_options)) {
 		LOGE("Can't read config for interface: %s\n", iface.c_str());
+		return -1;
+	}
+	
+	if (!Uci::loadIfaceFwZone(iface, &m_firewall_zone)) {
+		LOGE("Can't find fw3 zone for interface: %s\n", iface.c_str());
 		return -1;
 	}
 	
@@ -231,7 +205,7 @@ int ModemService::run(const std::string &iface) {
 		m_modem->getIpInfo(6, &ipv6);
 		
 		if (m_modem->getIfaceProto() == Modem::IFACE_STATIC) {
-			if (!m_netifd.updateIface(iface, net_iface, &ipv4, &ipv6, m_firewall_zone))
+			if (!m_netifd.updateIface(iface, net_iface, &ipv4, &ipv6))
 				LOGE("Can't set IP to interface '%s'\n", iface.c_str());
 		} else if (m_modem->getIfaceProto() == Modem::IFACE_DHCP) {
 			if (dhcp_delay > 0) {
@@ -269,10 +243,50 @@ int ModemService::run(const std::string &iface) {
 		LOGD("Internet disconnected, last session %d ms\n", diff);
 		
 		if (m_modem->getIfaceProto() == Modem::IFACE_STATIC) {
-			if (!m_netifd.updateIface(iface, net_iface, nullptr, nullptr, ""))
+			if (!m_netifd.updateIface(iface, net_iface, nullptr, nullptr))
 				LOGE("Can't set IP to interface '%s'\n", iface.c_str());
 		} else if (m_modem->getIfaceProto() == Modem::IFACE_DHCP) {
 			stopDhcp(iface);
+		}
+	});
+	
+	Loop::on<Modem::EvSignalLevels>([=](const auto &event) {
+		Modem::SignalLevels levels;
+		m_modem->getSignalLevels(&levels);
+		
+		std::vector<std::string> info;
+		
+		if (!std::isnan(levels.rssi_dbm))
+			info.push_back("RSSI: " + numberFormat(levels.rssi_dbm, 1) + " dBm");
+		
+		if (!std::isnan(levels.bit_err_pct))
+			info.push_back("Bit errors: " + numberFormat(levels.bit_err_pct, 1) + "%");
+		
+		if (!std::isnan(levels.rscp_dbm))
+			info.push_back("RSCP: " + numberFormat(levels.rscp_dbm, 1) + " dBm");
+		
+		if (!std::isnan(levels.eclo_db))
+			info.push_back("Ec/lo: " + numberFormat(levels.eclo_db, 1) + " dB");
+		
+		if (!std::isnan(levels.rsrq_db))
+			info.push_back("RSRQ: " + numberFormat(levels.rsrq_db, 1) + " dB");
+		
+		if (!std::isnan(levels.rsrp_dbm))
+			info.push_back("RSRP: " + numberFormat(levels.rsrp_dbm, 1) + " dBm");
+		
+		if (info.size() > 0) {
+			std::string str = strJoin(info, ", ");
+			LOGD("%s\n", str.c_str());
+		}
+	});
+	
+	Loop::on<Modem::EvPinStateChaned>([=](const auto &event) {
+		if (event.state == Modem::PIN_ERROR) {
+			LOGD("PIN: invalid code, or required PIN2, PUK, PUK2 or other.\n");
+		} else if (event.state == Modem::PIN_READY) {
+			LOGD("PIN: success\n");
+		} else if (event.state == Modem::PIN_REQUIRED) {
+			LOGD("PIN: need unlock\n");
 		}
 	});
 	

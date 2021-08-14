@@ -16,8 +16,6 @@ check_usbmodem() {
 	
 	avail=$(usbmodem check "$modem_device")
 	proto_set_available "$interface" $avail
-	
-	echo "check_usbmodem('$interface', '$modem_device', '$ACTION')" >> /tmp/check_usbmodem.log
 }
 
 case "$DEVICENAME" in

@@ -132,11 +132,15 @@ class ModemAsr1802: public Modem {
 		// Modem events handlers
 		void handleCreg(const std::string &event);
 		void handleCgev(const std::string &event);
+		void handleCesq(const std::string &event);
+		void handleCpin(const std::string &event);
 		void handleNetworkChange();
 		
 		// Manual connection
 		bool dial();
 		void startDataConnection();
+		
+		void startSimPolling();
 		
 		int getCurrentPdpCid();
 		

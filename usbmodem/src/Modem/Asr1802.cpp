@@ -58,6 +58,81 @@ bool ModemAsr1802::initDefaults() {
 	return true;
 }
 
+void ModemAsr1802::handleCpin(const std::string &event) {
+	std::string code;
+	if (!AtParser(event).parseString(&code).success())
+		return;
+	
+	PinState old_state = m_pin_state;
+	
+	if (strStartsWith(code, "READY")) {
+		m_pin_state = PIN_READY;
+	} else if (strStartsWith(code, "SIM PIN")) {
+		if (!m_pincode.size()) {
+			LOGE("SIM pin required, but no pincode specified...\n");
+			m_pin_state = PIN_ERROR;
+		} else if (m_pincode_entered) {
+			m_pin_state = PIN_ERROR;
+		} else {
+			m_pin_state = PIN_REQUIRED;
+			
+			// Trying enter PIN code only one time
+			m_pincode_entered = true;
+			
+			Loop::setTimeout([=]() {
+				if (m_at.sendCommandNoResponse("AT+CPIN=" + m_pincode) != 0)
+					LOGE("SIM PIN unlock error\n");
+				
+				// Force request new status
+				m_at.sendCommandNoResponse("AT+CPIN?");
+			}, 0);
+		}
+	} else {
+		LOGE("SIM required other lock code: %s\n", code.c_str());
+		m_pin_state = PIN_ERROR;
+	}
+	
+	if (old_state != m_pin_state)
+		Loop::emit<EvPinStateChaned>({.state = m_pin_state});
+}
+
+void ModemAsr1802::handleCesq(const std::string &event) {
+	static const double bit_errors[] = {0.14, 0.28, 0.57, 1.13, 2.26, 4.53, 9.05, 18.10};
+	int rssi, ber, rscp, eclo, rsrq, rsrp;
+	
+	bool parsed = AtParser(event)
+		.parseInt(&rssi)
+		.parseInt(&ber)
+		.parseInt(&rscp)
+		.parseInt(&eclo)
+		.parseInt(&rsrq)
+		.parseInt(&rsrp)
+		.success();
+	
+	if (!parsed)
+		return;
+	
+	// RSSI (Received signal strength)
+	m_rssi_dbm = -(rssi >= 99 ? NAN : 111 - rssi);
+	
+	// Bit Error
+	m_bit_err_pct = ber >= 0 && ber < COUNT_OF(bit_errors) ? bit_errors[ber] : NAN;
+	
+	// RSCP (Received signal code power)
+	m_rscp_dbm = -(rscp >= 255 ? NAN : 121 - rscp);
+	
+	// Ec/lo
+	m_eclo_db = -(eclo >= 255 ? NAN : (49.0f - (float) eclo) / 2.0f);
+	
+	// RSRQ (Reference signal received quality)
+	m_rsrq_db = -(rsrq >= 255 ? NAN : (40.0f - (float) rsrq) / 2.0f);
+	
+	// RSRP (Reference signal received power)
+	m_rsrp_dbm = -(rsrp >= 255 ? NAN : 141 - rsrp);
+	
+	Loop::emit<EvSignalLevels>({});
+}
+
 void ModemAsr1802::handleCgev(const std::string &event) {
 	// "DEACT" and "DETACH" mean disconnect
 	if (event.find("DEACT") != std::string::npos || event.find("DETACH") != std::string::npos) {
@@ -515,6 +590,17 @@ bool ModemAsr1802::syncApn() {
 	return true;
 }
 
+void ModemAsr1802::startSimPolling() {
+	if (m_pin_state == PIN_ERROR || m_pin_state == PIN_READY)
+		return;
+	
+	m_at.sendCommandNoResponse("AT+CPIN?");
+	
+	Loop::setTimeout([=]() {
+		startSimPolling();
+	}, 1000);
+}
+
 bool ModemAsr1802::init() {
 	// Currently is a fastest way for get internet after "cold" boot when using DCHP
 	// Without this DHCP not respond up to 20 sec
@@ -546,15 +632,38 @@ bool ModemAsr1802::init() {
 		handleCgev(event);
 	});
 	
-	// Detect, if already have internet
+	// Signal levels
+	m_at.onUnsolicited("+CESQ", [=](const std::string &event) {
+		handleCesq(event);
+	});
+	
+	// SIM pin state
+	m_at.onUnsolicited("+CPIN", [=](const std::string &event) {
+		handleCpin(event);
+	});
+	
 	if (!m_force_restart_network) {
-		int cid = getCurrentPdpCid();
-		if (cid > 0) {
-			handleConnect();
-		} else if (cid < 0) {
-			restartNetwork();
-		}
+		Loop::setTimeout([=]() {
+			// Detect, if already have internet
+			if (m_data_state == DISCONNECTED) {
+				int cid = getCurrentPdpCid();
+				if (cid > 0) {
+					handleConnect();
+				} else if (cid < 0) {
+					restartNetwork();
+				}
+			}
+			
+			// Sync state
+			m_at.sendCommandNoResponse("AT+CREG?");
+			m_at.sendCommandNoResponse("AT+CGREG?");
+			m_at.sendCommandNoResponse("AT+CEREG?");
+			m_at.sendCommandNoResponse("AT+CESQ");
+		}, 0);
 	}
+	
+	// Sync SIM state
+	startSimPolling();
 	
 	// Handle disconnects
 	Loop::on<EvDataDisconnected>([=](const auto &event) {

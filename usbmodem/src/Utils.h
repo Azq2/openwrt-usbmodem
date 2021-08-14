@@ -6,6 +6,7 @@
 #include <string>
 #include <cerrno>
 #include <cstdint>
+#include <vector>
 
 #define COUNT_OF(a) (sizeof((a)) / sizeof((a)[0]))
 
@@ -50,6 +51,10 @@ std::string converOctalIpv6(const std::string &value);
 int getIpType(const std::string &raw_ip, bool allow_dec_v6 = false);
 bool normalizeIp(std::string *raw_ip, int require_ipv = 0, bool allow_dec_v6 = false);
 
+std::string numberFormat(float num, int max_decimals = 0);
+std::string numberFormat(double num, int max_decimals = 0);
+std::string strJoin(const std::vector<std::string> &lines, const std::string &delim);
+std::string strprintf(const char *format, ...);
 std::string trim(std::string s);
 std::string readFile(std::string path);
 std::string findUsbIface(std::string dev_path, int iface);

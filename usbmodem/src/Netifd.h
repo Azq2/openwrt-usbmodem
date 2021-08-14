@@ -20,7 +20,7 @@ class Netifd {
 		}
 		
 		// Update static iface
-		bool updateIface(const std::string &iface, const std::string &ifname, const IpInfo *ipv4, const IpInfo *ipv6, const std::string &fw_zone);
+		bool updateIface(const std::string &iface, const std::string &ifname, const IpInfo *ipv4, const IpInfo *ipv6);
 		
 		// Create dynamic interface
 		bool createDynamicIface(const std::string &proto, const std::string &iface, const std::string &parent_iface,

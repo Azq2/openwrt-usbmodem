@@ -68,7 +68,7 @@ json_object *Netifd::newRouteItem(const std::string &target, const std::string &
 	return item;
 }
 
-bool Netifd::updateIface(const std::string &iface, const std::string &ifname, const IpInfo *ipv4, const IpInfo *ipv6, const std::string &fw_zone) {
+bool Netifd::updateIface(const std::string &iface, const std::string &ifname, const IpInfo *ipv4, const IpInfo *ipv6) {
 	json_object *request = json_object_new_object();
 	
 	if (!request)
@@ -80,9 +80,6 @@ bool Netifd::updateIface(const std::string &iface, const std::string &ifname, co
 	json_object_object_add(request, "link-up", json_object_new_boolean(true));
 	json_object_object_add(request, "address-external", json_object_new_boolean(false));
 	json_object_object_add(request, "keep", json_object_new_boolean(true));
-	
-	if (fw_zone.size() > 0)
-		json_object_object_add(request, "zone", json_object_new_string(fw_zone.c_str()));
 	
 	json_object *ipaddr = json_object_new_array();
 	json_object_object_add(request, "ipaddr", ipaddr);

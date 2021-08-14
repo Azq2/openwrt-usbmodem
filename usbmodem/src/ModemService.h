@@ -25,9 +25,9 @@ class ModemService {
 		int64_t m_last_disconnected = 0;
 		
 		bool validateOptions();
-		bool loadUciConfig(const std::string &iface);
 		bool startDhcp(const std::string &iface);
 		bool stopDhcp(const std::string &iface);
 	public:
+		ModemService();
 		int run(const std::string &iface);
 };

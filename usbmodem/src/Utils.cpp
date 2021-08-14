@@ -6,8 +6,11 @@
 #include <filesystem>
 #include <algorithm> 
 #include <cctype> 
+#include <cmath> 
 #include <arpa/inet.h>
 #include <cstring>
+#include <cstdarg>
+#include <stdexcept>
 
 using namespace std;
 
@@ -31,6 +34,74 @@ int strToInt(const std::string &s, int base, int default_value) {
 	} catch (std::invalid_argument &e) {
 		return default_value;
 	}
+}
+
+std::string strJoin(const std::vector<std::string> &lines, const std::string &delim) {
+	std::string out;
+	size_t length = lines.size() > 1 ? delim.size() * (lines.size() - 1) : 0;
+	for (auto &line: lines)
+		length += line.size();
+	
+	out.reserve(length);
+	
+	bool first = true;
+	for (auto &line: lines) {
+		if (first) {
+			first = false;
+			out += line;
+		} else {
+			out += delim + line;
+		}
+	}
+	
+	return std::move(out);
+}
+
+std::string numberFormat(float num, int max_decimals) {
+	float f1, f2;
+	f2 = modff(num, &f1);
+	
+	long p1 = static_cast<long>(f1);
+	long p2 = abs(static_cast<long>(f2 * (10 * max_decimals)));
+	
+	if (p2 != 0)
+		return to_string(p1) + "." + to_string(p2);
+	
+	return to_string(p1);
+}
+
+std::string numberFormat(double num, int max_decimals) {
+	double f1, f2;
+	f2 = modf(num, &f1);
+	
+	long p1 = static_cast<long>(f1);
+	long p2 = abs(static_cast<long>(f2 * (10 * max_decimals)));
+	
+	if (p2 != 0)
+		return to_string(p1) + "." + to_string(p2);
+	
+	return to_string(p1);
+}
+
+std::string strprintf(const char *format, ...) {
+	va_list v;
+	
+	std::string out;
+	
+	va_start(v, format);
+	int n = vsnprintf(nullptr, 0, format, v);
+	va_end(v);
+	
+	if (n <= 0)
+		throw std::runtime_error("vsnprintf error...");
+	
+	out.resize(n);
+	
+	va_start(v, format);
+	vsnprintf(&out[0], out.size() + 1, format, v);
+	va_end(v);
+	
+	return std::move(out);
 }
 
 std::string converHexIpv6(const std::string &value) {
