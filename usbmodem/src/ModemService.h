@@ -41,7 +41,7 @@ class ModemService {
 		
 		int checkError();
 	public:
-		ModemService(const std::string &iface);
+		explicit ModemService(const std::string &iface);
 		
 		bool init();
 		bool runModem();

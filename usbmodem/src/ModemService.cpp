@@ -6,8 +6,7 @@
 #include <vector>
 #include <signal.h>
 
-ModemService::ModemService(const std::string &iface) {
-	m_iface = iface;
+ModemService::ModemService(const std::string &iface): m_iface(iface) {
 	m_start_time = getCurrentTimestamp();
 	
 	// Default options
@@ -217,16 +216,20 @@ bool ModemService::runModem() {
 		m_modem->getIpInfo(6, &ipv6);
 		
 		if (m_modem->getIfaceProto() == Modem::IFACE_STATIC) {
-			if (!m_netifd.updateIface(m_iface, m_net_iface, &ipv4, &ipv6))
+			if (!m_netifd.updateIface(m_iface, m_net_iface, &ipv4, &ipv6)) {
 				LOGE("Can't set IP to interface '%s'\n", m_iface.c_str());
+				setError("INTERNAL_ERROR");
+			}
 		} else if (m_modem->getIfaceProto() == Modem::IFACE_DHCP) {
 			if (dhcp_delay > 0) {
 				LOGD("Wait %d ms for DHCP recovery...\n", dhcp_delay);
 				Loop::setTimeout([=]() {
-					startDhcp();
+					if (!startDhcp())
+						setError("INTERNAL_ERROR");
 				}, dhcp_delay);
 			} else {
-				startDhcp();
+				if (!startDhcp())
+					setError("INTERNAL_ERROR");
 			}
 		}
 		
@@ -255,10 +258,14 @@ bool ModemService::runModem() {
 		LOGD("Internet disconnected, last session %d ms\n", diff);
 		
 		if (m_modem->getIfaceProto() == Modem::IFACE_STATIC) {
-			if (!m_netifd.updateIface(m_iface, m_net_iface, nullptr, nullptr))
+			if (!m_netifd.updateIface(m_iface, m_net_iface, nullptr, nullptr)) {
 				LOGE("Can't set IP to interface '%s'\n", m_iface.c_str());
+				setError("INTERNAL_ERROR");
+			}
 		} else if (m_modem->getIfaceProto() == Modem::IFACE_DHCP) {
-			stopDhcp();
+			if (!stopDhcp()) {
+				setError("INTERNAL_ERROR");
+			}
 		}
 	});
 	
@@ -295,6 +302,7 @@ bool ModemService::runModem() {
 	Loop::on<Modem::EvPinStateChaned>([=](const auto &event) {
 		if (event.state == Modem::PIN_ERROR) {
 			LOGD("PIN: invalid code, or required PIN2, PUK, PUK2 or other.\n");
+			setError("PIN_ERROR");
 		} else if (event.state == Modem::PIN_READY) {
 			LOGD("PIN: success\n");
 		} else if (event.state == Modem::PIN_REQUIRED) {

@@ -19,7 +19,7 @@ class Netifd {
 			m_ubus = ubus;
 		}
 		
-		inline bool avail() {
+		inline bool avail() const {
 			return m_ubus != nullptr && m_ubus->avail();
 		}
 		

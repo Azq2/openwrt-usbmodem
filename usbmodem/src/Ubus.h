@@ -26,7 +26,7 @@ class Ubus {
 	public:
 		bool open();
 		void close();
-		inline bool avail() {
+		inline bool avail() const {
 			return m_ubus != nullptr;
 		}
 		
