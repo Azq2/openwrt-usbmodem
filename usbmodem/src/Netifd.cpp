@@ -4,6 +4,58 @@ Netifd::Netifd() {
 	
 }
 
+bool Netifd::protoBlockRestart(const std::string &iface) {
+		json_object *request = json_object_new_object();
+	
+	if (!request)
+		return false;
+	
+	json_object_object_add(request, "action", json_object_new_int(4));
+	json_object_object_add(request, "interface", json_object_new_string(iface.c_str()));
+	
+	bool result = m_ubus->call("network.interface", "notify_proto", request);
+	json_object_put(request);
+	return result;
+}
+
+bool Netifd::protoSetAvail(const std::string &iface, bool avail) {
+		json_object *request = json_object_new_object();
+	
+	if (!request)
+		return false;
+	
+	json_object_object_add(request, "action", json_object_new_int(5));
+	json_object_object_add(request, "available", json_object_new_boolean(avail));
+	json_object_object_add(request, "interface", json_object_new_string(iface.c_str()));
+	
+	bool result = m_ubus->call("network.interface", "notify_proto", request);
+	json_object_put(request);
+	return result;
+}
+
+bool Netifd::protoError(const std::string &iface, const std::string &error) {
+	json_object *request = json_object_new_object();
+	
+	if (!request)
+		return false;
+	
+	json_object *errors = json_object_new_array();
+	if (!errors) {
+		json_object_put(request);
+		return false;
+	}
+	
+	json_object_array_add(errors, json_object_new_string(error.c_str()));
+	
+	json_object_object_add(request, "action", json_object_new_int(3));
+	json_object_object_add(request, "error", errors);
+	json_object_object_add(request, "interface", json_object_new_string(iface.c_str()));
+	
+	bool result = m_ubus->call("network.interface", "notify_proto", request);
+	json_object_put(request);
+	return result;
+}
+
 bool Netifd::createDynamicIface(const std::string &proto, const std::string &iface, const std::string &parent_iface,
 	const std::string &fw_zone, const std::map<std::string, std::string> &default_options)
 {
@@ -75,9 +127,10 @@ bool Netifd::updateIface(const std::string &iface, const std::string &ifname, co
 		return false;
 	
 	json_object_object_add(request, "action", json_object_new_int(0));
+	json_object_object_add(request, "link-up", json_object_new_boolean(true));
 	json_object_object_add(request, "ifname", json_object_new_string(ifname.c_str()));
 	json_object_object_add(request, "interface", json_object_new_string(iface.c_str()));
-	json_object_object_add(request, "link-up", json_object_new_boolean(true));
+	
 	json_object_object_add(request, "address-external", json_object_new_boolean(false));
 	json_object_object_add(request, "keep", json_object_new_boolean(true));
 	
@@ -163,8 +216,6 @@ bool Netifd::protoKill(const std::string &iface, int signal) {
 	
 	if (!request)
 		return false;
-	
-	LOGD("Send signal %d to '%s'\n", signal, iface.c_str());
 	
 	json_object_object_add(request, "action", json_object_new_int(2));
 	json_object_object_add(request, "signal", json_object_new_int(signal));

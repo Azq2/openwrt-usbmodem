@@ -78,6 +78,8 @@ class Modem {
 		struct EvPinStateChaned {
 			PinState state;
 		};
+		
+		struct EvIoBroken { };
 	protected:
 		Serial m_serial;
 		AtChannel m_at;
@@ -167,10 +169,6 @@ class Modem {
 		
 		inline PinState getPinState() const {
 			return m_pin_state;
-		}
-		
-		inline void setNetIface(const std::string &iface) {
-			m_iface = iface;
 		}
 		
 		inline void setPdpConfig(const std::string &pdp_type, const std::string &apn, const std::string &auth_mode, const std::string &user, const std::string &password) {

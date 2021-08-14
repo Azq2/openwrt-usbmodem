@@ -19,19 +19,32 @@ class ModemService {
 		Modem *m_modem = nullptr;
 		std::map<std::string, std::string> m_uci_options;
 		bool m_dhcp_inited = false;
-		std::string m_firewall_zone = "";
+		std::string m_iface;
+		std::string m_firewall_zone;
+		std::string m_error_code;
+		bool m_error_fatal = false;
 		struct sigaction m_sigaction = {};
 		
 		int64_t m_start_time = 0;
 		int64_t m_last_connected = 0;
 		int64_t m_last_disconnected = 0;
 		
-		bool validateOptions();
-		bool startDhcp(const std::string &iface);
-		bool stopDhcp(const std::string &iface);
+		int m_tty_speed = 0;
+		std::string m_tty_path;
+		std::string m_net_iface;
 		
-		int handleFatalError(const std::string &code, bool do_exit = false);
+		bool validateOptions();
+		bool startDhcp();
+		bool stopDhcp();
+		
+		bool setError(const std::string &code, bool fatal = false);
+		
+		int checkError();
 	public:
-		ModemService();
-		int run(const std::string &iface);
+		ModemService(const std::string &iface);
+		
+		bool init();
+		bool runModem();
+		void finishModem();
+		int run();
 };

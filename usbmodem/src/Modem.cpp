@@ -113,6 +113,10 @@ bool Modem::open() {
 		return false;
 	}
 	
+	m_at.onIoBroken([=]() {
+		Loop::emit<EvIoBroken>({});
+	});
+	
 	// Run AT channel
 	if (pthread_create(&m_at_thread, nullptr, readerThread, this) != 0) {
 		LOGD("Can't create readerloop thread, errno=%d\n", errno);

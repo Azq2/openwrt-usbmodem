@@ -13,8 +13,8 @@
 
 static int modemDaemon(int argc, char *argv[]) {
 	if (argc == 3) {
-		ModemService s;
-		return s.run(argv[2]);
+		ModemService s(argv[2]);
+		return s.run();
 	}
 	
 	fprintf(stderr, "usage: %s daemon <iface>\n", argv[0]);

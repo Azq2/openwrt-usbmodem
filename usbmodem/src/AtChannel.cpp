@@ -41,11 +41,15 @@ void AtChannel::readerLoop() {
 		
 		// Serial device lost
 		if (readed == Serial::ERR_BROKEN) {
+			m_stop = true;
+			
 			if (m_curr_response) {
 				m_curr_response->error = AT_IO_BROKEN;
 				postAtCmdSem();
 			}
-			m_stop = true;
+			
+			if (m_broken_io_handler)
+				m_broken_io_handler();
 		}
 		
 		if (readed < 0) {
@@ -108,7 +112,7 @@ void AtChannel::postAtCmdSem() {
 	int ret;
 	do {
 		ret = sem_post(&at_cmd_sem);
-	} while (ret < 0 && errno == EINTR && !m_stop);
+	} while (ret < 0 && errno == EINTR);
 	
 	if (ret != 0) {
 		LOGE("sem_post() failed, errno = %d\n", errno);
@@ -189,7 +193,7 @@ int AtChannel::sendCommand(ResultType type, const std::string &cmd, const std::s
 	
 	if (ret < 0 || ret != complete_cmd.size()) {
 		response->error = AT_IO_ERROR;
-		LOGE("[%s] serial io error\n", cmd.c_str());
+		LOGE("[ %s ] serial io error\n", cmd.c_str());
 	} else {
 		// Wait for command finish
 		struct timespec tm;
@@ -203,15 +207,18 @@ int AtChannel::sendCommand(ResultType type, const std::string &cmd, const std::s
 			if (errno == ETIMEDOUT) {
 				response->error = AT_TIMEOUT;
 				uint32_t elapsed = getCurrentTimestamp() - start;
-				LOGE("[%s] command timeout, elapsed = %u\n", cmd.c_str(), elapsed);
+				LOGE("[ %s ] command timeout, elapsed = %u\n", cmd.c_str(), elapsed);
 			} else {
-				LOGE("[%s] sem_timedwait = %d\n", cmd.c_str(), errno);
+				LOGE("[ %s ] sem_timedwait = %d\n", cmd.c_str(), errno);
 				
 				if (errno != EINTR)
 					throw std::runtime_error("sem_timedwait fatal error");
 			}
 		}
 	}
+	
+	if (response->error)
+		LOGE("[ %s ] error = %d, status = %s\n", cmd.c_str(), response->error, response->status.c_str());
 	
 	if (m_verbose) {
 		for (int i = 0; i < response->lines.size(); i++)

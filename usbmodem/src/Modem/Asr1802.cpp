@@ -698,6 +698,7 @@ bool ModemAsr1802::init() {
 	return true;
 }
 
+// At this function we have <5s, otherwise netifd send SIGKILL
 void ModemAsr1802::finish() {
 	// Disable unsolicited for prevent side effects
 	m_at.resetUnsolicitedHandlers();

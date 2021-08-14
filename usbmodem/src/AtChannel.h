@@ -70,6 +70,7 @@ class AtChannel {
 		sem_t at_cmd_sem = {};
 		std::mutex at_cmd_mutex;
 		int m_default_at_timeout = 10000;
+		std::function<void()> m_broken_io_handler;
 		
 		static bool isErrorResponse(const std::string &line, bool dial = false);
 		static bool isSuccessResponse(const std::string &line, bool dial = false);
@@ -99,6 +100,10 @@ class AtChannel {
 		int sendCommand(ResultType type, const std::string &cmd, const std::string &prefix, Response *response, int timeout = 0);
 		
 		void onUnsolicited(const std::string &prefix, const std::function<void(const std::string &)> &handler);
+		
+		inline void onIoBroken(const std::function<void()> &handler) {
+			m_broken_io_handler = handler;
+		}
 		
 		void resetUnsolicitedHandlers();
 		

@@ -4,8 +4,12 @@
 #include "Uci.h"
 
 #include <vector>
+#include <signal.h>
 
-ModemService::ModemService() {
+ModemService::ModemService(const std::string &iface) {
+	m_iface = iface;
+	m_start_time = getCurrentTimestamp();
+	
 	// Default options
 	m_uci_options["proto"] = "";
 	m_uci_options["modem_device"] = "";
@@ -33,7 +37,7 @@ bool ModemService::validateOptions() {
 	}
 	
 	if (!m_uci_options["modem_type"].size()) {
-		LOGE("Please, specify `modem_device` in config.\n");
+		LOGE("Please, specify `modem_type` in config.\n");
 		return false;
 	}
 	
@@ -50,32 +54,32 @@ bool ModemService::validateOptions() {
 	return true;
 }
 
-bool ModemService::startDhcp(const std::string &iface) {
+bool ModemService::startDhcp() {
 	if (m_dhcp_inited) {
 		if (m_uci_options["pdp_type"] == "IP" || m_uci_options["pdp_type"] == "IPV4V6") {
-			if (!m_netifd.dhcpRenew(iface + "_4")) {
-				LOGE("Can't send dhcp renew for '%s_4'\n", iface.c_str());
+			if (!m_netifd.dhcpRenew(m_iface + "_4")) {
+				LOGE("Can't send dhcp renew for '%s_4'\n", m_iface.c_str());
 				return false;
 			}
 		}
 		
 		if (m_uci_options["pdp_type"] == "IPV6" || m_uci_options["pdp_type"] == "IPV4V6") {
-			if (!m_netifd.dhcpRenew(iface + "_6")) {
-				LOGE("Can't send dhcp renew for '%s_6'\n", iface.c_str());
+			if (!m_netifd.dhcpRenew(m_iface + "_6")) {
+				LOGE("Can't send dhcp renew for '%s_6'\n", m_iface.c_str());
 				return false;
 			}
 		}
 	} else {
 		if (m_uci_options["pdp_type"] == "IP" || m_uci_options["pdp_type"] == "IPV4V6") {
-			if (!m_netifd.createDynamicIface("dhcp", iface + "_4", iface, m_firewall_zone, m_uci_options)) {
-				LOGE("Can't create dhcp interface '%s_4'\n", iface.c_str());
+			if (!m_netifd.createDynamicIface("dhcp", m_iface + "_4", m_iface, m_firewall_zone, m_uci_options)) {
+				LOGE("Can't create dhcp interface '%s_4'\n", m_iface.c_str());
 				return false;
 			}
 		}
 		
 		if (m_uci_options["pdp_type"] == "IPV6" || m_uci_options["pdp_type"] == "IPV4V6") {
-			if (!m_netifd.createDynamicIface("dhcpv6", iface + "_4", iface, m_firewall_zone, m_uci_options)) {
-				LOGE("Can't create dhcp interface '%s_4'\n", iface.c_str());
+			if (!m_netifd.createDynamicIface("dhcpv6", m_iface + "_4", m_iface, m_firewall_zone, m_uci_options)) {
+				LOGE("Can't create dhcp interface '%s_4'\n", m_iface.c_str());
 				return false;
 			}
 		}
@@ -85,20 +89,20 @@ bool ModemService::startDhcp(const std::string &iface) {
 	return true;
 }
 
-bool ModemService::stopDhcp(const std::string &iface) {
+bool ModemService::stopDhcp() {
 	if (!m_dhcp_inited)
 		return true;
 	
 	if (m_uci_options["pdp_type"] == "IP" || m_uci_options["pdp_type"] == "IPV4V6") {
-		if (!m_netifd.dhcpRelease(iface + "_4")) {
-			LOGE("Can't send dhcp release for '%s_4'\n", iface.c_str());
+		if (!m_netifd.dhcpRelease(m_iface + "_4")) {
+			LOGE("Can't send dhcp release for '%s_4'\n", m_iface.c_str());
 			return false;
 		}
 	}
 	
 	if (m_uci_options["pdp_type"] == "IPV6" || m_uci_options["pdp_type"] == "IPV4V6") {
-		if (!m_netifd.dhcpRelease(iface + "_6")) {
-			LOGE("Can't send dhcp release for '%s_6'\n", iface.c_str());
+		if (!m_netifd.dhcpRelease(m_iface + "_6")) {
+			LOGE("Can't send dhcp release for '%s_6'\n", m_iface.c_str());
 			return false;
 		}
 	}
@@ -106,76 +110,70 @@ bool ModemService::stopDhcp(const std::string &iface) {
 	return true;
 }
 
-int ModemService::handleFatalError(const std::string &code, bool do_exit) {
-	
-	LOGE("fatal error: %s\n", code.c_str());
-	
-	if (do_exit)
-		exit(-1);
-	return -1;
-}
-
-int ModemService::run(const std::string &iface) {
-	m_start_time = getCurrentTimestamp();
-	
+bool ModemService::init() {
 	if (!Loop::init()) {
 		LOGE("Can't init eventloop...\n");
-		return -1;
+		return setError("INTERNAL_ERROR", true);
 	}
 	
 	if (!m_ubus.open()) {
 		LOGE("Can't init ubus...\n");
-		return -1;
+		return setError("INTERNAL_ERROR", true);
 	}
 	
 	m_netifd.setUbus(&m_ubus);
 	
-	if (!Uci::loadIfaceConfig(iface, &m_uci_options)) {
-		LOGE("Can't read config for interface: %s\n", iface.c_str());
-		return handleFatalError("INVALID_CONFIG");
-	}
-	
-	if (!Uci::loadIfaceFwZone(iface, &m_firewall_zone)) {
-		LOGE("Can't find fw3 zone for interface: %s\n", iface.c_str());
-		return handleFatalError("INVALID_CONFIG");
+	if (!Uci::loadIfaceConfig(m_iface, &m_uci_options)) {
+		LOGE("Can't read config for interface: %s\n", m_iface.c_str());
+		return setError("INVALID_CONFIG", true);
 	}
 	
 	if (!validateOptions())
-		return handleFatalError("INVALID_CONFIG");
+		return setError("INVALID_CONFIG", true);
 	
-	int tty_speed = strToInt(m_uci_options["modem_speed"]);
-	std::string tty_path = findTTY(m_uci_options["modem_device"]);
-	std::string net_iface = findNetByTTY(tty_path);
-	
-	if (!tty_path.size()) {
-		LOGE("Device not found: %s\n", tty_path.c_str());
-		return handleFatalError("DEVICE_NOT_FOUND");
+	if (!Uci::loadIfaceFwZone(m_iface, &m_firewall_zone)) {
+		LOGE("Can't find fw3 zone for interface: %s\n", m_iface.c_str());
+		return setError("INVALID_CONFIG", true);
 	}
 	
-	if (!net_iface.size()) {
-		LOGE("Network device not found: %s\n", tty_path.c_str());
-		return handleFatalError("DEVICE_NOT_FOUND");
+	m_tty_speed = strToInt(m_uci_options["modem_speed"]);
+	m_tty_path = findTTY(m_uci_options["modem_device"]);
+	m_net_iface = findNetByTTY(m_tty_path);
+	
+	if (!m_tty_path.size()) {
+		LOGE("Device not found: %s\n", m_uci_options["modem_device"].c_str());
+		return setError("NO_DEVICE");
 	}
 	
-	if (!m_netifd.updateIface(iface, net_iface, nullptr, nullptr)) {
+	if (!m_net_iface.size()) {
+		LOGE("Network device not found: %s\n", m_uci_options["modem_device"].c_str());
+		return setError("NO_DEVICE");
+	}
+	
+	// Link modem net dev to interface
+	if (!m_netifd.updateIface(m_iface, m_net_iface, nullptr, nullptr)) {
 		LOGE("Can't init iface...\n");
-		return handleFatalError("INTERNAL_ERROR");
+		return setError("INTERNAL_ERROR");
 	}
 	
+	return true;
+}
+
+bool ModemService::runModem() {
+	// Get modem driver
 	if (m_uci_options["modem_type"] == "asr1802") {
 		m_modem = new ModemAsr1802();
 	} else {
 		LOGE("Unsupported modem type: %s\n", m_uci_options["modem_type"].c_str());
-		return handleFatalError("INVALID_CONFIG");
+		return setError("INVALID_CONFIG", true);
 	}
 	
-	m_modem->setNetIface(net_iface);
+	// Setup options to driver
 	m_modem->setPreferDhcp(m_uci_options["force_use_dhcp"] == "1");
 	m_modem->setForceNetworkRestart(m_uci_options["force_network_restart"] == "1");
-	
 	m_modem->setPdpConfig(m_uci_options["pdp_type"], m_uci_options["apn"], m_uci_options["auth_type"], m_uci_options["username"], m_uci_options["password"]);
 	m_modem->setPinCode(m_uci_options["pincode"]);
-	m_modem->setSerial(tty_path, tty_speed);
+	m_modem->setSerial(m_tty_path, m_tty_speed);
 	
 	Loop::on<Modem::EvNetworkChanged>([=](const auto &event) {
 		if (event.status == Modem::NET_NOT_REGISTERED) {
@@ -219,16 +217,16 @@ int ModemService::run(const std::string &iface) {
 		m_modem->getIpInfo(6, &ipv6);
 		
 		if (m_modem->getIfaceProto() == Modem::IFACE_STATIC) {
-			if (!m_netifd.updateIface(iface, net_iface, &ipv4, &ipv6))
-				LOGE("Can't set IP to interface '%s'\n", iface.c_str());
+			if (!m_netifd.updateIface(m_iface, m_net_iface, &ipv4, &ipv6))
+				LOGE("Can't set IP to interface '%s'\n", m_iface.c_str());
 		} else if (m_modem->getIfaceProto() == Modem::IFACE_DHCP) {
 			if (dhcp_delay > 0) {
 				LOGD("Wait %d ms for DHCP recovery...\n", dhcp_delay);
 				Loop::setTimeout([=]() {
-					startDhcp(iface);
+					startDhcp();
 				}, dhcp_delay);
 			} else {
-				startDhcp(iface);
+				startDhcp();
 			}
 		}
 		
@@ -257,10 +255,10 @@ int ModemService::run(const std::string &iface) {
 		LOGD("Internet disconnected, last session %d ms\n", diff);
 		
 		if (m_modem->getIfaceProto() == Modem::IFACE_STATIC) {
-			if (!m_netifd.updateIface(iface, net_iface, nullptr, nullptr))
-				LOGE("Can't set IP to interface '%s'\n", iface.c_str());
+			if (!m_netifd.updateIface(m_iface, m_net_iface, nullptr, nullptr))
+				LOGE("Can't set IP to interface '%s'\n", m_iface.c_str());
 		} else if (m_modem->getIfaceProto() == Modem::IFACE_DHCP) {
-			stopDhcp(iface);
+			stopDhcp();
 		}
 	});
 	
@@ -304,20 +302,82 @@ int ModemService::run(const std::string &iface) {
 		}
 	});
 	
+	Loop::on<Modem::EvIoBroken>([=](const auto &event) {
+		LOGE("TTY device is lost...\n");
+		setError("IO_ERROR");
+	});
+	
 	if (!m_modem->open()) {
 		LOGE("Can't initialize modem.\n");
-		return handleFatalError("DEVICE_INIT_ERROR");
+		return setError("INIT_ERROR");
 	}
 	
-	Loop::run();
+	return true;
+}
+
+void ModemService::finishModem() {
+	if (m_modem) {
+		m_modem->finish();
+		m_modem->close();
+		m_modem = nullptr;
+		delete m_modem;
+	}
+}
+
+bool ModemService::setError(const std::string &code, bool fatal) {
+	m_error_code = code;
+	m_error_fatal = fatal;
 	
-	// Finish modem
-	m_modem->finish();
-	m_modem->close();
-	delete m_modem;
+	kill(getpid(), SIGINT);
+	
+	return false;
+}
+
+int ModemService::checkError() {
+	if (!m_error_code.size() > 0)
+		return 0;
+	
+	if (!m_netifd.avail()) {
+		LOGD("%s: %s\n", (m_error_fatal ? "Fatal" : "Error"), m_error_code.c_str());
+		LOGD("Can't send error to netifd, because it not inited...\n");
+		sleep(5);
+		return 1;
+	}
+	
+	if (m_error_code == "NO_DEVICE") {
+		if (!m_netifd.protoSetAvail(m_iface, false)) {
+			LOGE("Can't send available=false to netifd...\n");
+			sleep(5);
+		}
+	} else {
+		if (m_error_fatal) {
+			if (!m_netifd.protoBlockRestart(m_iface)) {
+				LOGE("Can't send restart blocking '%s' to netifd...\n", m_error_code.c_str());
+				sleep(5);
+			}
+			
+			if (!m_netifd.protoError(m_iface, m_error_code))
+				LOGE("Can't send error '%s' to netifd...\n", m_error_code.c_str());
+		} else {
+			sleep(5);
+			
+			if (!m_netifd.protoError(m_iface, m_error_code))
+				LOGE("Can't send error '%s' to netifd...\n", m_error_code.c_str());
+		}
+	}
+	
+	return 1;
+}
+
+int ModemService::run() {
+	if (init()) {
+		if (runModem())
+			Loop::run();
+		finishModem();
+	}
 	
 	int diff = getCurrentTimestamp() - m_start_time;
 	LOGD("Done, total uptime: %d ms\n", diff);
 	
-	return 0;
+	return checkError();
 }
