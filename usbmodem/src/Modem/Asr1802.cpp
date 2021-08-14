@@ -601,6 +601,23 @@ void ModemAsr1802::startSimPolling() {
 	}, 1000);
 }
 
+bool ModemAsr1802::isRadioOn() {
+	auto response = m_at.sendCommand("AT+CFUN?", "+CFUN", TIMEOUT_CFUN);
+	if (response.error)
+		return false;
+	
+	int cfun_state;
+	if (!AtParser(response.data()).parseNextInt(&cfun_state))
+		return false;
+	
+	return cfun_state == 1;
+}
+
+bool ModemAsr1802::setRadioOn(bool state) {
+	std::string cmd = "AT+CFUN=" + std::to_string(state ? 1 : 4);
+	return m_at.sendCommandNoResponse(cmd, TIMEOUT_CFUN) == 0;
+}
+
 bool ModemAsr1802::init() {
 	// Currently is a fastest way for get internet after "cold" boot when using DCHP
 	// Without this DHCP not respond up to 20 sec
@@ -681,21 +698,9 @@ bool ModemAsr1802::init() {
 	return true;
 }
 
-bool ModemAsr1802::isRadioOn() {
-	auto response = m_at.sendCommand("AT+CFUN?", "+CFUN", TIMEOUT_CFUN);
-	if (response.error)
-		return false;
-	
-	int cfun_state;
-	if (!AtParser(response.data()).parseNextInt(&cfun_state))
-		return false;
-	
-	return cfun_state == 1;
-}
-
-bool ModemAsr1802::setRadioOn(bool state) {
-	std::string cmd = "AT+CFUN=" + std::to_string(state ? 1 : 4);
-	return m_at.sendCommandNoResponse(cmd, TIMEOUT_CFUN) == 0;
+void ModemAsr1802::finish() {
+	m_at.resetUnsolicitedHandlers();
+	m_at.sendCommandNoResponse("AT+CFUN=4", TIMEOUT_CFUN);
 }
 
 ModemAsr1802::~ModemAsr1802() {

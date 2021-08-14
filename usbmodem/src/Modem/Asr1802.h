@@ -2,7 +2,6 @@
 
 #include <vector>
 #include <string>
-#include <thread>
 
 #include "../Modem.h"
 
@@ -14,6 +13,7 @@ class ModemAsr1802: public Modem {
 			TIMEOUT_CFUN		= 50 * 1000,
 			TIMEOUT_CGDATA		= 185 * 1000,
 			TIMEOUT_CUSD		= 110 * 1000,
+			TIMEOUT_CGATT		= 110 * 1000,
 			TIMEOUT_CPIN		= 185 * 1000
 		};
 		
@@ -151,6 +151,7 @@ class ModemAsr1802: public Modem {
 	public:
 		IfaceProto getIfaceProto() override;
 		int getDelayAfterDhcpRelease() override;
+		void finish() override;
 		
 		ModemAsr1802();
 		~ModemAsr1802();

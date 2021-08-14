@@ -1,5 +1,8 @@
 #include "AtChannel.h"
 
+#include <signal.h>
+#include <unistd.h>
+
 const std::string AtChannel::empty_line;
 
 AtChannel::AtChannel() {
@@ -12,6 +15,8 @@ AtChannel::~AtChannel() {
 }
 
 void AtChannel::stop() {
+	LOGD("send stop...\n");
+	
 	m_stop = true;
 }
 
@@ -19,13 +24,22 @@ void AtChannel::onUnsolicited(const std::string &prefix, const std::function<voi
 	m_unsol_handlers.push_back({.prefix = prefix, .handler = handler});
 }
 
+void AtChannel::resetUnsolicitedHandlers() {
+	m_unsol_handlers.clear();
+}
+
 void AtChannel::readerLoop() {
 	char tmp[256];
 	
 	m_stop = false;
 	
+	LOGD("loop start...\n");
+	
 	while (!m_stop) {
-		int readed = m_serial->readChunk(tmp, sizeof(tmp), 1000);
+		int readed = m_serial->readChunk(tmp, sizeof(tmp), 30000);
+		if (m_stop)
+			break;
+		
 		if (readed < 0) {
 			LOGE("Serial::readChunk error: %d\n", readed);
 			continue;
@@ -45,10 +59,9 @@ void AtChannel::readerLoop() {
 				m_buffer = "";
 			}
 		}
-		
-		if (m_stop)
-			LOGD("Stopping reader loop...\n");
 	}
+	
+	LOGD("Reader loop exit...");
 }
 
 bool AtChannel::isErrorResponse(const std::string &line, bool dial) {

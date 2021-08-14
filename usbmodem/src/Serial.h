@@ -8,6 +8,8 @@
 class Serial {
 	protected:
 		int m_fd = -1;
+		bool m_ignore_eintr = false;
+	
 	public:
 		Serial();
 		~Serial();
@@ -22,4 +24,8 @@ class Serial {
 		
 		int readChunk(char *data, int size, int timeout_ms = 10000);
 		int writeChunk(const char *data, int size, int timeout_ms = 10000);
+		
+		inline void setIgnoreInterrupts(bool flag) {
+			m_ignore_eintr = flag;
+		}
 };

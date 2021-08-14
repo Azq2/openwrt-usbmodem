@@ -8,6 +8,8 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+#include "Log.h"
+
 Serial::Serial() {
 	
 }
@@ -27,24 +29,24 @@ int Serial::close() {
 int Serial::open(std::string device, int speed) {
 	speed_t baudrate = getBaudrate(speed);
 	if (baudrate == B0) {
-		fprintf(stderr, "%s - invalid speed: %d\n", device.c_str(), speed);
+		LOGE("%s - invalid speed: %d\n", device.c_str(), speed);
 		return -1;
 	}
 	
 	m_fd = ::open(device.c_str(), O_RDWR | O_NOCTTY | O_NDELAY | O_NONBLOCK);
 	if (m_fd < 0) {
-		fprintf(stderr, "%s - open error: %d\n", device.c_str(), m_fd);
+		LOGE("%s - open error: %d\n", device.c_str(), m_fd);
 		return -1;
 	}
 	
 	if (!isatty(m_fd)) {
-		fprintf(stderr, "%s - is not TTY\n", device.c_str());
+		LOGE("%s - is not TTY\n", device.c_str());
 		return -1;
 	}
 	
 	struct termios config;
 	if (tcgetattr(m_fd, &config) != 0) {
-		fprintf(stderr, "%s - can't get termios config\n", device.c_str());
+		LOGE("%s - can't get termios config\n", device.c_str());
 		return -1;
 	}
 	
@@ -53,7 +55,7 @@ int Serial::open(std::string device, int speed) {
 	cfmakeraw(&config);
 	
 	if (tcsetattr(m_fd, TCSANOW, &config) != 0) {
-		fprintf(stderr, "%s - can't set termios config\n", device.c_str());
+		LOGE("%s - can't set termios config\n", device.c_str());
 		return -1;
 	}
 	
@@ -69,10 +71,16 @@ int Serial::readChunk(char *data, int size, int timeout_ms) {
 	int ret;
 	do {
 		ret = ::poll(&pfd, 1, timeout_ms);
-	} while (ret < 0 && errno == EINTR);
+	} while (ret < 0 && errno == EINTR && m_ignore_eintr);
 	
 	if (ret < 0) {
-		fprintf(stderr, "poll error: %d\n", errno);
+		if (errno != EINTR)
+			LOGE("poll error: %d\n", errno);
+		return -1;
+	}
+	
+	if ((pfd.revents & (POLLERR | POLLHUP))) {
+		LOGE("poll error, fd is broken...\n");
 		return -1;
 	}
 	
@@ -80,7 +88,7 @@ int Serial::readChunk(char *data, int size, int timeout_ms) {
 		ret = ::read(m_fd, data, size);
 		
 		if (ret < 0) {
-			fprintf(stderr, "read error: %d\n", errno);
+			LOGE("read error: %d\n", errno);
 			return -1;
 		}
 		
@@ -99,10 +107,16 @@ int Serial::writeChunk(const char *data, int size, int timeout_ms) {
 	int ret;
 	do {
 		ret = ::poll(&pfd, 1, timeout_ms);
-	} while (ret < 0 && errno == EINTR);
+	} while (ret < 0 && errno == EINTR && m_ignore_eintr);
 	
 	if (ret < 0) {
-		fprintf(stderr, "poll error: %d\n", errno);
+		if (errno != EINTR)
+			LOGE("poll error: %d\n", errno);
+		return -1;
+	}
+	
+	if ((pfd.revents & (POLLERR | POLLHUP))) {
+		LOGE("poll error, fd is broken...\n");
 		return -1;
 	}
 	
@@ -110,7 +124,7 @@ int Serial::writeChunk(const char *data, int size, int timeout_ms) {
 		ret = ::write(m_fd, data, size);
 		
 		if (ret < 0) {
-			fprintf(stderr, "write error: %d\n", errno);
+			LOGE("write error: %d\n", errno);
 			return -1;
 		}
 		
@@ -134,10 +148,16 @@ int Serial::read(char *data, int size, int timeout_ms) {
 		int ret;
 		do {
 			ret = ::poll(&pfd, 1, next_timeout);
-		} while (ret < 0 && errno == EINTR);
+		} while (ret < 0 && errno == EINTR && m_ignore_eintr);
 		
 		if (ret < 0) {
-			fprintf(stderr, "poll error: %d\n", errno);
+			if (errno != EINTR)
+				LOGE("poll error: %d\n", errno);
+			return -1;
+		}
+		
+		if ((pfd.revents & (POLLERR | POLLHUP))) {
+			LOGE("poll error, fd is broken...\n");
 			return -1;
 		}
 		
@@ -145,7 +165,7 @@ int Serial::read(char *data, int size, int timeout_ms) {
 			ret = ::read(m_fd, data + readed, size - readed);
 			
 			if (ret < 0) {
-				fprintf(stderr, "read error: %d\n", errno);
+				LOGE("read error: %d\n", errno);
 				return -1;
 			}
 			
@@ -172,10 +192,16 @@ int Serial::write(const char *data, int size, int timeout_ms) {
 		int ret;
 		do {
 			ret = ::poll(&pfd, 1, next_timeout);
-		} while (ret < 0 && errno == EINTR);
+		} while (ret < 0 && errno == EINTR && m_ignore_eintr);
 		
 		if (ret < 0) {
-			fprintf(stderr, "poll error: %d\n", errno);
+			if (errno != EINTR)
+				LOGE("poll error: %d\n", errno);
+			return -1;
+		}
+		
+		if ((pfd.revents & (POLLERR | POLLHUP))) {
+			LOGE("poll error, fd is broken...\n");
 			return -1;
 		}
 		
@@ -183,7 +209,7 @@ int Serial::write(const char *data, int size, int timeout_ms) {
 			ret = ::write(m_fd, data + written, size - written);
 			
 			if (ret < 0) {
-				fprintf(stderr, "write error: %d\n", errno);
+				LOGE("write error: %d\n", errno);
 				return -1;
 			}
 			

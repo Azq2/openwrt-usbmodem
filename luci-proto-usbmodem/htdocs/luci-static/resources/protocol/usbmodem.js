@@ -178,17 +178,6 @@ return network.registerProtocol('usbmodem', {
 		force_use_dhcp.depends('modem_type', 'ncm');
 		force_use_dhcp.depends('modem_type', 'asr1802');
 		
-		// Flight mode
-		var allow_flight_mode = s.taboption(
-			'advanced',
-			form.Flag,
-			'allow_flight_mode',
-			_('Allow flight mode'),
-			_('Allow entering to flight mode after interface down. Otherwise modem can stay in network.')
-		);
-		allow_flight_mode.default = '1';
-		allow_flight_mode.depends('modem_type', 'asr1802');
-		
 		// Network restart
 		var force_network_restart = s.taboption(
 			'advanced',

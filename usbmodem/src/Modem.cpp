@@ -1,6 +1,7 @@
 #include "Modem.h"
 
 Modem::Modem() {
+	m_serial.setIgnoreInterrupts(true);
 	m_at.setVerbose(true);
 	m_at.setSerial(&m_serial);
 	m_at.setDefaultTimeout(getDefaultAtTimeout());
@@ -99,6 +100,12 @@ bool Modem::getIpInfo(int ipv, IpInfo *ip_info) const {
 	}
 }
 
+void *Modem::readerThread(void *arg) {
+	Modem *self = static_cast<Modem *>(arg);
+	self->m_at.readerLoop();
+	return nullptr;
+}
+
 bool Modem::open() {
 	// Try open serial
 	if (m_serial.open(m_tty, m_speed) != 0) {
@@ -107,9 +114,12 @@ bool Modem::open() {
 	}
 	
 	// Run AT channel
-	m_at_thread = new std::thread([&]{
-		m_at.readerLoop();
-	});
+	if (pthread_create(&m_at_thread, nullptr, readerThread, this) != 0) {
+		LOGD("Can't create readerloop thread, errno=%d\n", errno);
+		return false;
+	}
+	
+	m_at_thread_created = true;
 	
 	// Try handshake
 	if (!handshake()) {
@@ -127,10 +137,26 @@ bool Modem::open() {
 	return true;
 }
 
+void Modem::finish() {
+	
+}
+
 void Modem::close() {
-	if (m_at_thread) {
+	if (m_at_thread_created) {
+		m_at_thread_created = false;
+		
+		// Allow IO interruption in reader loop
+		m_serial.setIgnoreInterrupts(false);
+		
+		// Send stop to reader loop
 		m_at.stop();
-		m_at_thread->join();
-		m_at_thread = nullptr;
+		
+		// Interrupt IO in reader loop
+		pthread_kill(m_at_thread, SIGINT);
+		pthread_kill(m_at_thread, SIGINT);
+		pthread_kill(m_at_thread, SIGINT);
+		
+		// Wait for reader loop done
+		pthread_join(m_at_thread, nullptr);
 	}
 }

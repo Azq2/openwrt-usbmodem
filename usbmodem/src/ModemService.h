@@ -6,6 +6,7 @@
 #include "Ubus.h"
 #include "Netifd.h"
 
+#include <signal.h>
 #include <json-c/json.h>
 
 #include <map>
@@ -19,6 +20,7 @@ class ModemService {
 		std::map<std::string, std::string> m_uci_options;
 		bool m_dhcp_inited = false;
 		std::string m_firewall_zone = "";
+		struct sigaction m_sigaction = {};
 		
 		int64_t m_start_time = 0;
 		int64_t m_last_connected = 0;

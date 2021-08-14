@@ -2,7 +2,7 @@
 
 #include <vector>
 #include <string>
-#include <thread>
+#include <pthread.h>
 
 #include "Log.h"
 #include "Loop.h"
@@ -81,7 +81,8 @@ class Modem {
 	protected:
 		Serial m_serial;
 		AtChannel m_at;
-		std::thread *m_at_thread = nullptr;
+		pthread_t m_at_thread = 0;
+		bool m_at_thread_created = false;
 		
 		// Serial config
 		int m_speed = 115200;
@@ -125,6 +126,8 @@ class Modem {
 		virtual bool init() = 0;
 		virtual bool handshake();
 		virtual int getDefaultAtTimeout();
+		
+		static void *readerThread(void *arg);
 		
 		PinState m_pin_state = PIN_UNKNOWN;
 		
@@ -189,4 +192,5 @@ class Modem {
 		
 		bool open();
 		void close();
+		virtual void finish();
 };

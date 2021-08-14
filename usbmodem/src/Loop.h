@@ -51,6 +51,7 @@ class Loop {
 		
 		std::mutex m_mutex;
 		
+		bool m_need_stop = false;
 		bool m_uloop_inited = false;
 		int m_global_timer_id = 0;
 		
@@ -64,10 +65,12 @@ class Loop {
 		static void uloopWakerHandler(struct uloop_fd *fd, unsigned int events);
 		
 		void runNextTimeout();
+		void handlerSignal(int sig);
 		
 		bool _init();
 		void _run();
 		void _done();
+		void _stop();
 		
 		void _emit(const std::any &value);
 		void on(size_t event_id, const std::function<void(const std::any &event)> &callback);
@@ -90,6 +93,10 @@ class Loop {
 		
 		inline static void done() {
 			instance()->_done();
+		}
+		
+		inline static void stop() {
+			instance()->_stop();
 		}
 		
 		template <typename T>

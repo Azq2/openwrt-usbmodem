@@ -1,6 +1,7 @@
 #include "Loop.h"
 
 #include <fcntl.h>
+#include <csignal>
 
 Loop *Loop::m_instance = nullptr;
 
@@ -42,7 +43,24 @@ bool Loop::initPipeFd(int fd) {
 	return true;
 }
 
+void Loop::handlerSignal(int sig) {
+	LOGD("Received signal: %d\n", sig);
+	m_need_stop = true;
+	
+	if (m_uloop_inited) {
+		while (write(m_waker_w, "w", 1) < 0 && errno == EINTR);
+	}
+}
+
 bool Loop::_init() {
+	// Init signals
+	auto handler = +[](int sig) {
+		instance()->handlerSignal(sig);
+	};
+	std::signal(SIGINT, handler);
+	std::signal(SIGTERM, handler);
+	
+	// Init uloop
 	if (uloop_init() < 0) {
 		LOGE("init() failed\n");
 		return false;
@@ -80,7 +98,9 @@ bool Loop::_init() {
 }
 
 void Loop::_run() {
-	uloop_run();
+	if (!m_need_stop)
+		uloop_run();
+	
 	_done();
 }
 
@@ -97,6 +117,13 @@ void Loop::_done() {
 		m_uloop_inited = false;
 	}
 	m_timers.clear();
+}
+
+void Loop::_stop() {
+	if (m_waker_w >= 0) {
+		uloop_end();
+		while (write(m_waker_w, "w", 1) < 0 && errno == EINTR);
+	}
 }
 
 void Loop::on(size_t event_id, const std::function<void(const std::any &event)> &callback) {
@@ -126,6 +153,11 @@ void Loop::uloopWakerHandler(struct uloop_fd *fd, unsigned int events) {
 }
 
 void Loop::runNextTimeout() {
+	if (m_need_stop) {
+		uloop_end();
+		return;
+	}
+	
 	m_mutex.lock();
 	Timer *first_timer = !list_empty(&timeouts) ? reinterpret_cast<Timer *>(timeouts.next) : nullptr;
 	m_mutex.unlock();
@@ -168,6 +200,9 @@ void Loop::removeTimerFromQueue(Timer *new_timer) {
 }
 
 void Loop::removeTimer(int id) {
+	if (!m_uloop_inited)
+		return;
+	
 	m_mutex.lock();
 	auto it = m_timers.find(id);
 	if (it != m_timers.end())
@@ -194,6 +229,9 @@ void Loop::addTimerToQueue(Timer *new_timer) {
 }
 
 int Loop::addTimer(const std::function<void()> &callback, int timeout_ms, bool loop) {
+	if (!m_uloop_inited)
+		return -1;
+	
 	m_mutex.lock();
 	int id = m_global_timer_id++;
 	

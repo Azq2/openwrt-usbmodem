@@ -7,6 +7,7 @@
 #include <vector>
 #include <functional>
 #include <mutex>
+#include <sys/types.h>
 
 #include "Serial.h"
 #include "Log.h"
@@ -95,6 +96,8 @@ class AtChannel {
 		int sendCommand(ResultType type, const std::string &cmd, const std::string &prefix, Response *response, int timeout = 0);
 		
 		void onUnsolicited(const std::string &prefix, const std::function<void(const std::string &)> &handler);
+		
+		void resetUnsolicitedHandlers();
 		
 		void stop();
 		

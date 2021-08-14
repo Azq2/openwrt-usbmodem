@@ -19,7 +19,6 @@ ModemService::ModemService() {
 	m_uci_options["pincode"] = "";
 	m_uci_options["force_use_dhcp"] = "0";
 	m_uci_options["force_network_restart"] = "0";
-	m_uci_options["allow_flight_mode"] = "0";
 }
 
 bool ModemService::validateOptions() {
@@ -149,6 +148,11 @@ int ModemService::run(const std::string &iface) {
 		return -1;
 	}
 	
+	if (!m_netifd.updateIface(iface, net_iface, nullptr, nullptr)) {
+		LOGE("Can't init iface...\n");
+		return -1;
+	}
+	
 	if (m_uci_options["modem_type"] == "asr1802") {
 		m_modem = new ModemAsr1802();
 	} else {
@@ -159,6 +163,7 @@ int ModemService::run(const std::string &iface) {
 	m_modem->setNetIface(net_iface);
 	m_modem->setPreferDhcp(m_uci_options["force_use_dhcp"] == "1");
 	m_modem->setForceNetworkRestart(m_uci_options["force_network_restart"] == "1");
+	
 	m_modem->setPdpConfig(m_uci_options["pdp_type"], m_uci_options["apn"], m_uci_options["auth_type"], m_uci_options["username"], m_uci_options["password"]);
 	m_modem->setPinCode(m_uci_options["pincode"]);
 	m_modem->setSerial(tty_path, tty_speed);
@@ -297,9 +302,23 @@ int ModemService::run(const std::string &iface) {
 	}
 	
 	Loop::run();
+	
+	auto start = getCurrentTimestamp();
+	Loop::done();
 	LOGD("loop done\n");
 	
+	LOGD("finish modem\n");
+	m_modem->finish();
+	
+	LOGD("close modem\n");
+	m_modem->close();
+	
+	LOGD("delete modem\n");
 	delete m_modem;
+	auto end = getCurrentTimestamp();
+	
+	int diff = end - start;
+	LOGD("finish time: %d ms\n", diff);
 	
 	return 0;
 }
