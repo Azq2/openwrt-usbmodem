@@ -2,7 +2,6 @@
 
 #include <vector>
 #include <string>
-#include <pthread.h>
 
 #include "Log.h"
 #include "Loop.h"
@@ -83,8 +82,6 @@ class Modem {
 	protected:
 		Serial m_serial;
 		AtChannel m_at;
-		pthread_t m_at_thread = 0;
-		bool m_at_thread_created = false;
 		
 		// Serial config
 		int m_speed = 115200;
@@ -126,10 +123,13 @@ class Modem {
 		bool m_force_restart_network = false;
 		
 		virtual bool init() = 0;
+		virtual bool ping();
 		virtual bool handshake();
 		virtual int getDefaultAtTimeout();
+		virtual int getDefaultAtPingTimeout();
 		
-		static void *readerThread(void *arg);
+		// self-test
+		bool m_self_test = false;
 		
 		PinState m_pin_state = PIN_UNKNOWN;
 		

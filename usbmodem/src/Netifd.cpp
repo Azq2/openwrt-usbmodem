@@ -5,7 +5,7 @@ Netifd::Netifd() {
 }
 
 bool Netifd::protoBlockRestart(const std::string &iface) {
-		json_object *request = json_object_new_object();
+	json_object *request = json_object_new_object();
 	
 	if (!request)
 		return false;
@@ -19,7 +19,7 @@ bool Netifd::protoBlockRestart(const std::string &iface) {
 }
 
 bool Netifd::protoSetAvail(const std::string &iface, bool avail) {
-		json_object *request = json_object_new_object();
+	json_object *request = json_object_new_object();
 	
 	if (!request)
 		return false;

@@ -17,8 +17,45 @@ AtChannel::~AtChannel() {
 	
 }
 
+void *AtChannel::readerThread(void *arg) {
+	AtChannel *self = static_cast<AtChannel *>(arg);
+	self->readerLoop();
+	return nullptr;
+}
+
+bool AtChannel::start() {
+	if (!m_at_thread_created) {
+		m_serial->setIgnoreInterrupts(true);
+		
+		// Run AT channel
+		if (pthread_create(&m_at_thread, nullptr, readerThread, this) != 0) {
+			LOGD("Can't create readerloop thread, errno=%d\n", errno);
+			return false;
+		}
+		m_stop = false;
+		m_at_thread_created = true;
+	}
+	
+	return true;
+}
+
 void AtChannel::stop() {
-	m_stop = true;
+	if (m_at_thread_created) {
+		m_stop = true;
+		
+		// Allow IO interruption in reader loop
+		m_serial->setIgnoreInterrupts(false);
+		
+		// Interrupt IO in reader loop
+		pthread_kill(m_at_thread, SIGINT);
+		pthread_kill(m_at_thread, SIGINT);
+		pthread_kill(m_at_thread, SIGINT);
+		
+		// Wait for reader loop done
+		pthread_join(m_at_thread, nullptr);
+		
+		m_at_thread_created = false;
+	}
 }
 
 void AtChannel::onUnsolicited(const std::string &prefix, const std::function<void(const std::string &)> &handler) {
@@ -167,7 +204,7 @@ int AtChannel::sendCommand(ResultType type, const std::string &cmd, const std::s
 	
 	if (m_stop) {
 		LOGE("[ %s ] error, AT channel already closed...\n", cmd.c_str());
-		return AT_ERROR;
+		return AT_IO_BROKEN;
 	}
 	
 	if (!timeout)
@@ -176,7 +213,7 @@ int AtChannel::sendCommand(ResultType type, const std::string &cmd, const std::s
 	int64_t start = getCurrentTimestamp();
 	
 	// Make sure response is clean
-	response->error = AT_ERROR;
+	response->error = AT_IO_ERROR;
 	response->lines.clear();
 	response->status.clear();
 	
@@ -223,12 +260,16 @@ int AtChannel::sendCommand(ResultType type, const std::string &cmd, const std::s
 	if (m_verbose) {
 		for (int i = 0; i < response->lines.size(); i++)
 			LOGD("AT << %s\n", response->lines[i].c_str());
-		LOGD("AT << %s\n", response->status.c_str());
+		if (response->status.size() > 0)
+			LOGD("AT << %s\n", response->status.c_str());
 	}
 	
 	m_curr_response = nullptr;
 	
 	at_cmd_mutex.unlock();
+	
+	if (response->error && m_global_error_handler)
+		m_global_error_handler(response->error, start);
 	
 	return response->error;
 }

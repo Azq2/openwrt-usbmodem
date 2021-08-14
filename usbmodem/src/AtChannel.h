@@ -16,8 +16,16 @@ class AtChannel {
 	public:
 		static const std::string empty_line;
 		
+		enum Errors {
+			AT_SUCCESS		= 0,
+			AT_TIMEOUT		= -1,
+			AT_ERROR		= -2,
+			AT_IO_ERROR		= -3,
+			AT_IO_BROKEN	= -4
+		};
+		
 		struct Response {
-			int error;
+			Errors error;
 			std::vector<std::string> lines;
 			std::string status;
 			
@@ -32,14 +40,6 @@ class AtChannel {
 			NUMERIC,
 			NO_RESPONSE,
 			DIAL
-		};
-		
-		enum Errors {
-			AT_SUCCESS		= 0,
-			AT_TIMEOUT		= -1,
-			AT_ERROR		= -2,
-			AT_IO_ERROR		= -3,
-			AT_IO_BROKEN	= -4
 		};
 		
 		enum {
@@ -71,6 +71,13 @@ class AtChannel {
 		std::mutex at_cmd_mutex;
 		int m_default_at_timeout = 10000;
 		std::function<void()> m_broken_io_handler;
+		std::function<void(Errors error, int64_t start)> m_global_error_handler;
+		
+		// thread
+		pthread_t m_at_thread = 0;
+		bool m_at_thread_created = false;
+		
+		static void *readerThread(void *arg);
 		
 		static bool isErrorResponse(const std::string &line, bool dial = false);
 		static bool isSuccessResponse(const std::string &line, bool dial = false);
@@ -105,8 +112,13 @@ class AtChannel {
 			m_broken_io_handler = handler;
 		}
 		
+		inline void onAnyError(const std::function<void(Errors error, int64_t start)> &handler) {
+			m_global_error_handler = handler;
+		}
+		
 		void resetUnsolicitedHandlers();
 		
+		bool start();
 		void stop();
 		
 		inline Response sendCommand(const std::string &cmd, const std::string &prefix = "", int timeout = 0) {

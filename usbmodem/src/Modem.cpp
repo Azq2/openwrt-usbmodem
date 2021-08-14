@@ -1,7 +1,6 @@
 #include "Modem.h"
 
 Modem::Modem() {
-	m_serial.setIgnoreInterrupts(true);
 	m_at.setVerbose(true);
 	m_at.setSerial(&m_serial);
 	m_at.setDefaultTimeout(getDefaultAtTimeout());
@@ -13,6 +12,10 @@ Modem::~Modem() {
 
 int Modem::getDefaultAtTimeout() {
 	return 10 * 1000;
+}
+
+int Modem::getDefaultAtPingTimeout() {
+	return 300;
 }
 
 int Modem::getDelayAfterDhcpRelease() {
@@ -50,27 +53,40 @@ const char *Modem::getNetRegStatusName(NetworkReg reg) {
 	return "unknown";
 }
 
-bool Modem::handshake() {
+bool Modem::ping() {
 	for (int i = 0; i < 3; i++) {
-		bool success = false;
-		
-		// enable result codes
-		if (m_at.sendCommandNoResponse("ATQ0", 250) == AtChannel::AT_SUCCESS)
-			success = true;
-		
-		// enable verbose
-		if (m_at.sendCommandNoResponse("ATV1", 250) == AtChannel::AT_SUCCESS)
-			success = true;
-		
-		// echo off
-		if (m_at.sendCommandNoResponse("ATE0", 250) == AtChannel::AT_SUCCESS)
-			success = true;
-		
-		if (success)
+		if (m_at.sendCommandNoResponse("AT", getDefaultAtPingTimeout()) == 0)
 			return true;
 	}
-	
 	return false;
+}
+
+bool Modem::handshake() {
+	m_self_test = true;
+	
+	bool success = true;
+	for (int i = 0; i < 3; i++) {
+		success = true;
+		
+		// enable result codes
+		if (m_at.sendCommandNoResponse("ATQ0", getDefaultAtPingTimeout()) != 0)
+			success = false;
+		
+		// enable verbose
+		if (m_at.sendCommandNoResponse("ATV1", getDefaultAtPingTimeout()) != 0)
+			success = false;
+		
+		// echo off
+		if (m_at.sendCommandNoResponse("ATE0", getDefaultAtPingTimeout()) != 0)
+			success = false;
+		
+		if (success)
+			break;
+	}
+	
+	m_self_test = false;
+	
+	return success;
 }
 
 void Modem::getSignalLevels(SignalLevels *levels) const {
@@ -100,12 +116,6 @@ bool Modem::getIpInfo(int ipv, IpInfo *ip_info) const {
 	}
 }
 
-void *Modem::readerThread(void *arg) {
-	Modem *self = static_cast<Modem *>(arg);
-	self->m_at.readerLoop();
-	return nullptr;
-}
-
 bool Modem::open() {
 	// Try open serial
 	if (m_serial.open(m_tty, m_speed) != 0) {
@@ -115,15 +125,28 @@ bool Modem::open() {
 	
 	m_at.onIoBroken([=]() {
 		Loop::emit<EvIoBroken>({});
+		m_at.stop();
 	});
 	
-	// Run AT channel
-	if (pthread_create(&m_at_thread, nullptr, readerThread, this) != 0) {
-		LOGD("Can't create readerloop thread, errno=%d\n", errno);
+	m_at.onAnyError([=](AtChannel::Errors error, int64_t start) {
+		if (error == AtChannel::AT_IO_ERROR || error == AtChannel::AT_TIMEOUT) {
+			if (!m_self_test) {
+				m_self_test = true;
+				LOGE("Detected IO error on AT channel... try ping for check...\n");
+				if (!ping() && !ping() && !ping()) {
+					LOGE("AT channel is broken!!!\n");
+					Loop::emit<EvIoBroken>({});
+					m_at.stop();
+				}
+				m_self_test = false;
+			}
+		}
+	});
+	
+	if (!m_at.start()) {
+		LOGE("Can't start AT channel...\n");
 		return false;
 	}
-	
-	m_at_thread_created = true;
 	
 	// Try handshake
 	if (!handshake()) {
@@ -146,21 +169,5 @@ void Modem::finish() {
 }
 
 void Modem::close() {
-	if (m_at_thread_created) {
-		m_at_thread_created = false;
-		
-		// Allow IO interruption in reader loop
-		m_serial.setIgnoreInterrupts(false);
-		
-		// Send stop to reader loop
-		m_at.stop();
-		
-		// Interrupt IO in reader loop
-		pthread_kill(m_at_thread, SIGINT);
-		pthread_kill(m_at_thread, SIGINT);
-		pthread_kill(m_at_thread, SIGINT);
-		
-		// Wait for reader loop done
-		pthread_join(m_at_thread, nullptr);
-	}
+	m_at.stop();
 }

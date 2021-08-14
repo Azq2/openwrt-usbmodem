@@ -704,7 +704,7 @@ void ModemAsr1802::finish() {
 	m_at.resetUnsolicitedHandlers();
 	
 	// Poweroff radio
-	setRadioOn(false);
+	m_at.sendCommandNoResponse("AT+CFUN=4", 5000);
 }
 
 ModemAsr1802::~ModemAsr1802() {

@@ -8,6 +8,7 @@
 
 #include <signal.h>
 #include <json-c/json.h>
+#include <pthread.h>
 
 #include <map>
 #include <string>
