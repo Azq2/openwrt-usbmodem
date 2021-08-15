@@ -305,7 +305,7 @@ bool ModemService::runModem() {
 	Loop::on<Modem::EvPinStateChaned>([=](const auto &event) {
 		if (event.state == Modem::PIN_ERROR) {
 			LOGD("PIN: invalid code, or required PIN2, PUK, PUK2 or other.\n");
-			setError("PIN_ERROR");
+			setError("PIN_ERROR", true);
 		} else if (event.state == Modem::PIN_READY) {
 			LOGD("PIN: success\n");
 		} else if (event.state == Modem::PIN_REQUIRED) {
@@ -344,14 +344,22 @@ bool ModemService::setError(const std::string &code, bool fatal) {
 	m_error_code = code;
 	m_error_fatal = fatal;
 	
-	kill(getpid(), SIGINT);
+	Loop::stop();
 	
 	return false;
 }
 
 int ModemService::checkError() {
-	if (!m_error_code.size() > 0)
+	if (!m_error_code.size())
 		return 0;
+	
+	// User callback
+	int ret = execFile("/etc/usbmodem.user", {}, {
+		"action=error",
+		"error=" + m_error_code,
+		"is_fatal_error=" + std::string(m_error_fatal ? "1" : "0"),
+		"interface=" + m_iface
+	});
 	
 	if (!m_netifd.avail()) {
 		LOGD("%s: %s\n", (m_error_fatal ? "Fatal" : "Error"), m_error_code.c_str());

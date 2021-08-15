@@ -139,7 +139,7 @@ return network.registerProtocol('usbmodem', {
 		
 		// PIN code
 		var pin = s.taboption('general', form.Value, 'pincode', _('PIN'));
-		pin.datatype = 'integer';
+		pin.datatype = 'and(uinteger,minlength(4),maxlength(8))';
 		pin.rmempty = true;
 		
 		// Auth type

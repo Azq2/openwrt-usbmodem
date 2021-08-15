@@ -1,0 +1,15 @@
+#!/bin/sh
+# This file is interpreted as shell script.
+# Put your custom error handling here, they will be executed with each usbmodem error
+# Available environment variables
+# action=<name>         - event action, currently only "error"
+# interface=<name>      - current interface
+# is_fatal_error=<1/0>  - is non-recoverable error
+# error=<code>          - error code
+# 
+# For example, you can implement usb hub power reset on modem errors
+# [ "$action" = "error" -a "$is_fatal_error" = "0" ] && {
+#     echo 0 > /sys/class/gpio/usb_power_pin/value
+#     sleep 1
+#     echo 1 > /sys/class/gpio/usb_power_pin/value
+# }

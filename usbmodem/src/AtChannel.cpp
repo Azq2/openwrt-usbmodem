@@ -25,8 +25,6 @@ void *AtChannel::readerThread(void *arg) {
 
 bool AtChannel::start() {
 	if (!m_at_thread_created) {
-		m_serial->setIgnoreInterrupts(true);
-		
 		// Run AT channel
 		if (pthread_create(&m_at_thread, nullptr, readerThread, this) != 0) {
 			LOGD("Can't create readerloop thread, errno=%d\n", errno);
@@ -35,7 +33,6 @@ bool AtChannel::start() {
 		m_stop = false;
 		m_at_thread_created = true;
 	}
-	
 	return true;
 }
 
@@ -43,13 +40,8 @@ void AtChannel::stop() {
 	if (m_at_thread_created) {
 		m_stop = true;
 		
-		// Allow IO interruption in reader loop
-		m_serial->setIgnoreInterrupts(false);
-		
-		// Interrupt IO in reader loop
-		pthread_kill(m_at_thread, SIGINT);
-		pthread_kill(m_at_thread, SIGINT);
-		pthread_kill(m_at_thread, SIGINT);
+		// Break current serial transfer
+		m_serial->breakTransfer();
 		
 		// Wait for reader loop done
 		pthread_join(m_at_thread, nullptr);

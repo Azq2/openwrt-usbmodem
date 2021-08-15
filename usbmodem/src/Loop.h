@@ -74,8 +74,6 @@ class Loop {
 		
 		void _emit(const std::any &value);
 		void on(size_t event_id, const std::function<void(const std::any &event)> &callback);
-		
-		static bool initPipeFd(int fd);
 	public:
 		static inline Loop *instance() {
 			if (!m_instance)

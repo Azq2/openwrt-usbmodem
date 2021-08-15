@@ -117,20 +117,20 @@ bool Modem::getIpInfo(int ipv, IpInfo *ip_info) const {
 }
 
 void Modem::stopNetRegWhatchdog() {
-	if (m_data_connect_timeout_id >= 0) {
-		Loop::clearTimeout(m_data_connect_timeout_id);
-		m_data_connect_timeout_id = -1;
+	if (m_connect_timeout_id >= 0) {
+		Loop::clearTimeout(m_connect_timeout_id);
+		m_connect_timeout_id = -1;
 	}
 }
 
 void Modem::startNetRegWhatchdog() {
-	if (m_data_connect_timeout_id >= 0 || m_data_connect_timeout <= 0)
+	if (m_connect_timeout_id >= 0 || m_connect_timeout <= 0)
 		return;
 	
-	m_data_connect_timeout_id = Loop::setTimeout([=]() {
-		m_data_connect_timeout_id = -1;
+	m_connect_timeout_id = Loop::setTimeout([=]() {
+		m_connect_timeout_id = -1;
 		Loop::emit<EvDataConnectTimeout>({});
-	}, m_data_connect_timeout);
+	}, m_connect_timeout);
 }
 
 bool Modem::open() {

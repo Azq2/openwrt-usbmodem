@@ -123,8 +123,8 @@ class Modem {
 		
 		bool m_prefer_dhcp = false;
 		bool m_force_restart_network = false;
-		int m_data_connect_timeout = 0;
-		int m_data_connect_timeout_id = -1;
+		int m_connect_timeout = 0;
+		int m_connect_timeout_id = -1;
 		
 		void startNetRegWhatchdog();
 		void stopNetRegWhatchdog();
@@ -196,7 +196,7 @@ class Modem {
 		}
 		
 		inline void setDataConnectTimeout(int timeout) {
-			m_data_connect_timeout = timeout;
+			m_connect_timeout = timeout;
 		}
 		
 		bool open();

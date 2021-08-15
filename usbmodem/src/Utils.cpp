@@ -7,10 +7,12 @@
 #include <algorithm> 
 #include <cctype> 
 #include <cmath> 
-#include <arpa/inet.h>
 #include <cstring>
 #include <cstdarg>
 #include <stdexcept>
+
+#include <arpa/inet.h>
+#include <unistd.h>
 
 using namespace std;
 
@@ -34,6 +36,24 @@ int strToInt(const std::string &s, int base, int default_value) {
 	} catch (std::invalid_argument &e) {
 		return default_value;
 	}
+}
+
+int execFile(const std::string &path, std::vector<std::string> args, std::vector<std::string> envs) {
+	// Arguments
+	std::vector<char *> args_c_array;
+	args_c_array.resize(args.size() + 1);
+	for (auto &value: args)
+		args_c_array.push_back(value.data());
+	args_c_array.push_back(nullptr);
+	
+	// Env variables
+	std::vector<char *> envs_c_array;
+	envs_c_array.resize(envs.size() + 1);
+	for (auto &value: envs)
+		envs_c_array.push_back(value.data());
+	envs_c_array.push_back(nullptr);
+	
+	return execvpe(path.c_str(), args_c_array.data(), envs_c_array.data());
 }
 
 std::string strJoin(const std::vector<std::string> &lines, const std::string &delim) {

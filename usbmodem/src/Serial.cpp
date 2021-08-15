@@ -18,35 +18,58 @@ Serial::~Serial() {
 	close();
 }
 
+void Serial::breakTransfer() {
+	if (m_wake_fds[0] != -1)
+		while (::write(m_wake_fds[1], "w", 1) < 0 && errno == EINTR);
+}
+
 int Serial::close() {
 	if (m_fd != -1) {
 		::close(m_fd);
 		m_fd = -1;
 	}
+	
+	if (m_wake_fds[0] != -1) {
+		::close(m_wake_fds[0]);
+		::close(m_wake_fds[1]);
+		
+		m_wake_fds[0] = -1;
+		m_wake_fds[1] = -1;
+	}
 	return 0;
 }
 
 int Serial::open(std::string device, int speed) {
+	if (pipe2(m_wake_fds, O_CLOEXEC | O_NONBLOCK) < 0) {
+		LOGE("pipe2() failed, error = %d\n", errno);
+		close();
+		return ERR_BROKEN;
+	}
+	
 	speed_t baudrate = getBaudrate(speed);
 	if (baudrate == B0) {
 		LOGE("%s - invalid speed: %d\n", device.c_str(), speed);
+		close();
 		return ERR_BROKEN;
 	}
 	
 	m_fd = ::open(device.c_str(), O_RDWR | O_NOCTTY | O_NDELAY | O_NONBLOCK);
 	if (m_fd < 0) {
 		LOGE("%s - open error: %d\n", device.c_str(), m_fd);
+		close();
 		return ERR_BROKEN;
 	}
 	
 	if (!isatty(m_fd)) {
 		LOGE("%s - is not TTY\n", device.c_str());
+		close();
 		return ERR_BROKEN;
 	}
 	
 	struct termios config;
 	if (tcgetattr(m_fd, &config) != 0) {
 		LOGE("%s - can't get termios config\n", device.c_str());
+		close();
 		return ERR_BROKEN;
 	}
 	
@@ -56,6 +79,7 @@ int Serial::open(std::string device, int speed) {
 	
 	if (tcsetattr(m_fd, TCSANOW, &config) != 0) {
 		LOGE("%s - can't set termios config\n", device.c_str());
+		close();
 		return ERR_BROKEN;
 	}
 	
@@ -63,28 +87,27 @@ int Serial::open(std::string device, int speed) {
 }
 
 int Serial::readChunk(char *data, int size, int timeout_ms) {
-	struct pollfd pfd = {};
-	
-	pfd.fd = m_fd;
-	pfd.events = POLLIN;
+	struct pollfd pfd[2] = {
+		{.fd = m_fd, .events = POLLIN},
+		{.fd = m_wake_fds[0], .events = POLLIN}
+	};
 	
 	int ret;
 	do {
-		ret = ::poll(&pfd, 1, timeout_ms);
-	} while (ret < 0 && errno == EINTR && m_ignore_eintr);
+		ret = ::poll(pfd, 2, timeout_ms);
+	} while (ret < 0 && errno == EINTR);
 	
 	if (ret < 0) {
-		if (errno != EINTR)
-			LOGE("poll error: %d\n", errno);
+		LOGE("poll error: %d\n", errno);
 		return ERR_IO;
 	}
 	
-	if ((pfd.revents & (POLLERR | POLLHUP))) {
+	if ((pfd[0].revents & (POLLERR | POLLHUP)) || (pfd[1].revents & (POLLERR | POLLHUP))) {
 		LOGE("poll error, fd is broken...\n");
 		return ERR_BROKEN;
 	}
 	
-	if ((pfd.revents & POLLIN)) {
+	if ((pfd[0].revents & POLLIN)) {
 		ret = ::read(m_fd, data, size);
 		
 		if (ret < 0) {
@@ -95,32 +118,37 @@ int Serial::readChunk(char *data, int size, int timeout_ms) {
 		return ret;
 	}
 	
+	if ((pfd[1].revents & POLLIN)) {
+		char buf[4];
+		while (::read(m_wake_fds[0], buf, 4) > 0 || errno == EINTR);
+		return ERR_INTR;
+	}
+	
 	return 0;
 }
 
 int Serial::writeChunk(const char *data, int size, int timeout_ms) {
-	struct pollfd pfd = {};
-	
-	pfd.fd = m_fd;
-	pfd.events = POLLOUT;
+	struct pollfd pfd[2] = {
+		{.fd = m_fd, .events = POLLOUT},
+		{.fd = m_wake_fds[0], .events = POLLIN}
+	};
 	
 	int ret;
 	do {
-		ret = ::poll(&pfd, 1, timeout_ms);
-	} while (ret < 0 && errno == EINTR && m_ignore_eintr);
+		ret = ::poll(pfd, 2, timeout_ms);
+	} while (ret < 0 && errno == EINTR);
 	
 	if (ret < 0) {
-		if (errno != EINTR)
-			LOGE("poll error: %d\n", errno);
+		LOGE("poll error: %d\n", errno);
 		return ERR_IO;
 	}
 	
-	if ((pfd.revents & (POLLERR | POLLHUP))) {
+	if ((pfd[0].revents & (POLLERR | POLLHUP)) || (pfd[1].revents & (POLLERR | POLLHUP))) {
 		LOGE("poll error, fd is broken...\n");
 		return ERR_BROKEN;
 	}
 	
-	if ((pfd.revents & POLLOUT)) {
+	if ((pfd[0].revents & POLLOUT)) {
 		ret = ::write(m_fd, data, size);
 		
 		if (ret < 0) {
@@ -131,46 +159,26 @@ int Serial::writeChunk(const char *data, int size, int timeout_ms) {
 		return ret;
 	}
 	
+	if ((pfd[1].revents & POLLIN)) {
+		char buf[4];
+		while (::read(m_wake_fds[0], buf, 4) > 0 || errno == EINTR);
+		return ERR_INTR;
+	}
+	
 	return 0;
 }
 
 int Serial::read(char *data, int size, int timeout_ms) {
-	struct pollfd pfd = {};
-	
-	pfd.fd = m_fd;
-	pfd.events = POLLIN;
-	
 	int64_t start = getCurrentTimestamp();
 	
 	int readed = 0;
 	int next_timeout = timeout_ms;
 	do {
-		int ret;
-		do {
-			ret = ::poll(&pfd, 1, next_timeout);
-		} while (ret < 0 && errno == EINTR && m_ignore_eintr);
+		int ret = readChunk(data + readed, size - readed, next_timeout);
+		if (ret < 0)
+			return ret;
 		
-		if (ret < 0) {
-			if (errno != EINTR)
-				LOGE("poll error: %d\n", errno);
-			return ERR_IO;
-		}
-		
-		if ((pfd.revents & (POLLERR | POLLHUP))) {
-			LOGE("poll error, fd is broken...\n");
-			return ERR_BROKEN;
-		}
-		
-		if ((pfd.revents & POLLIN)) {
-			ret = ::read(m_fd, data + readed, size - readed);
-			
-			if (ret < 0) {
-				LOGE("read error: %d\n", errno);
-				return ERR_IO;
-			}
-			
-			readed += ret;
-		}
+		readed += ret;
 		
 		next_timeout = timeout_ms - (getCurrentTimestamp() - start);
 	} while (readed < size && next_timeout > 0);
@@ -179,42 +187,16 @@ int Serial::read(char *data, int size, int timeout_ms) {
 }
 
 int Serial::write(const char *data, int size, int timeout_ms) {
-	struct pollfd pfd = {};
-	
-	pfd.fd = m_fd;
-	pfd.events = POLLOUT;
-	
 	int64_t start = getCurrentTimestamp();
 	
 	int written = 0;
 	int next_timeout = timeout_ms;
 	do {
-		int ret;
-		do {
-			ret = ::poll(&pfd, 1, next_timeout);
-		} while (ret < 0 && errno == EINTR && m_ignore_eintr);
+		int ret = writeChunk(data + written, size - written, next_timeout);
+		if (ret < 0)
+			return ret;
 		
-		if (ret < 0) {
-			if (errno != EINTR)
-				LOGE("poll error: %d\n", errno);
-			return ERR_IO;
-		}
-		
-		if ((pfd.revents & (POLLERR | POLLHUP))) {
-			LOGE("poll error, fd is broken...\n");
-			return ERR_BROKEN;
-		}
-		
-		if ((pfd.revents & POLLOUT)) {
-			ret = ::write(m_fd, data + written, size - written);
-			
-			if (ret < 0) {
-				LOGE("write error: %d\n", errno);
-				return ERR_IO;
-			}
-			
-			written += ret;
-		}
+		written += ret;
 		
 		next_timeout = timeout_ms - (getCurrentTimestamp() - start);
 	} while (written < size && next_timeout > 0);

@@ -13,36 +13,6 @@ Loop::~Loop() {
 	_done();
 }
 
-bool Loop::initPipeFd(int fd) {
-	int ret;
-	
-	ret = fcntl(fd, F_GETFD);
-	if (ret < 0) {
-		LOGE("fcntl F_GETFD failed, error = %d\n", errno);
-		return false;
-	}
-	
-	ret = fcntl(fd, F_SETFD, ret | FD_CLOEXEC);
-	if (ret < 0) {
-		LOGE("fcntl F_SETFD failed, error = %d\n", errno);
-		return false;
-	}
-	
-	ret = fcntl(fd, F_GETFL);
-	if (ret < 0) {
-		LOGE("fcntl F_GETFL failed, error = %d\n", errno);
-		return false;
-	}
-	
-	ret = fcntl(fd, F_SETFL, ret | O_NONBLOCK);
-	if (ret < 0) {
-		LOGE("fcntl F_SETFL failed, error = %d\n", errno);
-		return false;
-	}
-	
-	return true;
-}
-
 void Loop::handlerSignal(int sig) {
 	LOGD("Received signal: %d\n", sig);
 	m_need_stop = true;
@@ -70,13 +40,8 @@ bool Loop::_init() {
 	
 	int fds[2];
 	
-	if (pipe(fds) < 0) {
+	if (pipe2(fds, O_CLOEXEC | O_NONBLOCK) < 0) {
 		LOGE("pipe() failed, error = %d\n", errno);
-		_done();
-		return false;
-	}
-	
-	if (!initPipeFd(fds[0]) || !initPipeFd(fds[1])) {
 		_done();
 		return false;
 	}
@@ -100,7 +65,6 @@ bool Loop::_init() {
 void Loop::_run() {
 	if (!m_need_stop)
 		uloop_run();
-	
 	_done();
 }
 

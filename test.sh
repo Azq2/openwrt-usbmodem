@@ -33,6 +33,7 @@ function copy_files {
 	scp "$DIR/luci-proto-usbmodem/root/usr/share/rpcd/acl.d/luci-proto-usbmodem.json" $TEST_ROUTER:/tmp
 	scp "$DIR/usbmodem/files/usbmodem.usb" $TEST_ROUTER:/tmp
 	scp "$DIR/usbmodem/files/usbmodem.sh" $TEST_ROUTER:/tmp
+	scp "$DIR/usbmodem/files/usbmodem.user" $TEST_ROUTER:/tmp
 	ssh $TEST_ROUTER killall -9 usbmodem
 	scp $TOPDIR/build_dir/*/usbmodem/ipkg-install/usr/sbin/usbmodem $TEST_ROUTER:/tmp
 }
@@ -43,6 +44,7 @@ if [[ $ret != "0" ]];
 then
 	echo "need setup..."
 	install_links usbmodem.sh /lib/netifd/proto/usbmodem.sh
+	install_links usbmodem.user /etc/usbmodem.sh
 	install_links usbmodem.js /www/luci-static/resources/protocol/usbmodem.js
 	install_links luci-proto-usbmodem.json /usr/share/rpcd/acl.d/luci-proto-usbmodem.json
 	install_links usbmodem.usb /etc/hotplug.d/tty/30-usbmodem

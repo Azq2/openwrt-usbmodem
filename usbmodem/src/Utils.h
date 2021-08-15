@@ -51,6 +51,8 @@ std::string converOctalIpv6(const std::string &value);
 int getIpType(const std::string &raw_ip, bool allow_dec_v6 = false);
 bool normalizeIp(std::string *raw_ip, int require_ipv = 0, bool allow_dec_v6 = false);
 
+int execFile(const std::string &path, std::vector<std::string> args, std::vector<std::string> envs);
+
 std::string numberFormat(float num, int max_decimals = 0);
 std::string numberFormat(double num, int max_decimals = 0);
 std::string strJoin(const std::vector<std::string> &lines, const std::string &delim);
