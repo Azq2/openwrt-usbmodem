@@ -5,9 +5,9 @@
 #include "Loop.h"
 #include "Ubus.h"
 #include "Netifd.h"
+#include "ModemServiceApi.h"
 
 #include <signal.h>
-#include <json-c/json.h>
 #include <pthread.h>
 
 #include <map>
@@ -17,6 +17,7 @@ class ModemService {
 	protected:
 		Ubus m_ubus;
 		Netifd m_netifd;
+		ModemServiceApi m_api;
 		Modem *m_modem = nullptr;
 		std::map<std::string, std::string> m_uci_options;
 		bool m_dhcp_inited = false;

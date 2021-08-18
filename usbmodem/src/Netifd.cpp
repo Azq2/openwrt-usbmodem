@@ -5,75 +5,42 @@ Netifd::Netifd() {
 }
 
 bool Netifd::protoBlockRestart(const std::string &iface) {
-	json_object *request = json_object_new_object();
-	
-	if (!request)
-		return false;
-	
-	json_object_object_add(request, "action", json_object_new_int(4));
-	json_object_object_add(request, "interface", json_object_new_string(iface.c_str()));
-	
-	bool result = m_ubus->call("network.interface", "notify_proto", request);
-	json_object_put(request);
-	return result;
+	return m_ubus->call("network.interface", "notify_proto", {
+		{"action", 4},
+		{"interface", iface}
+	});
 }
 
 bool Netifd::protoSetAvail(const std::string &iface, bool avail) {
-	json_object *request = json_object_new_object();
-	
-	if (!request)
-		return false;
-	
-	json_object_object_add(request, "action", json_object_new_int(5));
-	json_object_object_add(request, "available", json_object_new_boolean(avail));
-	json_object_object_add(request, "interface", json_object_new_string(iface.c_str()));
-	
-	bool result = m_ubus->call("network.interface", "notify_proto", request);
-	json_object_put(request);
-	return result;
+	return m_ubus->call("network.interface", "notify_proto", {
+		{"action", 5},
+		{"available", avail},
+		{"interface", iface}
+	});
 }
 
 bool Netifd::protoError(const std::string &iface, const std::string &error) {
-	json_object *request = json_object_new_object();
-	
-	if (!request)
-		return false;
-	
-	json_object *errors = json_object_new_array();
-	if (!errors) {
-		json_object_put(request);
-		return false;
-	}
-	
-	json_object_array_add(errors, json_object_new_string(error.c_str()));
-	
-	json_object_object_add(request, "action", json_object_new_int(3));
-	json_object_object_add(request, "error", errors);
-	json_object_object_add(request, "interface", json_object_new_string(iface.c_str()));
-	
-	bool result = m_ubus->call("network.interface", "notify_proto", request);
-	json_object_put(request);
-	return result;
+	return m_ubus->call("network.interface", "notify_proto", {
+		{"action", 3},
+		{"error", {error}},
+		{"interface", iface}
+	});
 }
 
 bool Netifd::createDynamicIface(const std::string &proto, const std::string &iface, const std::string &parent_iface,
 	const std::string &fw_zone, const std::map<std::string, std::string> &default_options)
 {
-	json_object *request = json_object_new_object();
-	
-	if (!request)
-		return false;
-	
-	std::string ifname = "@" + parent_iface;
-	json_object_object_add(request, "name", json_object_new_string(iface.c_str()));
-	json_object_object_add(request, "ifname", json_object_new_string(ifname.c_str()));
-	json_object_object_add(request, "proto", json_object_new_string(proto.c_str()));
+	json request = {
+		{"name", iface},
+		{"ifname", "@" + parent_iface},
+		{"proto", proto},
+	};
 	
 	if (proto == "dhcpv6")
-		json_object_object_add(request, "extendprefix", json_object_new_int(1));
+		request["extendprefix"] = 1;
 	
 	if (fw_zone.size() > 0)
-		json_object_object_add(request, "zone", json_object_new_string(fw_zone.c_str()));
+		request["zone"] = fw_zone;
 	
 	// proto_add_dynamic_defaults()
 	const char *options[] = {"defaultroute", "peerdns", "metric", nullptr};
@@ -81,13 +48,11 @@ bool Netifd::createDynamicIface(const std::string &proto, const std::string &ifa
 	while (*option_it) {
 		auto it = default_options.find(*option_it);
 		if (it != default_options.end())
-			json_object_object_add(request, it->first.c_str(), json_object_new_string(it->second.c_str()));
+			request[it->first] = it->second;
 		option_it++;
 	}
 	
-	bool result = m_ubus->call("network", "add_dynamic", request);
-	json_object_put(request);
-	return result;
+	return m_ubus->call("network", "add_dynamic", request);
 }
 
 json_object *Netifd::newIpAddItem(const std::string &ipaddr, const std::string &mask, const std::string &broadcast) {
@@ -121,107 +86,68 @@ json_object *Netifd::newRouteItem(const std::string &target, const std::string &
 }
 
 bool Netifd::updateIface(const std::string &iface, const std::string &ifname, const IpInfo *ipv4, const IpInfo *ipv6) {
-	json_object *request = json_object_new_object();
-	
-	if (!request)
-		return false;
-	
-	json_object_object_add(request, "action", json_object_new_int(0));
-	json_object_object_add(request, "link-up", json_object_new_boolean(true));
-	json_object_object_add(request, "ifname", json_object_new_string(ifname.c_str()));
-	json_object_object_add(request, "interface", json_object_new_string(iface.c_str()));
-	
-	json_object_object_add(request, "address-external", json_object_new_boolean(false));
-	json_object_object_add(request, "keep", json_object_new_boolean(true));
-	
-	json_object *ipaddr = json_object_new_array();
-	json_object_object_add(request, "ipaddr", ipaddr);
-	
-	json_object *ip6addr = json_object_new_array();
-	json_object_object_add(request, "ip6addr", ip6addr);
-	
-	json_object *routes = json_object_new_array();
-	json_object_object_add(request, "routes", routes);
-	
-	json_object *routes6 = json_object_new_array();
-	json_object_object_add(request, "routes6", routes6);
-	
-	json_object *dns = json_object_new_array();
-	json_object_object_add(request, "dns", dns);
-	
-	if (!ipaddr || !ip6addr || !routes || !routes6 || !dns) {
-		json_object_put(request);
-		return false;
-	}
+	json request = {
+		{"action", 0},
+		{"link-up", true},
+		{"ifname", ifname},
+		{"interface", iface},
+		{"address-external", false},
+		{"keep", true},
+	};
 	
 	json_object *ipaddr_item, *route_item;
 	
 	if (ipv4 && ipv4->ip.size() > 0) {
 		// IPv4 addr
-		ipaddr_item = newIpAddItem(ipv4->ip, ipv4->mask);
-		if (!ipaddr_item) {
-			json_object_put(request);
-			return false;
-		}
-		json_object_array_add(ipaddr, ipaddr_item);
+		json ipaddr_item = {{"ipaddr", ipv4->ip}};
+		if (ipv4->mask.size() > 0)
+			ipaddr_item["mask"] = ipv4->mask;
+		request["ipaddr"].push_back(ipaddr_item);
+		
 		
 		// IPv4 Routes
-		route_item = newRouteItem("0.0.0.0", "0", ipv4->gw);
-		if (!route_item) {
-			json_object_put(request);
-			return false;
-		}
-		json_object_array_add(routes, route_item);
+		json route_item = {{"target", "0.0.0.0"}, {"netmask", "0"}};
+		if (ipv4->gw.size() > 0)
+			ipaddr_item["gateway"] = ipv4->gw;
+		request["ipaddr"].push_back(ipaddr_item);
 		
 		// IPv4 DNS
 		if (ipv4->dns1.size() > 0)
-			json_object_array_add(dns, json_object_new_string(ipv4->dns1.c_str()));
+			request["dns"].push_back(ipv4->dns1);
 		
 		if (ipv4->dns2.size() > 0 && ipv4->dns1 != ipv4->dns2)
-			json_object_array_add(dns, json_object_new_string(ipv4->dns2.c_str()));
+			request["dns"].push_back(ipv4->dns2);
 	}
 	
 	if (ipv6 && ipv6->ip.size() > 0) {
 		// IPv6 addr
-		ipaddr_item = newIpAddItem(ipv6->ip, ipv6->mask);
-		if (!ipaddr_item) {
-			json_object_put(request);
-			return false;
-		}
-		json_object_array_add(ipaddr, ipaddr_item);
+		json ipaddr_item = {{"ipaddr", ipv6->ip}};
+		if (ipv6->mask.size() > 0)
+			ipaddr_item["mask"] = ipv6->mask;
+		request["ip6addr"].push_back(ipaddr_item);
+		
 		
 		// IPv6 Routes
-		route_item = newRouteItem("::", "0", ipv6->gw);
-		if (!route_item) {
-			json_object_put(request);
-			return false;
-		}
-		json_object_array_add(routes, route_item);
+		json route_item = {{"target", "::"}, {"netmask", "0"}};
+		if (ipv6->gw.size() > 0)
+			ipaddr_item["gateway"] = ipv6->gw;
+		request["routes6"].push_back(ipaddr_item);
 		
 		// IPv6 DNS
 		if (ipv6->dns1.size() > 0)
-			json_object_array_add(dns, json_object_new_string(ipv6->dns1.c_str()));
+			request["dns"].push_back(ipv6->dns1);
 		
 		if (ipv6->dns2.size() > 0 && ipv6->dns1 != ipv6->dns2)
-			json_object_array_add(dns, json_object_new_string(ipv6->dns2.c_str()));
+			request["dns"].push_back(ipv6->dns2);
 	}
 	
-	bool result = m_ubus->call("network.interface", "notify_proto", request);
-	json_object_put(request);
-	return result;
+	return m_ubus->call("network.interface", "notify_proto", request);
 }
 
 bool Netifd::protoKill(const std::string &iface, int signal) {
-	json_object *request = json_object_new_object();
-	
-	if (!request)
-		return false;
-	
-	json_object_object_add(request, "action", json_object_new_int(2));
-	json_object_object_add(request, "signal", json_object_new_int(signal));
-	json_object_object_add(request, "interface", json_object_new_string(iface.c_str()));
-	
-	bool result = m_ubus->call("network.interface", "notify_proto", request);
-	json_object_put(request);
-	return result;
+	return m_ubus->call("network.interface", "notify_proto", {
+		{"action", 2},
+		{"signal", signal},
+		{"interface", iface}
+	});
 }

@@ -1,4 +1,9 @@
 #include "Ubus.h"
+#include "Utils.h"
+
+extern "C" {
+#include <libubox/blobmsg_json.h>
+};
 
 Ubus::Ubus() {
 	
@@ -9,62 +14,83 @@ Ubus::~Ubus() {
 }
 
 void Ubus::close() {
-	if (m_ubus) {
-		ubus_free(m_ubus);
-		m_ubus = nullptr;
+	if (m_ctx) {
+		ubus_free(m_ctx);
+		m_ctx = nullptr;
 	}
 }
 
 bool Ubus::open() {
-	m_ubus = ubus_connect(nullptr);
-	if (!m_ubus)
+	m_ctx = ubus_connect(nullptr);
+	if (!m_ctx)
 		return false;
 	
-	ubus_add_uloop(m_ubus);
+	ubus_add_uloop(m_ctx);
 	
 	return true;
 }
 
 void Ubus::onCallData(ubus_request *r, int type, blob_attr *msg) {
-	UBusRequest *req = static_cast<UBusRequest *>(r->priv);
+	UbusCallRequest *req = static_cast<UbusCallRequest *>(r->priv);
 	
 	char *json_str = blobmsg_format_json(msg, true);
-	req->data = json_str ? json_tokener_parse(json_str) : nullptr;
+	
+	if (json_str)
+		req->data = json::parse(json_str);
 	
 	if (json_str)
 		free(json_str);
 }
 
 void Ubus::onCallComplete(ubus_request *r, int ret) {
-	UBusRequest *req = static_cast<UBusRequest *>(r->priv);
+	UbusCallRequest *req = static_cast<UbusCallRequest *>(r->priv);
 	if (req->callback)
 		req->callback(req->data, ret);
 	
 	blob_buf_free(&req->b);
+	req->data.clear();
 	
-	if (req->data)
-		json_object_put(req->data);
 	delete req;
 }
 
-bool Ubus::callAsync(const std::string &path, const std::string &method, json_object *params, const std::function<void(json_object *, int)> &callback) {
+UbusObject &Ubus::object(const std::string &name) {
+	auto it = m_objects.find(name);
+	if (it == m_objects.end()) {
+		UbusObject &obj = m_objects[name];
+		obj.setName(name);
+		obj.setParent(this);
+		return obj;
+	}
+	return it->second;
+}
+
+bool Ubus::registerObject(ubus_object *obj) {
+	return ubus_add_object(m_ctx, obj) == 0;
+}
+
+bool Ubus::unregisterObject(ubus_object *obj) {
+	return ubus_remove_object(m_ctx, obj) == 0;
+}
+
+bool Ubus::callAsync(const std::string &path, const std::string &method, const json &params, const UbusResponseCallback &callback) {
 	uint32_t id;
-	if (ubus_lookup_id(m_ubus, path.c_str(), &id) != 0) {
+	if (ubus_lookup_id(m_ctx, path.c_str(), &id) != 0) {
 		if (callback)
 			callback(nullptr, -1);
 		return false;
 	}
 	
-	UBusRequest *req = new UBusRequest;
+	UbusCallRequest *req = new UbusCallRequest;
 	
 	// Init msg
 	blob_buf_init(&req->b, 0);
 	
-	if (params)
-		blobmsg_add_object(&req->b, params);
+	// FIXME: need more efficient way
+	auto json_str = params.dump();
+	blobmsg_add_json_from_string(&req->b, json_str.c_str());
 	
 	// Init request
-	if (ubus_invoke_async(m_ubus, id, method.c_str(), req->b.head, &req->r) != 0) {
+	if (ubus_invoke_async(m_ctx, id, method.c_str(), req->b.head, &req->r) != 0) {
 		if (callback)
 			callback(nullptr, -1);
 		return false;
@@ -77,29 +103,30 @@ bool Ubus::callAsync(const std::string &path, const std::string &method, json_ob
 	req->callback = callback;
 	
 	// Start request
-	ubus_complete_request_async(m_ubus, &req->r);
+	ubus_complete_request_async(m_ctx, &req->r);
 	
 	return true;
 }
 
-bool Ubus::call(const std::string &path, const std::string &method, json_object *params, const std::function<void(json_object *, int)> &callback, int timeout) {
+bool Ubus::call(const std::string &path, const std::string &method, const json &params, const UbusResponseCallback &callback, int timeout) {
 	uint32_t id;
-	if (ubus_lookup_id(m_ubus, path.c_str(), &id) != 0) {
+	if (ubus_lookup_id(m_ctx, path.c_str(), &id) != 0) {
 		if (callback)
 			callback(nullptr, -1);
 		return false;
 	}
 	
-	UBusRequest *req = new UBusRequest;
+	UbusCallRequest *req = new UbusCallRequest;
 	
 	// Init msg
 	blob_buf_init(&req->b, 0);
 	
-	if (params)
-		blobmsg_add_object(&req->b, params);
+	// FIXME: need more efficient way
+	auto json_str = params.dump();
+	blobmsg_add_json_from_string(&req->b, json_str.c_str());
 	
 	// Init request
-	if (ubus_invoke_async_fd(m_ubus, id, method.c_str(), req->b.head, &req->r, -1) != 0) {
+	if (ubus_invoke_async_fd(m_ctx, id, method.c_str(), req->b.head, &req->r, -1) != 0) {
 		if (callback)
 			callback(nullptr, -1);
 		return false;
@@ -112,5 +139,41 @@ bool Ubus::call(const std::string &path, const std::string &method, json_object 
 	req->callback = callback;
 	
 	// Start request
-	return ubus_complete_request(m_ubus, &req->r, timeout) == 0;
+	return ubus_complete_request(m_ctx, &req->r, timeout) == 0;
+}
+
+bool Ubus::reply(ubus_request_data *req, const json &params) {
+	blob_buf b = {};
+	blob_buf_init(&b, 0);
+	
+	// FIXME: need more efficient way
+	auto json_str = params.dump();
+	blobmsg_add_json_from_string(&b, json_str.c_str());
+	
+	int ret = ubus_send_reply(m_ctx, req, b.head);
+	blob_buf_free(&b);
+	
+	return ret == 0;
+}
+
+bool Ubus::deferFinish(UbusDeferRequest *req, int status, const json &params, bool cleanup) {
+	if (status == UBUS_STATUS_OK) {
+		// FIXME: need more efficient way
+		auto json_str = params.dump();
+		blobmsg_add_json_from_string(&req->b, json_str.c_str());
+		
+		ubus_send_reply(m_ctx, &req->r, req->b.head);
+	}
+	ubus_complete_deferred_request(m_ctx, &req->r, status);
+	blob_buf_free(&req->b);
+	if (cleanup)
+		delete req;
+	return true;
+}
+
+UbusDeferRequest *Ubus::defer(ubus_request_data *original_req) {
+	UbusDeferRequest *req = new UbusDeferRequest;
+	blob_buf_init(&req->b, 0);
+	ubus_defer_request(m_ctx, original_req, &req->r);
+	return req;
 }

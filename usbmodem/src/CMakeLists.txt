@@ -15,7 +15,10 @@ add_executable(usbmodem
 	Modem.cpp
 	UsbDiscover.cpp
 	ModemService.cpp
+	ModemServiceApi.cpp
 	Ubus.cpp
+	UbusObject.cpp
+	UbusRequest.cpp
 	Netifd.cpp
 	Loop.cpp
 	Uci.cpp
@@ -23,3 +26,5 @@ add_executable(usbmodem
 )
 target_link_libraries(usbmodem -lubox -lubus -luci -lstdc++ -lstdc++fs -ljson-c -lblobmsg_json)
 install(TARGETS usbmodem DESTINATION sbin/)
+
+# target_precompile_headers(usbmodem PUBLIC Json.h)

@@ -328,6 +328,10 @@ bool ModemService::runModem() {
 		return setError("INIT_ERROR");
 	}
 	
+	Loop::setTimeout([=]() {
+		m_api.run();
+	}, 0);
+	
 	return true;
 }
 
@@ -354,7 +358,7 @@ int ModemService::checkError() {
 		return 0;
 	
 	// User callback
-	int ret = execFile("/etc/usbmodem.user", {}, {
+	execFile("/etc/usbmodem.user", {}, {
 		"action=error",
 		"error=" + m_error_code,
 		"is_fatal_error=" + std::string(m_error_fatal ? "1" : "0"),
@@ -395,6 +399,20 @@ int ModemService::checkError() {
 
 int ModemService::run() {
 	if (init()) {
+		/*
+		Loop::setTimeout([=]() {
+			bool success = m_ubus.object("usbmodem." + m_iface)
+				.method("info", [](auto req) {
+					//req->defer();
+					//req->reply(nullptr, 0);
+					return 0;
+				}, {
+					{"test", UbusObject::INT32}
+				})
+				.attach();
+		}, 0);
+		*/
+		
 		if (runModem())
 			Loop::run();
 		finishModem();

@@ -58,81 +58,6 @@ bool ModemAsr1802::initDefaults() {
 	return true;
 }
 
-void ModemAsr1802::handleCpin(const std::string &event) {
-	std::string code;
-	if (!AtParser(event).parseString(&code).success())
-		return;
-	
-	PinState old_state = m_pin_state;
-	
-	if (strStartsWith(code, "READY")) {
-		m_pin_state = PIN_READY;
-	} else if (strStartsWith(code, "SIM PIN")) {
-		if (!m_pincode.size()) {
-			LOGE("SIM pin required, but no pincode specified...\n");
-			m_pin_state = PIN_ERROR;
-		} else if (m_pincode_entered) {
-			m_pin_state = PIN_ERROR;
-		} else {
-			m_pin_state = PIN_REQUIRED;
-			
-			// Trying enter PIN code only one time
-			m_pincode_entered = true;
-			
-			Loop::setTimeout([=]() {
-				if (m_at.sendCommandNoResponse("AT+CPIN=" + m_pincode) != 0)
-					LOGE("SIM PIN unlock error\n");
-				
-				// Force request new status
-				m_at.sendCommandNoResponse("AT+CPIN?");
-			}, 0);
-		}
-	} else {
-		LOGE("SIM required other lock code: %s\n", code.c_str());
-		m_pin_state = PIN_ERROR;
-	}
-	
-	if (old_state != m_pin_state)
-		Loop::emit<EvPinStateChaned>({.state = m_pin_state});
-}
-
-void ModemAsr1802::handleCesq(const std::string &event) {
-	static const double bit_errors[] = {0.14, 0.28, 0.57, 1.13, 2.26, 4.53, 9.05, 18.10};
-	int rssi, ber, rscp, eclo, rsrq, rsrp;
-	
-	bool parsed = AtParser(event)
-		.parseInt(&rssi)
-		.parseInt(&ber)
-		.parseInt(&rscp)
-		.parseInt(&eclo)
-		.parseInt(&rsrq)
-		.parseInt(&rsrp)
-		.success();
-	
-	if (!parsed)
-		return;
-	
-	// RSSI (Received signal strength)
-	m_rssi_dbm = -(rssi >= 99 ? NAN : 111 - rssi);
-	
-	// Bit Error
-	m_bit_err_pct = ber >= 0 && ber < COUNT_OF(bit_errors) ? bit_errors[ber] : NAN;
-	
-	// RSCP (Received signal code power)
-	m_rscp_dbm = -(rscp >= 255 ? NAN : 121 - rscp);
-	
-	// Ec/lo
-	m_eclo_db = -(eclo >= 255 ? NAN : (49.0f - (float) eclo) / 2.0f);
-	
-	// RSRQ (Reference signal received quality)
-	m_rsrq_db = -(rsrq >= 255 ? NAN : (40.0f - (float) rsrq) / 2.0f);
-	
-	// RSRP (Reference signal received power)
-	m_rsrp_dbm = -(rsrp >= 255 ? NAN : 141 - rsrp);
-	
-	Loop::emit<EvSignalLevels>({});
-}
-
 void ModemAsr1802::handleCgev(const std::string &event) {
 	// "DEACT" and "DETACH" mean disconnect
 	if (event.find("DEACT") != std::string::npos || event.find("DETACH") != std::string::npos) {
@@ -467,7 +392,7 @@ void ModemAsr1802::startDataConnection() {
 		return;
 	
 	// Connection already scheduled
-	if (m_data_connect_timeout != -1)
+	if (m_manual_connect_timeout != -1)
 		return;
 	
 	// Already connected or connecting
@@ -492,8 +417,8 @@ void ModemAsr1802::startDataConnection() {
 			}
 			
 			// Try reconnect after few seconds
-			m_data_connect_timeout = Loop::setTimeout([=]() {
-				m_data_connect_timeout = -1;
+			m_manual_connect_timeout = Loop::setTimeout([=]() {
+				m_manual_connect_timeout = -1;
 				startDataConnection();
 			}, 1000);
 		}
