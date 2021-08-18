@@ -6,7 +6,6 @@
 #include "Modem.h"
 
 #include <signal.h>
-#include <json-c/json.h>
 
 class Netifd {
 	protected:
@@ -51,7 +50,4 @@ class Netifd {
 		inline bool dhcpRelease(const std::string &iface) {
 			return protoKill(iface, SIGUSR2);
 		}
-		
-		json_object *newIpAddItem(const std::string &ipaddr, const std::string &mask = "", const std::string &broadcast = "");
-		json_object *newRouteItem(const std::string &target, const std::string &mask, const std::string &gateway = "");
 };

@@ -55,36 +55,6 @@ bool Netifd::createDynamicIface(const std::string &proto, const std::string &ifa
 	return m_ubus->call("network", "add_dynamic", request);
 }
 
-json_object *Netifd::newIpAddItem(const std::string &ipaddr, const std::string &mask, const std::string &broadcast) {
-	json_object *item = json_object_new_object();
-	if (!item)
-		return nullptr;
-	
-	json_object_object_add(item, "ipaddr", json_object_new_string(ipaddr.c_str()));
-	
-	if (mask.size() > 0)
-		json_object_object_add(item, "mask", json_object_new_string(mask.c_str()));
-	
-	if (broadcast.size() > 0)
-		json_object_object_add(item, "broadcast", json_object_new_string(broadcast.c_str()));
-	
-	return item;
-}
-
-json_object *Netifd::newRouteItem(const std::string &target, const std::string &mask, const std::string &gateway) {
-	json_object *item = json_object_new_object();
-	if (!item)
-		return nullptr;
-	
-	json_object_object_add(item, "target", json_object_new_string(target.c_str()));
-	json_object_object_add(item, "netmask", json_object_new_string(mask.c_str()));
-	
-	if (gateway.size() > 0)
-		json_object_object_add(item, "gateway", json_object_new_string(gateway.c_str()));
-	
-	return item;
-}
-
 bool Netifd::updateIface(const std::string &iface, const std::string &ifname, const IpInfo *ipv4, const IpInfo *ipv6) {
 	json request = {
 		{"action", 0},
@@ -94,8 +64,6 @@ bool Netifd::updateIface(const std::string &iface, const std::string &ifname, co
 		{"address-external", false},
 		{"keep", true},
 	};
-	
-	json_object *ipaddr_item, *route_item;
 	
 	if (ipv4 && ipv4->ip.size() > 0) {
 		// IPv4 addr
