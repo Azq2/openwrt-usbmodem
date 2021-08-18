@@ -62,7 +62,7 @@ bool Netifd::updateIface(const std::string &iface, const std::string &ifname, co
 		{"ifname", ifname},
 		{"interface", iface},
 		{"address-external", false},
-		{"keep", true},
+		{"keep", false},
 	};
 	
 	if (ipv4 && ipv4->ip.size() > 0) {

@@ -569,6 +569,11 @@ bool ModemAsr1802::init() {
 	m_at.onUnsolicited("+CGREG", network_creg_handler);
 	m_at.onUnsolicited("+CEREG", network_creg_handler);
 	
+	// USSD response
+	m_at.onUnsolicited("+CUSD", [=](const std::string &event) {
+		handleCusd(event);
+	});
+	
 	// PDP context events
 	m_at.onUnsolicited("+CGEV", [=](const std::string &event) {
 		handleCgev(event);

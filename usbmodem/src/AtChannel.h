@@ -39,13 +39,8 @@ class AtChannel {
 			MULTILINE,
 			NUMERIC,
 			NO_RESPONSE,
-			DIAL
-		};
-		
-		enum {
-			AT_TOK_NONE,
-			AT_TOK_STR,
-			AT_TOK_INT
+			DIAL,
+			NO_PREFIX
 		};
 	protected:
 		struct UnsolHandler {
@@ -127,7 +122,13 @@ class AtChannel {
 			return response;
 		}
 		
-		inline Response sendCommandMultiline(const std::string &cmd, const std::string &prefix = "",int timeout = 0) {
+		inline Response sendCommandNoPrefix(const std::string &cmd, int timeout = 0) {
+			Response response;
+			sendCommand(NO_PREFIX, cmd, "", &response, timeout);
+			return response;
+		}
+		
+		inline Response sendCommandMultiline(const std::string &cmd, const std::string &prefix = "", int timeout = 0) {
 			Response response;
 			sendCommand(MULTILINE, cmd, prefix, &response, timeout);
 			return response;

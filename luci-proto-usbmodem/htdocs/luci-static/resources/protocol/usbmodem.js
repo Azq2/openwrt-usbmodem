@@ -65,7 +65,7 @@ var RichListValue = form.Value.extend({
 
 return network.registerProtocol('usbmodem', {
 	getI18n: function () {
-		return _('USB Modem Service');
+		return _('USB Modem');
 	},
 	getIfname: function () {
 		return this._ubus('l3_device') || 'usbmodem-%s'.format(this.sid);

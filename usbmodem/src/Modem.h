@@ -13,6 +13,8 @@
 
 class Modem {
 	public:
+		static constexpr int TIMEOUT_USSD = 10000;
+		
 		enum NetworkTech: int {
 			TECH_UNKNOWN	= -1,
 			TECH_NO_SERVICE	= 0,
@@ -216,6 +218,10 @@ class Modem {
 		virtual int getDefaultAtTimeout();
 		virtual int getDefaultAtPingTimeout();
 		
+		// USSD
+		int m_ussd_timeout = -1;
+		std::function<void(int code, const std::string &)> m_current_ussd_callback;
+		
 		// CS status
 		Creg m_creg = {};
 		
@@ -239,12 +245,17 @@ class Modem {
 		// Modem events handlers
 		void handleCesq(const std::string &event);
 		void handleCpin(const std::string &event);
+		void handleCusd(const std::string &event);
 	public:
 		Modem();
 		virtual ~Modem();
 		
 		virtual IfaceProto getIfaceProto();
 		virtual int getDelayAfterDhcpRelease();
+		
+		inline AtChannel *getAtChannel() {
+			return &m_at;
+		}
 		
 		inline void setPreferDhcp(bool enable) {
 			m_prefer_dhcp = enable;
@@ -292,6 +303,12 @@ class Modem {
 		inline void setDataConnectTimeout(int timeout) {
 			m_connect_timeout = timeout;
 		}
+		
+		bool isUssdBusy() {
+			return m_current_ussd_callback != nullptr;
+		}
+		
+		bool sendUssd(std::string ussd, std::function<void(int code, const std::string &)>, int timeout = 0);
 		
 		bool open();
 		void close();

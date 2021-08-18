@@ -48,19 +48,21 @@ blobmsg_policy *UbusObject::createBlobmsgPolicy(const std::map<std::string, int>
 	return policy;
 }
 
-UbusObject::Method *UbusObject::findMethodByName(const char *name) {
+int UbusObject::findMethodByName(const char *name) {
+	int index = 0;
 	for (auto &m: m_methods) {
-		if (strcmp(m.u.name, name) == 0)
-			return &m;
+		if (strcmp(m.name, name) == 0)
+			return index;
+		index++;
 	}
-	return nullptr;
+	return -1;
 }
 
 int UbusObject::callHandler(const char *method_name, ubus_request_data *req, blob_attr *msg) {
-	Method *method = findMethodByName(method_name);
-	if (!method)
+	int method_id = findMethodByName(method_name);
+	if (method_id < 0)
 		return UBUS_STATUS_METHOD_NOT_FOUND;
-	return method->callback(std::make_shared<UbusRequest>(m_ubus, req, msg));
+	return m_callbacks[method_id](std::make_shared<UbusRequest>(m_ubus, req, msg));
 }
 
 int UbusObject::ubusMethodHandler(ubus_context *ctx, ubus_object *obj, ubus_request_data *req, const char *method, blob_attr *attr) {
@@ -72,18 +74,21 @@ UbusObject &UbusObject::method(const std::string &name, const Callback &callback
 	if (m_registered)
 		throw std::runtime_error("UbusObject is readonly, because it already registered to ubus.");
 	
-	m_methods.resize(m_methods.size() + 1);
-	m_object.o.methods = reinterpret_cast<ubus_method *>(m_methods.data());
-	m_object.o.n_methods = m_methods.size();
+	// Add callback
+	m_callbacks.push_back(callback);
 	
+	// Add method
+	m_methods.resize(m_methods.size() + 1);
+	ubus_method &method = m_methods.back();
+	method.name = createName(name.c_str(), name.size());
+	method.handler = ubusMethodHandler;
+	method.policy = createBlobmsgPolicy(fields, &method.n_policy);
+	
+	// Sync ref to methods in ubus object
+	m_object.o.methods = m_methods.data();
+	m_object.o.n_methods = m_methods.size();
 	m_object.t.methods = m_object.o.methods;
 	m_object.t.n_methods = m_object.o.n_methods;
-	
-	Method &method = m_methods.back();
-	method.u.name = createName(name.c_str(), name.size());
-	method.u.handler = ubusMethodHandler;
-	method.u.policy = createBlobmsgPolicy(fields, &method.u.n_policy);
-	method.callback = callback;
 	
 	return *this;
 }
@@ -120,8 +125,8 @@ UbusObject::~UbusObject() {
 	m_names.clear();
 	
 	for (auto &m: m_methods) {
-		if (m.u.policy)
-			delete[] m.u.policy;
+		if (m.policy)
+			delete[] m.policy;
 	}
 	m_methods.clear();
 }

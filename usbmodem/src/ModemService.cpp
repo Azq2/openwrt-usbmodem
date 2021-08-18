@@ -328,10 +328,6 @@ bool ModemService::runModem() {
 		return setError("INIT_ERROR");
 	}
 	
-	Loop::setTimeout([=]() {
-		m_api.run();
-	}, 0);
-	
 	return true;
 }
 
@@ -399,24 +395,13 @@ int ModemService::checkError() {
 
 int ModemService::run() {
 	if (init()) {
-		bool success = m_ubus.object("usbmodem." + m_iface)
-			.method("info", [](auto req) {
-				std::string s = req->data().dump();
-				LOGD("new api req: %s\n", s.c_str());
-				req->defer();
-				
-				Loop::setTimeout([=]() {
-					req->reply({{"success", true}}, 0);
-				}, 0);
-				return 0;
-			}, {
-				{"test", UbusObject::INT32}
-			})
-			.attach();
-		LOGD("api attach success: %d\n", success);
-		
-		if (runModem())
+		if (runModem()) {
+			Loop::setTimeout([=]() {
+				if (!runApi())
+					LOGE("Can't start API server, but continuing running...\n");
+			}, 0);
 			Loop::run();
+		}
 		finishModem();
 	}
 	

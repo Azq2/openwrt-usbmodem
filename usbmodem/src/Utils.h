@@ -45,6 +45,19 @@ static inline bool strStartsWith(const std::string &a, const std::string &b) {
 
 void setTimespecTimeout(struct timespec *tm, int timeout);
 
+static inline int hex2byte(char c) {
+	if (c >= '0' && c <= '9')
+		return c - '0';
+	if (c >= 'A' && c <= 'F')
+		return (c - 'A') + 10;
+	if (c >= 'a' && c <= 'f')
+		return (c - 'a') + 10;
+	return -1;
+}
+
+std::string decodeUcs2(const std::string &data, bool be = false);
+std::string decode7bit(const std::string &data);
+
 int strToInt(const std::string &s, int base = 10, int default_value = 0);
 
 std::string converOctalIpv6(const std::string &value);
@@ -53,6 +66,7 @@ bool normalizeIp(std::string *raw_ip, int require_ipv = 0, bool allow_dec_v6 = f
 
 int execFile(const std::string &path, std::vector<std::string> args, std::vector<std::string> envs);
 
+std::string hex2bin(const std::string &hex);
 std::string numberFormat(float num, int max_decimals = 0);
 std::string numberFormat(double num, int max_decimals = 0);
 std::string strJoin(const std::vector<std::string> &lines, const std::string &delim);

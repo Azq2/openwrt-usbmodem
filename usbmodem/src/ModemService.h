@@ -5,7 +5,6 @@
 #include "Loop.h"
 #include "Ubus.h"
 #include "Netifd.h"
-#include "ModemServiceApi.h"
 
 #include <signal.h>
 #include <pthread.h>
@@ -17,7 +16,6 @@ class ModemService {
 	protected:
 		Ubus m_ubus;
 		Netifd m_netifd;
-		ModemServiceApi m_api;
 		Modem *m_modem = nullptr;
 		std::map<std::string, std::string> m_uci_options;
 		bool m_dhcp_inited = false;
@@ -42,11 +40,17 @@ class ModemService {
 		bool setError(const std::string &code, bool fatal = false);
 		
 		int checkError();
+		
+		// API
+		int apiGetInfo(std::shared_ptr<UbusRequest> req);
+		int apiSendCommand(std::shared_ptr<UbusRequest> req);
+		int apiSendUssd(std::shared_ptr<UbusRequest> req);
 	public:
 		explicit ModemService(const std::string &iface);
 		
 		bool init();
 		bool runModem();
+		bool runApi();
 		void finishModem();
 		int run();
 };

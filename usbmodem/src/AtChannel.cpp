@@ -169,6 +169,10 @@ void AtChannel::handleLine() {
 			} else {
 				handleUnsolicitedLine();
 			}
+		} else if (m_curr_type == NO_PREFIX) {
+			if (strStartsWith(m_buffer, m_curr_prefix))
+				m_curr_response->lines.push_back(m_buffer);
+			handleUnsolicitedLine();
 		} else if (m_curr_type == NUMERIC) {
 			if (isdigit(m_buffer[0])) {
 				m_curr_response->lines.push_back(m_buffer);
@@ -193,6 +197,9 @@ void AtChannel::handleLine() {
 
 int AtChannel::sendCommand(ResultType type, const std::string &cmd, const std::string &prefix, Response *response, int timeout) {
 	at_cmd_mutex.lock();
+	
+	if ((type == DEFAULT || type == MULTILINE) && prefix == "")
+		type = NO_RESPONSE;
 	
 	if (m_stop) {
 		LOGE("[ %s ] error, AT channel already closed...\n", cmd.c_str());

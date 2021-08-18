@@ -37,11 +37,6 @@ class UbusObject {
 			BOOL		= BLOBMSG_TYPE_BOOL,
 			DOUBLE		= BLOBMSG_TYPE_DOUBLE,
 		};
-		
-		struct Method {
-			struct ubus_method u = {}; // Must be first in struct
-			Callback callback;
-		};
 	protected:
 		struct ObjectWrap {
 			struct ubus_object o = {}; // Must be first in struct
@@ -52,7 +47,8 @@ class UbusObject {
 		bool m_registered = false;
 		
 		ObjectWrap m_object;
-		std::vector<Method> m_methods;
+		std::vector<Callback> m_callbacks;
+		std::vector<ubus_method> m_methods;
 		std::vector<char *> m_names;
 		Ubus *m_ubus = nullptr;
 		
@@ -70,7 +66,7 @@ class UbusObject {
 			return &m_object.o;
 		}
 		
-		Method *findMethodByName(const char *name);
+		int findMethodByName(const char *name);
 		int callHandler(const char *method_name, ubus_request_data *req, blob_attr *msg);
 		static int ubusMethodHandler(ubus_context *ctx, ubus_object *obj, ubus_request_data *req, const char *method, blob_attr *attr);
 	public:
@@ -86,5 +82,5 @@ class UbusObject {
 			return m_object.o.id;
 		}
 		
-		UbusObject &method(const std::string &name, const Callback &callback, const std::map<std::string, int> &fields);
+		UbusObject &method(const std::string &name, const Callback &callback, const std::map<std::string, int> &fields = {});
 };

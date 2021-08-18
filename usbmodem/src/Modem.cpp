@@ -53,6 +53,30 @@ const char *Modem::getNetRegStatusName(NetworkReg reg) {
 	return "unknown";
 }
 
+bool Modem::sendUssd(std::string ussd, std::function<void(int code, const std::string &)> callback, int timeout) {
+	std::string cmd = "AT+CUSD=1,\"" + ussd + "\",15";
+	
+	if (isUssdBusy())
+		return false;
+	
+	m_current_ussd_callback = callback;
+	
+	if (m_at.sendCommandNoResponse(cmd) != 0) {
+		m_current_ussd_callback = nullptr;
+		return false;
+	}
+	
+	if (!timeout)
+		timeout = TIMEOUT_USSD;
+	
+	m_ussd_timeout = Loop::setTimeout([=]() {
+		m_current_ussd_callback = nullptr;
+		callback(-1, "");
+	}, timeout);
+	
+	return true;
+}
+
 bool Modem::ping(int tries) {
 	for (int i = 0; i < tries; i++) {
 		if (m_at.sendCommandNoResponse("AT", getDefaultAtPingTimeout()) == 0)
@@ -131,6 +155,56 @@ void Modem::startNetRegWhatchdog() {
 		m_connect_timeout_id = -1;
 		Loop::emit<EvDataConnectTimeout>({});
 	}, m_connect_timeout);
+}
+
+void Modem::handleCusd(const std::string &event) {
+	int dcs = 0, code = 0;
+	std::string data;
+	
+	bool success;
+	int args_cnt = AtParser::getArgCnt(event);
+	
+	if (args_cnt == 1) {
+		success = AtParser(event)
+			.parseInt(&code)
+			.success();
+	} else {
+		success = AtParser(event)
+			.parseInt(&code)
+			.parseString(&data)
+			.parseInt(&dcs)
+			.success();
+	}
+	
+	if (success) {
+		int upper = (dcs & 0xF0) >> 4;
+		int lower = dcs & 0x0F;
+		
+		// UCS2
+		if (upper == 1 && lower == 1) {
+			data = decodeUcs2(hex2bin(data), true);
+		}
+		// 7bit
+		else {
+			data = decode7bit(hex2bin(data));
+		}
+	} else {
+		code = -1;
+	}
+	
+	if (m_current_ussd_callback) {
+		Loop::setTimeout([=]() {
+			Loop::clearTimeout(m_ussd_timeout);
+			
+			auto callback = m_current_ussd_callback;
+			
+			m_current_ussd_callback = nullptr;
+			m_ussd_timeout = -1;
+			
+			if (callback)
+				callback(code, data);
+		}, 0);
+	}
 }
 
 void Modem::handleCpin(const std::string &event) {
