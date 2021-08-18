@@ -71,7 +71,7 @@ class UbusObject {
 		}
 		
 		Method *findMethodByName(const char *name);
-		int callHandler(const char *method_name, ubus_request_data *req, blob_attr *attr);
+		int callHandler(const char *method_name, ubus_request_data *req, blob_attr *msg);
 		static int ubusMethodHandler(ubus_context *ctx, ubus_object *obj, ubus_request_data *req, const char *method, blob_attr *attr);
 	public:
 		void operator=(const UbusObject &) = delete;
@@ -82,7 +82,7 @@ class UbusObject {
 		bool attach();
 		bool detach();
 		
-		inline uint32_t id() {
+		inline uint32_t id() const {
 			return m_object.o.id;
 		}
 		

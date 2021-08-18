@@ -12,6 +12,14 @@ UbusRequest::~UbusRequest() {
 	}
 }
 
+const json &UbusRequest::data() {
+	if (!m_json_ready) {
+		m_json_ready = true;
+		blobmsgToJson(m_data, m_json);
+	}
+	return m_json;
+}
+
 bool UbusRequest::reply(const json &params, int status) {
 	if (m_done) {
 		LOGE("Request already replied!\n");

@@ -2,6 +2,7 @@
 
 #include "Log.h"
 #include "UbusObject.h"
+#include "Blobmsg.h"
 
 extern "C" {
 #include <libubus.h>

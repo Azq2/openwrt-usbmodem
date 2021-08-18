@@ -77,7 +77,7 @@ bool Netifd::updateIface(const std::string &iface, const std::string &ifname, co
 		json route_item = {{"target", "0.0.0.0"}, {"netmask", "0"}};
 		if (ipv4->gw.size() > 0)
 			ipaddr_item["gateway"] = ipv4->gw;
-		request["ipaddr"].push_back(ipaddr_item);
+		request["routes"].push_back(route_item);
 		
 		// IPv4 DNS
 		if (ipv4->dns1.size() > 0)
@@ -99,7 +99,7 @@ bool Netifd::updateIface(const std::string &iface, const std::string &ifname, co
 		json route_item = {{"target", "::"}, {"netmask", "0"}};
 		if (ipv6->gw.size() > 0)
 			ipaddr_item["gateway"] = ipv6->gw;
-		request["routes6"].push_back(ipaddr_item);
+		request["routes6"].push_back(route_item);
 		
 		// IPv6 DNS
 		if (ipv6->dns1.size() > 0)

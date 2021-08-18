@@ -399,19 +399,21 @@ int ModemService::checkError() {
 
 int ModemService::run() {
 	if (init()) {
-		/*
-		Loop::setTimeout([=]() {
-			bool success = m_ubus.object("usbmodem." + m_iface)
-				.method("info", [](auto req) {
-					//req->defer();
-					//req->reply(nullptr, 0);
-					return 0;
-				}, {
-					{"test", UbusObject::INT32}
-				})
-				.attach();
-		}, 0);
-		*/
+		bool success = m_ubus.object("usbmodem." + m_iface)
+			.method("info", [](auto req) {
+				std::string s = req->data().dump();
+				LOGD("new api req: %s\n", s.c_str());
+				req->defer();
+				
+				Loop::setTimeout([=]() {
+					req->reply({{"success", true}}, 0);
+				}, 0);
+				return 0;
+			}, {
+				{"test", UbusObject::INT32}
+			})
+			.attach();
+		LOGD("api attach success: %d\n", success);
 		
 		if (runModem())
 			Loop::run();

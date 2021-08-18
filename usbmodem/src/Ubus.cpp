@@ -32,14 +32,7 @@ bool Ubus::open() {
 
 void Ubus::onCallData(ubus_request *r, int type, blob_attr *msg) {
 	UbusCallRequest *req = static_cast<UbusCallRequest *>(r->priv);
-	
-	char *json_str = blobmsg_format_json(msg, true);
-	
-	if (json_str)
-		req->data = json::parse(json_str);
-	
-	if (json_str)
-		free(json_str);
+	blobmsgToJson(msg, req->data);
 }
 
 void Ubus::onCallComplete(ubus_request *r, int ret) {
@@ -84,10 +77,7 @@ bool Ubus::callAsync(const std::string &path, const std::string &method, const j
 	
 	// Init msg
 	blob_buf_init(&req->b, 0);
-	
-	// FIXME: need more efficient way
-	auto json_str = params.dump();
-	blobmsg_add_json_from_string(&req->b, json_str.c_str());
+	blobmsgFromJson(&req->b, params);
 	
 	// Init request
 	if (ubus_invoke_async(m_ctx, id, method.c_str(), req->b.head, &req->r) != 0) {
@@ -120,10 +110,7 @@ bool Ubus::call(const std::string &path, const std::string &method, const json &
 	
 	// Init msg
 	blob_buf_init(&req->b, 0);
-	
-	// FIXME: need more efficient way
-	auto json_str = params.dump();
-	blobmsg_add_json_from_string(&req->b, json_str.c_str());
+	blobmsgFromJson(&req->b, params);
 	
 	// Init request
 	if (ubus_invoke_async_fd(m_ctx, id, method.c_str(), req->b.head, &req->r, -1) != 0) {
@@ -145,10 +132,7 @@ bool Ubus::call(const std::string &path, const std::string &method, const json &
 bool Ubus::reply(ubus_request_data *req, const json &params) {
 	blob_buf b = {};
 	blob_buf_init(&b, 0);
-	
-	// FIXME: need more efficient way
-	auto json_str = params.dump();
-	blobmsg_add_json_from_string(&b, json_str.c_str());
+	blobmsgFromJson(&b, params);
 	
 	int ret = ubus_send_reply(m_ctx, req, b.head);
 	blob_buf_free(&b);
@@ -158,10 +142,7 @@ bool Ubus::reply(ubus_request_data *req, const json &params) {
 
 bool Ubus::deferFinish(UbusDeferRequest *req, int status, const json &params, bool cleanup) {
 	if (status == UBUS_STATUS_OK) {
-		// FIXME: need more efficient way
-		auto json_str = params.dump();
-		blobmsg_add_json_from_string(&req->b, json_str.c_str());
-		
+		blobmsgFromJson(&req->b, params);
 		ubus_send_reply(m_ctx, &req->r, req->b.head);
 	}
 	ubus_complete_deferred_request(m_ctx, &req->r, status);

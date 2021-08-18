@@ -2,6 +2,7 @@
 
 #include "Log.h"
 #include "Json.h"
+#include "Blobmsg.h"
 #include "Ubus.h"
 
 extern "C" {
@@ -24,10 +25,14 @@ class UbusRequest {
 		UbusDeferRequest *m_defer_req = nullptr;
 		ubus_request_data *m_req = nullptr;
 		blob_attr *m_data = nullptr;
+		json m_json;
+		bool m_json_ready = false;
 		bool m_done = false;
 	public:
 		UbusRequest(Ubus *ubus, ubus_request_data *req, blob_attr *data);
 		~UbusRequest();
+		
 		bool reply(const json &params, int status = 0);
 		void defer();
+		const json &data();
 };
