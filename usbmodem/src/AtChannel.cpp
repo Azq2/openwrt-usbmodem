@@ -1,10 +1,29 @@
 #include "AtChannel.h"
+#include "AtParser.h"
 
 #include <signal.h>
 #include <unistd.h>
 #include <stdexcept>
 
 const std::string AtChannel::empty_line;
+			
+const int AtChannel::Response::getCmeError() const {
+	if (strStartsWith(status, "+CME ERROR")) {
+		int error;
+		if (AtParser(status).parseInt(&error).success())
+			return error;
+	}
+	return -1;
+}
+
+const int AtChannel::Response::getCmsError() const {
+	if (strStartsWith(status, "+CMS ERROR")) {
+		int error;
+		if (AtParser(status).parseInt(&error).success())
+			return error;
+	}
+	return -1;
+}
 
 AtChannel::AtChannel() {
 	if (sem_init(&at_cmd_sem, 0, 0) != 0) {
@@ -170,11 +189,12 @@ void AtChannel::handleLine() {
 				handleUnsolicitedLine();
 			}
 		} else if (m_curr_type == NO_PREFIX) {
-			if (strStartsWith(m_buffer, m_curr_prefix))
-				m_curr_response->lines.push_back(m_buffer);
+			m_curr_response->lines.push_back(m_buffer);
 			handleUnsolicitedLine();
 		} else if (m_curr_type == NUMERIC) {
-			if (isdigit(m_buffer[0])) {
+			if (m_curr_prefix.size() > 0 && strStartsWith(m_buffer, m_curr_prefix)) {
+				m_curr_response->lines.push_back(m_buffer);
+			} else if (isdigit(m_buffer[0])) {
 				m_curr_response->lines.push_back(m_buffer);
 			} else {
 				handleUnsolicitedLine();
@@ -195,6 +215,19 @@ void AtChannel::handleLine() {
 	}
 }
 
+bool AtChannel::checkCommandExists(const std::string &cmd, int timeout) {
+	Response response;
+	
+	int ret = sendCommand(NO_RESPONSE, cmd, "", &response, timeout);
+	if (ret == AT_SUCCESS)
+		return true;
+	
+	if (strStartsWith(response.status, "+CME") || strStartsWith(response.status, "+CMS"))
+		return true;
+	
+	return false;
+}
+
 int AtChannel::sendCommand(ResultType type, const std::string &cmd, const std::string &prefix, Response *response, int timeout) {
 	at_cmd_mutex.lock();
 	
@@ -206,8 +239,12 @@ int AtChannel::sendCommand(ResultType type, const std::string &cmd, const std::s
 		return AT_IO_BROKEN;
 	}
 	
-	if (!timeout)
-		timeout = m_default_at_timeout;
+	if (!timeout) {
+		timeout = m_timeout_callback ? m_timeout_callback(cmd) : 0;
+		
+		if (!timeout)
+			timeout = m_default_at_timeout;
+	}
 	
 	int64_t start = getCurrentTimestamp();
 	

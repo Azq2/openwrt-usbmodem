@@ -20,7 +20,7 @@ ModemService::ModemService(const std::string &iface): m_iface(iface) {
 	m_uci_options["username"] = "";
 	m_uci_options["password"] = "";
 	m_uci_options["pincode"] = "";
-	m_uci_options["force_use_dhcp"] = "0";
+	m_uci_options["prefer_dhcp"] = "0";
 	m_uci_options["force_network_restart"] = "0";
 	m_uci_options["connect_timeout"] = "300";
 }
@@ -168,16 +168,16 @@ bool ModemService::runModem() {
 		return setError("INVALID_CONFIG", true);
 	}
 	
-	// Setup options to driver
-	m_modem->setPreferDhcp(m_uci_options["force_use_dhcp"] == "1");
-	m_modem->setForceNetworkRestart(m_uci_options["force_network_restart"] == "1");
+	// Setup main options to driver
 	m_modem->setPdpConfig(m_uci_options["pdp_type"], m_uci_options["apn"], m_uci_options["auth_type"], m_uci_options["username"], m_uci_options["password"]);
 	m_modem->setPinCode(m_uci_options["pincode"]);
-	m_modem->setDataConnectTimeout(strToInt(m_uci_options["connect_timeout"]) * 1000);
-	
 	m_modem->setSerial(m_tty_path, m_tty_speed);
 	
-	Loop::on<Modem::EvNetworkChanged>([=](const auto &event) {
+	// Setup custom options to driver
+	m_modem->setCustomOption<bool>("prefer_dhcp", m_uci_options["prefer_dhcp"] == "1");
+	m_modem->setCustomOption<int>("connect_timeout", strToInt(m_uci_options["connect_timeout"]) * 1000);
+	
+	m_modem->on<Modem::EvNetworkChanged>([=](const auto &event) {
 		if (event.status == Modem::NET_NOT_REGISTERED) {
 			LOGD("Unregistered from network\n");
 		} else if (event.status == Modem::NET_SEARCHING) {
@@ -187,7 +187,7 @@ bool ModemService::runModem() {
 		}
 	});
 	
-	Loop::on<Modem::EvTechChanged>([=](const auto &event) {
+	m_modem->on<Modem::EvTechChanged>([=](const auto &event) {
 		if (event.tech == Modem::TECH_NO_SERVICE || event.tech == Modem::TECH_UNKNOWN) {
 			LOGD("Network mode: none\n");
 		} else {
@@ -195,7 +195,7 @@ bool ModemService::runModem() {
 		}
 	});
 	
-	Loop::on<Modem::EvDataConnected>([=](const auto &event) {
+	m_modem->on<Modem::EvDataConnected>([=](const auto &event) {
 		int dhcp_delay = 0;
 		if (event.is_update) {
 			int diff = getCurrentTimestamp() - m_last_connected;
@@ -214,9 +214,8 @@ bool ModemService::runModem() {
 			}
 		}
 		
-		IpInfo ipv4 = {}, ipv6 = {};
-		m_modem->getIpInfo(4, &ipv4);
-		m_modem->getIpInfo(6, &ipv6);
+		Modem::IpInfo ipv4 = m_modem->getIpInfo(4);
+		Modem::IpInfo ipv6 = m_modem->getIpInfo(6);
 		
 		if (m_modem->getIfaceProto() == Modem::IFACE_STATIC) {
 			if (!m_netifd.updateIface(m_iface, m_net_iface, &ipv4, &ipv6)) {
@@ -251,11 +250,11 @@ bool ModemService::runModem() {
 		}
 	});
 	
-	Loop::on<Modem::EvDataConnecting>([=](const auto &event) {
+	m_modem->on<Modem::EvDataConnecting>([=](const auto &event) {
 		LOGD("Connecting to internet...\n");
 	});
 	
-	Loop::on<Modem::EvDataDisconnected>([=](const auto &event) {
+	m_modem->on<Modem::EvDataDisconnected>([=](const auto &event) {
 		m_last_disconnected = getCurrentTimestamp();
 		int diff = m_last_disconnected - m_last_connected;
 		LOGD("Internet disconnected, last session %d ms\n", diff);
@@ -272,9 +271,8 @@ bool ModemService::runModem() {
 		}
 	});
 	
-	Loop::on<Modem::EvSignalLevels>([=](const auto &event) {
-		Modem::SignalLevels levels;
-		m_modem->getSignalLevels(&levels);
+	m_modem->on<Modem::EvSignalLevels>([=](const auto &event) {
+		Modem::SignalLevels levels = m_modem->getSignalLevels();
 		
 		std::vector<std::string> info;
 		
@@ -302,23 +300,24 @@ bool ModemService::runModem() {
 		}
 	});
 	
-	Loop::on<Modem::EvPinStateChaned>([=](const auto &event) {
+	m_modem->on<Modem::EvPinStateChaned>([=](const auto &event) {
 		if (event.state == Modem::PIN_ERROR) {
 			LOGD("PIN: invalid code, or required PIN2, PUK, PUK2 or other.\n");
-			setError("PIN_ERROR", true);
 		} else if (event.state == Modem::PIN_READY) {
 			LOGD("PIN: success\n");
 		} else if (event.state == Modem::PIN_REQUIRED) {
 			LOGD("PIN: need unlock\n");
+		} else if (event.state == Modem::PIN_NOT_SUPPORTED) {
+			LOGD("PIN: not supported\n");
 		}
 	});
 	
-	Loop::on<Modem::EvIoBroken>([=](const auto &event) {
+	m_modem->on<Modem::EvIoBroken>([=](const auto &event) {
 		LOGE("TTY device is lost...\n");
 		setError("IO_ERROR");
 	});
 	
-	Loop::on<Modem::EvDataConnectTimeout>([=](const auto &event) {
+	m_modem->on<Modem::EvDataConnectTimeout>([=](const auto &event) {
 		LOGE("Internet connection timeout...\n");
 		setError("CONNECT_TIMEOUT");
 	});
@@ -327,6 +326,9 @@ bool ModemService::runModem() {
 		LOGE("Can't initialize modem.\n");
 		return setError("INIT_ERROR");
 	}
+	
+	LOGD("Modem: %s %s\n", m_modem->getVendor().c_str(), m_modem->getModel().c_str());
+	LOGD("IMEI: %s\n", m_modem->getImei().c_str());
 	
 	return true;
 }

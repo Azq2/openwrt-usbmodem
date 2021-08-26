@@ -16,6 +16,8 @@ class AtChannel {
 	public:
 		static const std::string empty_line;
 		
+		typedef std::function<int(const std::string &cmd)> TimeoutSetCallback;
+		
 		enum Errors {
 			AT_SUCCESS		= 0,
 			AT_TIMEOUT		= -1,
@@ -32,6 +34,21 @@ class AtChannel {
 			const inline std::string &data() const {
 				return lines.size() ? lines[0] : AtChannel::empty_line;
 			}
+			
+			const inline int isCmeError() const {
+				return getCmeError() >= 0;
+			}
+			
+			const inline int isCmsError() const {
+				return getCmsError() >= 0;
+			}
+			
+			const inline int isGeneralError() const {
+				return !isCmeError() && !isCmsError() && error;
+			}
+			
+			const int getCmeError() const;
+			const int getCmsError() const;
 		};
 		
 		enum ResultType {
@@ -64,7 +81,9 @@ class AtChannel {
 		ResultType m_curr_type = DEFAULT;
 		sem_t at_cmd_sem = {};
 		std::mutex at_cmd_mutex;
-		int m_default_at_timeout = 10000;
+		TimeoutSetCallback m_timeout_callback;
+		int m_default_at_timeout = 10 * 1000;
+		
 		std::function<void()> m_broken_io_handler;
 		std::function<void(Errors error, int64_t start)> m_global_error_handler;
 		
@@ -95,6 +114,10 @@ class AtChannel {
 		
 		inline void setDefaultTimeout(int timeout) {
 			m_default_at_timeout = timeout;
+		}
+		
+		inline void setDefaultTimeoutCallback(const TimeoutSetCallback &callback) {
+			m_timeout_callback = callback;
 		}
 		
 		void readerLoop();
@@ -140,10 +163,18 @@ class AtChannel {
 			return response;
 		}
 		
+		inline Response sendCommandNumericOrWithPrefix(const std::string &cmd, const std::string &prefix = "", int timeout = 0) {
+			Response response;
+			sendCommand(NUMERIC, cmd, prefix, &response, timeout);
+			return response;
+		}
+		
 		inline int sendCommandNoResponse(const std::string &cmd, int timeout = 0) {
 			Response response;
 			return sendCommand(NO_RESPONSE, cmd, "", &response, timeout);
 		}
+		
+		bool checkCommandExists(const std::string &cmd, int timeout = 0);
 		
 		inline Response sendCommandDial(const std::string &cmd, int timeout = 0) {
 			Response response;

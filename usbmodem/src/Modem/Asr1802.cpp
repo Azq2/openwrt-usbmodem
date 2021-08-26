@@ -1,21 +1,26 @@
 #include "Asr1802.h"
+#include "../Loop.h"
 
-ModemAsr1802::ModemAsr1802() : Modem() {
+ModemAsr1802::ModemAsr1802() : ModemBaseAt() {
 	
 }
 
-int ModemAsr1802::getDefaultAtTimeout() {
-	return 10 * 1000;
-}
-
-int ModemAsr1802::getDelayAfterDhcpRelease() {
-	return 2000;
-}
-
-ModemAsr1802::IfaceProto ModemAsr1802::getIfaceProto() {
-	if (m_prefer_dhcp)
-		return IFACE_DHCP;
-	return IFACE_STATIC;
+/*
+ * Custom options
+ * */
+bool ModemAsr1802::setCustomOption(const std::string &name, const std::any &value) {
+	if (ModemBaseAt::setCustomOption(name, value))
+		return true;
+	
+	if (name == "force_restart_network") {
+		m_force_restart_network = std::any_cast<bool>(value);
+		return true;
+	} else if (name == "prefer_dhcp") {
+		m_prefer_dhcp = std::any_cast<bool>(value);
+		return true;
+	}
+	
+	return false;
 }
 
 bool ModemAsr1802::initDefaults() {
@@ -174,6 +179,17 @@ void ModemAsr1802::handleCreg(const std::string &event) {
 	handleNetworkChange();
 }
 
+void ModemAsr1802::handleUssdResponse(int code, const std::string &data, int dcs) {
+	// Fix broken USSD dcs
+	if (dcs == 17)
+		dcs = 72; /* UCS2 */
+	
+	if (dcs == 0)
+		dcs = 68; /* 8bit GSM */
+	
+	ModemBaseAt::handleUssdResponse(code, data, dcs);
+}
+
 bool ModemAsr1802::dial() {
 	std::string cmd;
 	
@@ -195,7 +211,7 @@ bool ModemAsr1802::dial() {
 	
 	// Start dialing
 	cmd = "AT+CGDATA=\"\"," + std::to_string(m_pdp_context);
-	auto response = m_at.sendCommandDial(cmd, TIMEOUT_CGDATA);
+	auto response = m_at.sendCommandDial(cmd);
 	if (response.error) {
 		LOGD("Dial error: %s\n", response.status.c_str());
 		return false;
@@ -221,12 +237,12 @@ void ModemAsr1802::handleNetworkChange() {
 	
 	if (m_net_reg != new_net_reg) {
 		m_net_reg = new_net_reg;
-		Loop::emit<EvNetworkChanged>({.status = m_net_reg});
+		emit<EvNetworkChanged>({.status = m_net_reg});
 	}
 	
 	if (m_tech != new_tech) {
 		m_tech = new_tech;
-		Loop::emit<EvTechChanged>({.tech = m_tech});
+		emit<EvTechChanged>({.tech = m_tech});
 	}
 }
 
@@ -333,17 +349,17 @@ void ModemAsr1802::handleConnect() {
 		}
 		
 		if (ipv == 6) {
-			m_ipv6_ip = addr;
-			m_ipv6_gw = gw;
-			m_ipv6_mask = mask;
-			m_ipv6_dns1 = dns1;
-			m_ipv6_dns2 = dns2;
+			m_ipv6.ip = addr;
+			m_ipv6.gw = gw;
+			m_ipv6.mask = mask;
+			m_ipv6.dns1 = dns1;
+			m_ipv6.dns2 = dns2;
 		} else {
-			m_ipv4_ip = addr;
-			m_ipv4_gw = gw;
-			m_ipv4_mask = mask;
-			m_ipv4_dns1 = dns1;
-			m_ipv4_dns2 = dns2;
+			m_ipv4.ip = addr;
+			m_ipv4.gw = gw;
+			m_ipv4.mask = mask;
+			m_ipv4.dns1 = dns1;
+			m_ipv4.dns2 = dns2;
 		}
 	}
 	
@@ -352,7 +368,7 @@ void ModemAsr1802::handleConnect() {
 	m_data_state = CONNECTED;
 	m_connect_errors = 0;
 	
-	Loop::emit<EvDataConnected>({
+	emit<EvDataConnected>({
 		.is_update = is_update,
 	});
 }
@@ -364,21 +380,21 @@ void ModemAsr1802::handleConnectError() {
 }
 
 void ModemAsr1802::handleDisconnect() {
-	m_ipv4_gw = "";
-	m_ipv4_ip = "";
-	m_ipv4_mask = "";
-	m_ipv4_dns1 = "";
-	m_ipv4_dns2 = "";
+	m_ipv4.gw = "";
+	m_ipv4.ip = "";
+	m_ipv4.mask = "";
+	m_ipv4.dns1 = "";
+	m_ipv4.dns2 = "";
 	
-	m_ipv6_gw = "";
-	m_ipv6_ip = "";
-	m_ipv6_mask = "";
-	m_ipv6_dns1 = "";
-	m_ipv6_dns2 = "";
+	m_ipv6.gw = "";
+	m_ipv6.ip = "";
+	m_ipv6.mask = "";
+	m_ipv6.dns1 = "";
+	m_ipv6.dns2 = "";
 	
 	if (m_data_state == CONNECTED) {
 		m_data_state = DISCONNECTED;
-		Loop::emit<EvDataDisconnected>({});
+		emit<EvDataDisconnected>({});
 	} else {
 		m_data_state = DISCONNECTED;
 	}
@@ -400,7 +416,7 @@ void ModemAsr1802::startDataConnection() {
 		return;
 	
 	m_data_state = CONNECTING;
-	Loop::emit<EvDataConnecting>({});
+	emit<EvDataConnecting>({});
 	
 	Loop::setTimeout([this]() {
 		if (dial()) {
@@ -515,19 +531,8 @@ bool ModemAsr1802::syncApn() {
 	return true;
 }
 
-void ModemAsr1802::startSimPolling() {
-	if (m_pin_state == PIN_ERROR || m_pin_state == PIN_READY)
-		return;
-	
-	m_at.sendCommandNoResponse("AT+CPIN?");
-	
-	Loop::setTimeout([=]() {
-		startSimPolling();
-	}, 1000);
-}
-
 bool ModemAsr1802::isRadioOn() {
-	auto response = m_at.sendCommand("AT+CFUN?", "+CFUN", TIMEOUT_CFUN);
+	auto response = m_at.sendCommand("AT+CFUN?", "+CFUN");
 	if (response.error)
 		return false;
 	
@@ -540,10 +545,13 @@ bool ModemAsr1802::isRadioOn() {
 
 bool ModemAsr1802::setRadioOn(bool state) {
 	std::string cmd = "AT+CFUN=" + std::to_string(state ? 1 : 4);
-	return m_at.sendCommandNoResponse(cmd, TIMEOUT_CFUN) == 0;
+	return m_at.sendCommandNoResponse(cmd) == 0;
 }
 
 bool ModemAsr1802::init() {
+	// Default AT timeout for this modem
+	m_at.setDefaultTimeout(10 * 1000);
+	
 	// Currently is a fastest way for get internet after "cold" boot when using DCHP
 	// Without this DHCP not respond up to 20 sec
 	if (getIfaceProto() == IFACE_DHCP)
@@ -556,6 +564,9 @@ bool ModemAsr1802::init() {
 	}
 	
 	if (!initDefaults())
+		return false;
+	
+	if (!readModemIdentification())
 		return false;
 	
 	if (!syncApn())
@@ -613,16 +624,16 @@ bool ModemAsr1802::init() {
 	startSimPolling();
 	
 	// Handle disconnects
-	Loop::on<EvDataDisconnected>([=](const auto &event) {
+	on<EvDataDisconnected>([=](const auto &event) {
 		startDataConnection();
 		startNetRegWhatchdog();
 	});
 	
-	Loop::on<EvDataConnected>([=](const auto &event) {
+	on<EvDataConnected>([=](const auto &event) {
 		stopNetRegWhatchdog();
 	});
 	
-	Loop::on<EvTechChanged>([=](const auto &event) {
+	on<EvTechChanged>([=](const auto &event) {
 		startDataConnection();
 		stopNetRegWhatchdog();
 	});
@@ -648,4 +659,37 @@ void ModemAsr1802::finish() {
 
 ModemAsr1802::~ModemAsr1802() {
 	
+}
+
+/*
+ * Modem customizations
+ * */
+int ModemAsr1802::getDelayAfterDhcpRelease() {
+	return 2000;
+}
+
+ModemAsr1802::IfaceProto ModemAsr1802::getIfaceProto() {
+	// Modem supports two different protocols
+	if (m_prefer_dhcp)
+		return IFACE_DHCP;
+	return IFACE_STATIC;
+}
+
+int ModemAsr1802::getCommandTimeout(const std::string &cmd) {
+	if (strStartsWith(cmd, "AT+CFUN"))
+		return 50 * 1000;
+	
+	if (strStartsWith(cmd, "AT+CGDATA"))
+		return 185 * 1000;
+	
+	if (strStartsWith(cmd, "AT+CUSD"))
+		return 110 * 1000;
+	
+	if (strStartsWith(cmd, "AT+CGATT"))
+		return 110 * 1000;
+	
+	if (strStartsWith(cmd, "AT+CPIN"))
+		return 185 * 1000;
+	
+	return ModemBaseAt::getCommandTimeout(cmd);
 }

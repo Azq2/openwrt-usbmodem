@@ -90,22 +90,6 @@ void Loop::_stop() {
 	}
 }
 
-void Loop::on(size_t event_id, const std::function<void(const std::any &event)> &callback) {
-	m_mutex.lock();
-	m_events[event_id].push_back(callback);
-	m_mutex.unlock();
-}
-
-void Loop::_emit(const std::any &value) {
-	setTimeout([this, value]() {
-		auto handlers = m_events.find(value.type().hash_code());
-		if (handlers != m_events.end()) {
-			for (auto &callback: handlers->second)
-				callback(value);
-		}
-	}, 0);
-}
-
 void Loop::uloopMainTimeoutHandler(uloop_timeout *timeout) {
 	instance()->runNextTimeout();
 }

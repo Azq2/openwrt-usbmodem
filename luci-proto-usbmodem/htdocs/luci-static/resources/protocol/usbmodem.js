@@ -184,17 +184,17 @@ return network.registerProtocol('usbmodem', {
 		connect_timeout.rmempty = true;
 		
 		// DHCP
-		var force_use_dhcp = s.taboption(
+		var prefer_dhcp = s.taboption(
 			'modem',
 			form.Flag,
-			'force_use_dhcp',
+			'prefer_dhcp',
 			_('Force use DHCP'),
 			_('By default, the usbmodem daemon monitors IP address changes and manually sets it to a static interface.') + '<br />' +
 			_('This is the fastest way to reconnect to the Internet when the ISP resets the session.') + '<br />' +
 			_('But a rollback to DHCP is also available (for worth case).')
 		);
-		force_use_dhcp.depends('modem_type', 'ncm');
-		force_use_dhcp.depends('modem_type', 'asr1802');
+		prefer_dhcp.depends('modem_type', 'ncm');
+		prefer_dhcp.depends('modem_type', 'asr1802');
 		
 		// Network restart
 		var force_network_restart = s.taboption(
@@ -205,6 +205,6 @@ return network.registerProtocol('usbmodem', {
 			_('Switching the modem to flight mode for some time at the first connection.') + '<br />' +
 			_('May be useful for some weird modems, but slows down internet connection after reboot.')
 		);
-		force_use_dhcp.depends('modem_type', 'asr1802');
+		prefer_dhcp.depends('modem_type', 'asr1802');
 	}
 });

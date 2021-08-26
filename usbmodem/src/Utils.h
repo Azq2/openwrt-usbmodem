@@ -10,14 +10,6 @@
 
 #define COUNT_OF(a) (sizeof((a)) / sizeof((a)[0]))
 
-struct IpInfo {
-	std::string ip;
-	std::string mask;
-	std::string gw;
-	std::string dns1;
-	std::string dns2;
-};
-
 int64_t getCurrentTimestamp();
 
 inline int getNewTimeout(int64_t start, int timeout) {
@@ -55,9 +47,6 @@ static inline int hex2byte(char c) {
 	return -1;
 }
 
-std::string decodeUcs2(const std::string &data, bool be = false);
-std::string decode7bit(const std::string &data);
-
 int strToInt(const std::string &s, int base = 10, int default_value = 0);
 
 std::string converOctalIpv6(const std::string &value);
@@ -66,7 +55,15 @@ bool normalizeIp(std::string *raw_ip, int require_ipv = 0, bool allow_dec_v6 = f
 
 int execFile(const std::string &path, std::vector<std::string> args, std::vector<std::string> envs);
 
-std::string hex2bin(const std::string &hex);
+std::pair<bool, std::string> tryHexToBin(const std::string &hex);
+
+std::string bin2hex(const std::string &raw, bool uc = false);
+
+inline std::string hex2bin(const std::string &hex) {
+	auto [success, decoded] = tryHexToBin(hex);
+	return success ? decoded : hex;
+}
+
 std::string numberFormat(float num, int max_decimals = 0);
 std::string numberFormat(double num, int max_decimals = 0);
 std::string strJoin(const std::vector<std::string> &lines, const std::string &delim);

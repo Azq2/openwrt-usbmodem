@@ -16,7 +16,7 @@ proto_usbmodem_init_config() {
 	proto_config_add_string auth_type
 	proto_config_add_string username
 	proto_config_add_string password
-	proto_config_add_string force_use_dhcp
+	proto_config_add_string prefer_dhcp
 	proto_config_add_string force_network_restart
 	proto_config_add_string force_network_restart
 	proto_config_add_defaults

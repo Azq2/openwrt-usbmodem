@@ -34,6 +34,9 @@ class Loop {
 			int64_t time;
 		};
 		
+		typedef std::function<void(const std::any &event)> EventCallback;
+		typedef std::map<size_t, std::vector<EventCallback>> EventsStorage;
+		
 		Loop();
 		~Loop();
 		
@@ -47,7 +50,7 @@ class Loop {
 		list_head timeouts = LIST_HEAD_INIT(timeouts);
 		
 		std::map<int, Timer> m_timers;
-		std::map<size_t, std::vector<std::function<void(const std::any &event)>>> m_events;
+		EventsStorage m_events;
 		
 		std::mutex m_mutex;
 		
@@ -71,9 +74,6 @@ class Loop {
 		void _run();
 		void _done();
 		void _stop();
-		
-		void _emit(const std::any &value);
-		void on(size_t event_id, const std::function<void(const std::any &event)> &callback);
 	public:
 		static inline Loop *instance() {
 			if (!m_instance)
@@ -95,22 +95,6 @@ class Loop {
 		
 		inline static void stop() {
 			instance()->_stop();
-		}
-		
-		template <typename T>
-		static void on(const std::function<void(const T &)> &callback) {
-			instance()->on(typeid(T).hash_code(), [callback](const std::any &event) {
-				callback(std::any_cast<T>(event));
-			});
-		}
-		
-		static inline void emit(const std::any &value) {
-			instance()->_emit(value);
-		}
-		
-		template <typename T>
-		static inline void emit(const T &value) {
-			instance()->_emit(value);
 		}
 		
 		static inline int setTimeout(const std::function<void()> &callback, int timeout_ms) {

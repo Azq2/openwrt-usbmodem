@@ -11,8 +11,12 @@ add_executable(usbmodem
 	Serial.cpp
 	AtChannel.cpp
 	Utils.cpp
+	Events.cpp
+	GsmUtils.cpp
 	AtParser.cpp
 	Modem.cpp
+	Modem/BaseAt.cpp
+	Modem/Asr1802.cpp
 	UsbDiscover.cpp
 	ModemService.cpp
 	ModemServiceApi.cpp
@@ -23,7 +27,6 @@ add_executable(usbmodem
 	Netifd.cpp
 	Loop.cpp
 	Uci.cpp
-	Modem/Asr1802.cpp
 )
 target_link_libraries(usbmodem -lubox -lubus -luci -lstdc++ -lstdc++fs)
 install(TARGETS usbmodem DESTINATION sbin/)

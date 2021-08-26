@@ -55,7 +55,7 @@ bool Netifd::createDynamicIface(const std::string &proto, const std::string &ifa
 	return m_ubus->call("network", "add_dynamic", request);
 }
 
-bool Netifd::updateIface(const std::string &iface, const std::string &ifname, const IpInfo *ipv4, const IpInfo *ipv6) {
+bool Netifd::updateIface(const std::string &iface, const std::string &ifname, const Modem::IpInfo *ipv4, const Modem::IpInfo *ipv6) {
 	json request = {
 		{"action", 0},
 		{"link-up", true},

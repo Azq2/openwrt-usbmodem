@@ -1,20 +1,18 @@
 #pragma once
 
-#include <vector>
+#include <any>
 #include <string>
+#include <functional>
 
 #include "Log.h"
-#include "Loop.h"
-#include "Serial.h"
-#include "AtChannel.h"
-#include "AtParser.h"
+#include "Events.h"
 
-#include <arpa/inet.h>
-
+/*
+ * Generic modem interface
+ * */
 class Modem {
 	public:
-		static constexpr int TIMEOUT_USSD = 10000;
-		
+		// Network technology
 		enum NetworkTech: int {
 			TECH_UNKNOWN	= -1,
 			TECH_NO_SERVICE	= 0,
@@ -29,6 +27,7 @@ class Modem {
 			TECH_LTE		= 9
 		};
 		
+		// Network registration state
 		enum NetworkReg {
 			NET_NOT_REGISTERED		= 0,
 			NET_SEARCHING			= 1,
@@ -36,19 +35,23 @@ class Modem {
 			NET_REGISTERED_ROAMING	= 3,
 		};
 		
+		// Network interface protocol
 		enum IfaceProto {
 			IFACE_DHCP		= 0,
 			IFACE_STATIC	= 1,
 			IFACE_PPP		= 2
 		};
 		
+		// SIM PIN lock state
 		enum PinState {
-			PIN_UNKNOWN		= 0,
-			PIN_REQUIRED	= 1,
-			PIN_ERROR		= 2,
-			PIN_READY		= 3
+			PIN_UNKNOWN			= 0,
+			PIN_REQUIRED		= 1,
+			PIN_ERROR			= 2,
+			PIN_READY			= 3,
+			PIN_NOT_SUPPORTED	= 4
 		};
 		
+		// Network signal levels
 		struct SignalLevels {
 			float rssi_dbm;
 			float bit_err_pct;
@@ -58,116 +61,72 @@ class Modem {
 			float rsrp_dbm;
 		};
 		
+		// Interface IP info
+		struct IpInfo {
+			std::string ip;
+			std::string mask;
+			std::string gw;
+			std::string dns1;
+			std::string dns2;
+		};
+		
+		// USSD response types
+		enum UssdCode: int {
+			USSD_ERROR			= -1,
+			USSD_OK				= 0,
+			USSD_WAIT_REPLY		= 1,
+			USSD_CANCELED		= 2
+		};
+		
+		typedef std::function<void(UssdCode, const std::string &)> UssdCallback;
+		
+		enum Features: uint32_t {
+			FEATURE_USSD				= 1 << 0,
+			FEATURE_SMS					= 1 << 1,
+			FEATURE_PIN_STATUS			= 1 << 2,
+			FEATURE_NETWORK_LEVELS		= 1 << 3,
+		};
+		
+		/*
+		 * Events
+		 * */
+		
+		// Event when connected to internetet
 		struct EvDataConnected {
+			// True, when connection changed without disconnection
 			bool is_update;
 		};
 		
+		// Event when disconnected from internet
 		struct EvDataDisconnected { };
 		
+		// Event when connecting to internet
 		struct EvDataConnecting { };
 		
+		// Event when network technology changed
 		struct EvTechChanged {
 			const NetworkTech tech;
 		};
 		
+		// Event when network registration state changed
 		struct EvNetworkChanged {
 			const NetworkReg status;
 		};
 		
+		// Event when signal levels changed
 		struct EvSignalLevels { };
 		
+		// Event when PIN status changed
 		struct EvPinStateChaned {
 			PinState state;
 		};
 		
+		// Event when tty device is unrecoverable broken
 		struct EvIoBroken { };
 		
+		// Event when connection timeout reached
 		struct EvDataConnectTimeout { };
 	protected:
-		Serial m_serial;
-		AtChannel m_at;
-		
-		enum CregStatus: int {
-			CREG_NOT_REGISTERED					= 0,
-			CREG_REGISTERED_HOME				= 1,
-			CREG_SEARCHING						= 2,
-			CREG_REGISTRATION_DENIED			= 3,
-			CREG_UNKNOWN						= 4,
-			CREG_REGISTERED_ROAMING				= 5,
-			CREG_REGISTERED_HOME_SMS_ONLY		= 6,
-			CREG_REGISTERED_ROAMING_SMS_ONLY	= 7,
-			CREG_REGISTERED_EMERGENY_ONLY		= 8,
-			CREG_REGISTERED_HOME_NO_CSFB		= 9,
-			CREG_REGISTERED_ROAMING_NO_CSFB		= 10,
-			CREG_REGISTERED_EMERGENY_ONLY2		= 11,
-		};
-		
-		enum CregTech: int {
-			CREG_TECH_GSM			= 0,
-			CREG_TECH_GSM_COMPACT	= 1,
-			CREG_TECH_UMTS			= 2,
-			CREG_TECH_EDGE			= 3,
-			CREG_TECH_HSDPA			= 4,
-			CREG_TECH_HSUPA			= 5,
-			CREG_TECH_HSPA			= 6,
-			CREG_TECH_LTE			= 7,
-			CREG_TECH_HSPAP			= 8,
-			CREG_TECH_UNKNOWN		= 0xFF
-		};
-		
-		struct Creg {
-			CregStatus status = CREG_NOT_REGISTERED;
-			CregTech tech = CREG_TECH_UNKNOWN;
-			uint16_t loc_id = 0;
-			uint16_t cell_id = 0;
-			
-			inline bool isRegistered() const {
-				switch (status) {
-					case CREG_REGISTERED_HOME:				return true;
-					case CREG_REGISTERED_ROAMING:			return true;
-					case CREG_REGISTERED_HOME_NO_CSFB:		return true;
-					case CREG_REGISTERED_ROAMING_NO_CSFB:	return true;
-				}
-				return false;
-			}
-			
-			inline NetworkTech toNetworkTech() const {
-				if (!isRegistered())
-					return TECH_NO_SERVICE;
-				
-				switch (tech) {
-					case CREG_TECH_GSM:				return TECH_GSM;
-					case CREG_TECH_GSM_COMPACT:		return TECH_GSM;
-					case CREG_TECH_UMTS:			return TECH_UMTS;
-					case CREG_TECH_EDGE:			return TECH_EDGE;
-					case CREG_TECH_HSDPA:			return TECH_HSDPA;
-					case CREG_TECH_HSUPA:			return TECH_HSUPA;
-					case CREG_TECH_HSPA:			return TECH_HSPA;
-					case CREG_TECH_HSPAP:			return TECH_HSPAP;
-					case CREG_TECH_LTE:				return TECH_LTE;
-				}
-				return TECH_UNKNOWN;
-			}
-			
-			inline NetworkReg toNetworkReg() const {
-				switch (status) {
-					case CREG_NOT_REGISTERED:					return NET_NOT_REGISTERED;
-					case CREG_REGISTERED_HOME:					return NET_REGISTERED_HOME;
-					case CREG_SEARCHING:						return NET_SEARCHING;
-					case CREG_REGISTRATION_DENIED:				return NET_NOT_REGISTERED;
-					case CREG_UNKNOWN:							return NET_NOT_REGISTERED;
-					case CREG_REGISTERED_ROAMING:				return NET_REGISTERED_ROAMING;
-					case CREG_REGISTERED_HOME_SMS_ONLY:			return NET_REGISTERED_HOME;
-					case CREG_REGISTERED_ROAMING_SMS_ONLY:		return NET_REGISTERED_ROAMING;
-					case CREG_REGISTERED_EMERGENY_ONLY:			return NET_NOT_REGISTERED;
-					case CREG_REGISTERED_HOME_NO_CSFB:			return NET_REGISTERED_HOME;
-					case CREG_REGISTERED_ROAMING_NO_CSFB:		return NET_REGISTERED_ROAMING;
-					case CREG_REGISTERED_EMERGENY_ONLY2:		return NET_NOT_REGISTERED;
-				}
-				return NET_NOT_REGISTERED;
-			}
-		};
-		
 		// Serial config
 		int m_speed = 115200;
 		std::string m_tty;
@@ -182,94 +141,52 @@ class Modem {
 		
 		// Pin
 		std::string m_pincode;
-		bool m_pincode_entered = false;
 		
 		// Current connection
-		std::string m_ipv4_gw;
-		std::string m_ipv4_ip;
-		std::string m_ipv4_mask;
-		std::string m_ipv4_dns1;
-		std::string m_ipv4_dns2;
+		IpInfo m_ipv4 = {};
+		IpInfo m_ipv6 = {};
 		
-		std::string m_ipv6_gw;
-		std::string m_ipv6_ip;
-		std::string m_ipv6_mask;
-		std::string m_ipv6_dns1;
-		std::string m_ipv6_dns2;
+		// Current signal info
+		SignalLevels m_levels = {};
 		
-		float m_rssi_dbm = NAN;
-		float m_bit_err_pct = NAN;
-		float m_rscp_dbm = NAN;
-		float m_eclo_db = NAN;
-		float m_rsrq_db = NAN;
-		float m_rsrp_dbm = NAN;
-		
-		bool m_prefer_dhcp = false;
-		bool m_force_restart_network = false;
-		int m_connect_timeout = 0;
-		int m_connect_timeout_id = -1;
-		
-		void startNetRegWhatchdog();
-		void stopNetRegWhatchdog();
-		
-		virtual bool init() = 0;
-		virtual bool ping(int tries = 3);
-		virtual bool handshake();
-		virtual int getDefaultAtTimeout();
-		virtual int getDefaultAtPingTimeout();
-		
-		// USSD
-		int m_ussd_timeout = -1;
-		std::function<void(int code, const std::string &)> m_current_ussd_callback;
-		
-		// CS status
-		Creg m_creg = {};
-		
-		// GPRS / 3G status
-		Creg m_cereg = {};
-		
-		// LTE status
-		Creg m_cgreg = {};
-		
-		// self-test
-		bool m_self_test = false;
-		
+		// Current PIN state
 		PinState m_pin_state = PIN_UNKNOWN;
 		
 		// Current network tech
 		NetworkTech m_tech = TECH_NO_SERVICE;
 		
-		// Network reg status
+		// Network registration status
 		NetworkReg m_net_reg = NET_NOT_REGISTERED;
 		
-		// Modem events handlers
-		void handleCesq(const std::string &event);
-		void handleCpin(const std::string &event);
-		void handleCusd(const std::string &event);
+		// Modem identification
+		std::string m_hw_vendor;
+		std::string m_hw_model;
+		std::string m_sw_ver;
+		std::string m_imei;
+		
+		// Events interface
+		Events m_ev;
 	public:
-		Modem();
-		virtual ~Modem();
-		
-		virtual IfaceProto getIfaceProto();
-		virtual int getDelayAfterDhcpRelease();
-		
-		inline AtChannel *getAtChannel() {
-			return &m_at;
-		}
-		
-		inline void setPreferDhcp(bool enable) {
-			m_prefer_dhcp = enable;
-		}
-		
-		inline void setForceNetworkRestart(bool enable) {
-			m_force_restart_network = enable;
-		}
-		
 		static const char *getTechName(NetworkTech tech);
 		static const char *getNetRegStatusName(NetworkReg reg);
 		
-		bool getIpInfo(int ipv, IpInfo *ip_info) const;
-		void getSignalLevels(SignalLevels *levels) const;
+		Modem();
+		virtual ~Modem();
+		
+		virtual bool open() = 0;
+		virtual void close() = 0;
+		virtual void finish() = 0;
+		
+		/*
+		 * Current modem state
+		 * */
+		inline IpInfo getIpInfo(int ipv) const {
+			return ipv == 6 ? m_ipv6 : m_ipv4;
+		}
+		
+		inline SignalLevels getSignalLevels() const {
+			return m_levels;
+		}
 		
 		inline NetworkReg getNetRegStatus() const {
 			return m_net_reg;
@@ -281,6 +198,17 @@ class Modem {
 		
 		inline PinState getPinState() const {
 			return m_pin_state;
+		}
+		
+		/*
+		 * Modem configuration
+		 * */
+		virtual bool setCustomOption(const std::string &name, const std::any &value) = 0;
+		
+		template <typename T>
+		inline bool setCustomOption(const std::string &name, const T &value) {
+			auto any_value = std::make_any<T>(value);
+			return setCustomOption(name, any_value);
 		}
 		
 		inline void setPdpConfig(const std::string &pdp_type, const std::string &apn, const std::string &auth_mode, const std::string &user, const std::string &password) {
@@ -300,17 +228,51 @@ class Modem {
 			m_speed = speed;
 		}
 		
-		inline void setDataConnectTimeout(int timeout) {
-			m_connect_timeout = timeout;
+		const inline std::string &getModel() const {
+			return m_hw_model;
 		}
 		
-		bool isUssdBusy() {
-			return m_current_ussd_callback != nullptr;
+		const inline std::string &getVendor() const {
+			return m_hw_vendor;
 		}
 		
-		bool sendUssd(std::string ussd, std::function<void(int code, const std::string &)>, int timeout = 0);
+		const inline std::string &getSwVersion() const {
+			return m_sw_ver;
+		}
 		
-		bool open();
-		void close();
-		virtual void finish();
+		const inline std::string &getImei() const {
+			return m_imei;
+		}
+		
+		/*
+		 * Event interface
+		 * */
+		template <typename T>
+		inline void on(const std::function<void(const T &)> &callback) {
+			m_ev.on<T>(callback);
+		}
+		
+		template <typename T>
+		inline void emit(const T &value) {
+			m_ev.emit(value);
+		}
+		
+		/*
+		 * Modem customizations
+		 * */
+		virtual IfaceProto getIfaceProto() = 0;
+		virtual int getDelayAfterDhcpRelease();
+		
+		/*
+		 * AT command API
+		 * */
+		virtual std::pair<bool, std::string> sendAtCommand(const std::string &cmd, int timeout = 0) = 0;
+		
+		/*
+		 * USSD API
+		 * */
+		virtual bool sendUssd(const std::string &cmd, UssdCallback callback, int timeout = 0) = 0;
+		virtual bool cancelUssd() = 0;
+		virtual bool isUssdBusy() = 0;
+		virtual bool isUssdWaitReply() = 0;
 };

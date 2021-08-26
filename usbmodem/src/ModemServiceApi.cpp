@@ -4,24 +4,42 @@
 int ModemService::apiSendUssd(std::shared_ptr<UbusRequest> req) {
 	auto &params = req->data();
 	
+	bool is_answer = false;
 	int timeout = 0;
 	std::string query;
 	
-	if (params["query"].is_string())
+	if (params["query"].is_string()) {
 		query = params["query"];
+	} else if (params["answer"].is_string()) {
+		is_answer = true;
+		query = params["answer"];
+	}
 	
 	if (params["timeout"].is_number())
 		timeout = params["timeout"];
 	
+	if (!is_answer && m_modem->isUssdWaitReply())
+		m_modem->cancelUssd();
+	
 	req->defer();
 	
-	m_modem->sendUssd(query, [=](int code, const std::string &response) {
-		req->reply({
-			{"code", code},
-			{"response", response}
-		});
-	});
+	m_modem->sendUssd(query, [=](Modem::UssdCode code, const std::string &response) {
+		if (code == Modem::USSD_ERROR) {
+			req->reply({{"error", response}});
+		} else {
+			req->reply({
+				{"code", code},
+				{"response", response}
+			});
+		}
+	}, timeout);
 	
+	return 0;
+}
+
+int ModemService::apiCancelUssd(std::shared_ptr<UbusRequest> req) {
+	if (!m_modem->cancelUssd())
+		req->reply({{"error", "Can't cancel USSD."}});
 	return 0;
 }
 
@@ -29,60 +47,42 @@ int ModemService::apiSendCommand(std::shared_ptr<UbusRequest> req) {
 	auto &params = req->data();
 	
 	int timeout = 0;
-	std::string cmd, prefix, response;
+	std::string cmd;
 	
 	if (params["command"].is_string())
 		cmd = params["command"];
-	
-	if (params["prefix"].is_string())
-		prefix = params["prefix"];
-	
-	if (params["response"].is_string())
-		response = params["response"];
-	
+
 	if (params["timeout"].is_number())
 		timeout = params["timeout"];
 	
 	if (cmd.size() > 0) {
-		json response;
-		AtChannel::Response cmd_response;
-		AtChannel *at_channel = m_modem->getAtChannel();
-		
-		if (params["response"] == "numeric") {
-			cmd_response = at_channel->sendCommandNumeric(cmd, timeout);
-		} else if (params["response"] == "multiline") {
-			cmd_response = at_channel->sendCommandMultiline(cmd, prefix, timeout);
-		} else if (params["response"] == "dial") {
-			cmd_response = at_channel->sendCommandDial(cmd, timeout);
-		} else {
-			if (prefix == "") {
-				cmd_response = at_channel->sendCommandNoPrefix(cmd, timeout);
-			} else {
-				cmd_response = at_channel->sendCommand(cmd, prefix, timeout);
-			}
-		}
+		auto [success, response] = m_modem->sendAtCommand(cmd, timeout);
 		
 		req->reply({
-			{"error", cmd_response.error},
-			{"status", cmd_response.status},
-			{"lines", cmd_response.lines}
+			{"success", success},
+			{"response", response},
 		});
 		
 		return 0;
 	} else {
 		return UBUS_STATUS_INVALID_ARGUMENT;
 	}
+	
+	return 0;
 }
 
 int ModemService::apiGetInfo(std::shared_ptr<UbusRequest> req) {
-	Modem::SignalLevels levels;
-	IpInfo ipv4, ipv6;
-	
-	m_modem->getSignalLevels(&levels);
-	m_modem->getIpInfo(4, &ipv4);
-	m_modem->getIpInfo(6, &ipv6);
+	auto levels = m_modem->getSignalLevels();
+	auto ipv4 = m_modem->getIpInfo(4);
+	auto ipv6 = m_modem->getIpInfo(6);
 	
 	json response = {
+		{"modem", {
+			{"vendor", m_modem->getVendor()},
+			{"model", m_modem->getModel()},
+			{"version", m_modem->getSwVersion()},
+			{"imei", m_modem->getImei()},
+		}},
 		{"ipv4", {
 			{"ip", ipv4.ip},
 			{"mask", ipv4.mask},
@@ -138,7 +138,11 @@ bool ModemService::runApi() {
 			return apiSendUssd(req);
 		}, {
 			{"query", UbusObject::STRING},
+			{"answer", UbusObject::STRING},
 			{"timeout", UbusObject::INT32}
+		})
+		.method("cancel_ussd", [=](auto req) {
+			return apiCancelUssd(req);
 		})
 		.attach();
 }
