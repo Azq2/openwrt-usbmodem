@@ -197,7 +197,7 @@ size_t udlToBytes(uint8_t udl, uint8_t dcs) {
 				return len_8bit;
 			} else {
 				// GSM 7 bit default alphabet
-				return len_8bit;
+				return len_7bit;
 			}
 		break;
 	}

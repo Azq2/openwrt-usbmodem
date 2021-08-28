@@ -175,8 +175,8 @@ struct Pdu {
 
 constexpr size_t getPduMaxDataSize(PduType type) {
 	switch (type) {
-		case PDU_TYPE_DELIVER:		140;
-		case PDU_TYPE_SUBMIT:		140;
+		case PDU_TYPE_DELIVER:		return 140;
+		case PDU_TYPE_SUBMIT:		return 140;
 	}
 	return 0;
 }
