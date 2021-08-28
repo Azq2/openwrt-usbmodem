@@ -149,7 +149,6 @@ void ModemBaseAt::startNetRegWhatchdog() {
 /*
  * Raw AT commands
  * */
-
 std::pair<bool, std::string> ModemBaseAt::sendAtCommand(const std::string &cmd, int timeout) {
 	auto response = m_at.sendCommandNoPrefix(cmd, timeout);
 	
@@ -168,7 +167,7 @@ std::pair<bool, std::string> ModemBaseAt::sendAtCommand(const std::string &cmd, 
  * USSD
  * */
 void ModemBaseAt::handleUssdResponse(int code, const std::string &data, int dcs) {
-	auto [success, decoded] = decodeDcsString(data, dcs);
+	auto [success, decoded] = decodeCbsDcsString(data, dcs);
 	if (!success) {
 		code = USSD_ERROR;
 		decoded = "Can't decode USSD: " + bin2hex(data, true) + " [dcs=" + std::to_string(dcs) + "].";

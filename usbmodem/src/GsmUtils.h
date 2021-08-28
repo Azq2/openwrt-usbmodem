@@ -3,6 +3,9 @@
 #include <string>
 #include <optional>
 #include <tuple>
+#include <any>
+
+#include "BinaryParser.h"
 
 enum GsmLanguage {
 	GSM_LANG_GERMAN		= 0x00,
@@ -35,12 +38,171 @@ enum GsmEncoding {
 	GSM_ENC_UCS2		= 2
 };
 
-bool isValidLanguage(GsmLanguage lang);
-bool decodeDcs(int dcs, GsmEncoding *out_encoding, GsmLanguage *out_language, bool *out_compression, bool *out_has_iso_lang);
+enum PduAddrNumberingPlan: uint8_t {
+	PDU_ADDR_PLAN_UNKNOWN	= 0,
+	PDU_ADDR_PLAN_ISDN		= 1,
+	PDU_ADDR_PLAN_DATA		= 3,
+	PDU_ADDR_PLAN_TELEX		= 4,
+	PDU_ADDR_PLAN_SC1		= 5,
+	PDU_ADDR_PLAN_SC2		= 6,
+	PDU_ADDR_PLAN_NATIONAL	= 8,
+	PDU_ADDR_PLAN_PRIVATE	= 9,
+	PDU_ADDR_PLAN_ERMES		= 10,
+	PDU_ADDR_PLAN_RESERVED	= 15
+};
 
+enum PduAddrType: uint8_t {
+	PDU_ADDR_UNKNOWN			= 0,
+	PDU_ADDR_INTERNATIONAL		= 1,	
+	PDU_ADDR_NATIONAL			= 2,
+	PDU_ADDR_NETWORK_SPECIFIC	= 3,
+	PDU_ADDR_SUBSCRIBER			= 4,
+	PDU_ADDR_ALPHANUMERIC		= 5,
+	PDU_ADDR_ABBREVIATED		= 6,
+	PDU_ADDR_RESERVED			= 7,
+};
+
+enum PduValidityPeriodFormat: uint8_t {
+	PDU_VPF_ABSENT		= 0,
+	PDU_VPF_ENHANCED	= 1,
+	PDU_VPF_RELATIVE	= 2,
+	PDU_VPF_ABSOLUTE	= 3,
+};
+
+struct PduAddr {
+	std::string number;
+	PduAddrType type = PDU_ADDR_UNKNOWN;
+	PduAddrNumberingPlan plan = PDU_ADDR_PLAN_UNKNOWN;
+};
+
+enum PduType: uint8_t {
+	PDU_TYPE_DELIVER		= 0,
+	PDU_TYPE_SUBMIT_REPORT	= 1,
+	PDU_TYPE_STATUS_REPORT	= 2,
+	PDU_TYPE_RESERVED		= 3,
+	PDU_TYPE_DELIVER_REPORT	= 4,
+	PDU_TYPE_SUBMIT			= 5,
+	PDU_TYPE_COMMAND		= 6,
+	PDU_TYPE_UNKNOWN		= 0xFF
+};
+
+struct PduDateTime {
+	time_t timestamp = 0;
+	int tz = 0;
+};
+
+struct PduValidityPeriod {
+	uint8_t relative;
+	PduDateTime absolute;
+	uint8_t enhanced[7];
+};
+
+struct PduDeliver {
+	PduAddr src;
+	PduDateTime dt;
+	
+	// TP-User-Data-Header-Indicator (TP-UDHI)
+	bool udhi = false;
+	
+	// TP-More-Messages-to-Send (TP-MMS)
+	bool mms = false;
+	
+	// TP-Loop-Prevention (TP-LP)
+	bool lp = false;
+	
+	// TP-Status-Report-Indication (TP-SRI)
+	bool sri = false;
+	
+	// TP-Reply-Path (TP-RP)
+	bool rp = false;
+	
+	uint8_t pid = 0;
+	uint8_t dcs = 0;
+	uint8_t udl = 0;
+	
+	std::string data;
+};
+
+struct PduSubmit {
+	PduAddr dst;
+	PduValidityPeriod vp;
+	
+	// TP-User-Data-Header-Indicator (TP-UDHI)
+	bool udhi = false;
+	
+	// TP-Reject-Duplicates (TP-RD)
+	bool rd = false;
+	
+	// TP-Validity-Period-Format (TP-VPF)
+	PduValidityPeriodFormat vpf = PDU_VPF_ABSENT;
+	
+	// TP-Reply-Path (TP-RP)
+	bool rp = false;
+	
+	// TP-Status-Report-Request (TP-SRR)
+	bool srr = false;
+	
+	uint8_t mr = 0;
+	uint8_t pid = 0;
+	uint8_t dcs = 0;
+	uint8_t udl = 0;
+	
+	std::string data;
+};
+
+struct Pdu {
+	PduAddr smsc;
+	PduType type = PDU_TYPE_UNKNOWN;
+	
+	std::any payload;
+	
+	inline PduDeliver &deliver() {
+		return std::any_cast<PduDeliver &>(payload);
+	}
+	
+	inline const PduDeliver &deliver() const {
+		return std::any_cast<const PduDeliver &>(payload);
+	}
+	
+	inline PduSubmit &submit() {
+		return std::any_cast<PduSubmit &>(payload);
+	}
+	
+	inline const PduSubmit &submit() const {
+		return std::any_cast<const PduSubmit &>(payload);
+	}
+};
+
+constexpr size_t getPduMaxDataSize(PduType type) {
+	switch (type) {
+		case PDU_TYPE_DELIVER:		140;
+		case PDU_TYPE_SUBMIT:		140;
+	}
+	return 0;
+}
+
+// PDU
+bool decodePdu(const std::string &pdu_bytes, Pdu *pdu, bool direction_to_smsc);
+bool decodePduAddr(BinaryParser *parser, PduAddr *addr, bool is_smsc);
+bool decodePduDateTime(BinaryParser *parser, PduDateTime *dt);
+bool decodePduValidityPeriodFormat(BinaryParser *parser, PduValidityPeriodFormat vpf, PduValidityPeriod *vp);
+bool decodePduDeliver(BinaryParser *parser, Pdu *pdu, uint8_t flags);
+bool decodePduSubmit(BinaryParser *parser, Pdu *pdu, uint8_t flags);
+size_t udlToBytes(uint8_t udl, uint8_t dcs);
+
+// Data Coding
+bool isValidLanguage(GsmLanguage lang);
+bool decodeCbsDcs(int dcs, GsmEncoding *out_encoding, GsmLanguage *out_language, bool *out_compression, bool *out_has_iso_lang);
+std::pair<bool, std::string> decodeCbsDcsString(const std::string &data, int dcs);
+
+// Ussd
 bool isValidUssd(const std::string &cmd);
 
-std::pair<bool, std::string> decodeDcsString(const std::string &data, int dcs);
+// Encodings
+bool strAppendCodepoint(std::string &out, uint32_t value);
 std::pair<bool, std::string> convertUcs2ToUtf8(const std::string &data, bool be);
-std::pair<bool, std::string> convertGsmToUtf8(const std::string &data);
-std::pair<bool, std::string> unpack7bit(const std::string &data);
+std::string convertGsmToUtf8(const std::string &data);
+std::string unpack7bit(const std::string &data, size_t max_chars);
+inline std::string unpack7bit(const std::string &data) {
+	return unpack7bit(data, data.size() * 8 / 7);
+}

@@ -168,6 +168,29 @@ std::pair<bool, std::string> tryHexToBin(const std::string &hex) {
 	return std::make_pair(true, out);
 }
 
+std::string decodeBcd(const std::string &raw) {
+	static const char alphabet[] = "0123456789*#abc";
+	
+	std::string out;
+	out.reserve(raw.size() * 2);
+	
+	for (auto c: raw) {
+		uint8_t byte = static_cast<uint8_t>(c);
+		
+		if ((byte & 0xF) == 0xF)
+			break;
+		
+		out += alphabet[byte & 0xF];
+		
+		if ((byte & 0xF0) == 0xF0)
+			break;
+		
+		out += alphabet[(byte >> 4) & 0xF];
+	}
+	
+	return out;
+}
+
 std::string converOctalIpv6(const std::string &value) {
 	const char *cursor = value.c_str();
 	std::string out;

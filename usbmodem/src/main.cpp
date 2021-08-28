@@ -6,8 +6,10 @@
 #include <filesystem>
 #include "ModemService.h"
 #include "UsbDiscover.h"
+#include "Log.h"
 #include "Loop.h"
 #include "Utils.h"
+#include "GsmUtils.h"
 
 static int modemDaemon(int argc, char *argv[]) {
 	if (argc == 3) {
@@ -17,6 +19,12 @@ static int modemDaemon(int argc, char *argv[]) {
 	
 	fprintf(stderr, "usage: %s daemon <iface>\n", argv[0]);
 	return -1;
+}
+
+static int test(int argc, char *argv[]) {
+	
+	LOGD("test!\n");
+	return 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -29,6 +37,8 @@ int main(int argc, char *argv[]) {
 			return findIfname(argc, argv);
 		if (strcmp(argv[1], "daemon") == 0)
 			return modemDaemon(argc, argv);
+		if (strcmp(argv[1], "test") == 0)
+			return test(argc, argv);
 		
 	}
 	

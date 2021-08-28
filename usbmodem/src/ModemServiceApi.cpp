@@ -64,11 +64,9 @@ int ModemService::apiSendCommand(std::shared_ptr<UbusRequest> req) {
 		});
 		
 		return 0;
-	} else {
-		return UBUS_STATUS_INVALID_ARGUMENT;
 	}
 	
-	return 0;
+	return UBUS_STATUS_INVALID_ARGUMENT;
 }
 
 int ModemService::apiGetInfo(std::shared_ptr<UbusRequest> req) {
@@ -77,6 +75,9 @@ int ModemService::apiGetInfo(std::shared_ptr<UbusRequest> req) {
 	auto ipv6 = m_modem->getIpInfo(6);
 	
 	json response = {
+		{"daemon", {
+			{"uptime", getCurrentTimestamp() - m_start_time}
+		}},
 		{"modem", {
 			{"vendor", m_modem->getVendor()},
 			{"model", m_modem->getModel()},
@@ -105,9 +106,6 @@ int ModemService::apiGetInfo(std::shared_ptr<UbusRequest> req) {
 			{"rsrq_db", levels.rsrq_db},
 			{"rsrp_dbm", levels.rsrp_dbm},
 		}},
-		{"daemon", {
-			{"uptime", getCurrentTimestamp() - m_start_time}
-		}},
 		{"tech", {
 			{"id", m_modem->getTech()},
 			{"name", Modem::getTechName(m_modem->getTech())}
@@ -130,8 +128,6 @@ bool ModemService::runApi() {
 			return apiSendCommand(req);
 		}, {
 			{"command", UbusObject::STRING},
-			{"response", UbusObject::STRING},
-			{"prefix", UbusObject::STRING},
 			{"timeout", UbusObject::INT32}
 		})
 		.method("send_ussd", [=](auto req) {

@@ -59,6 +59,8 @@ std::pair<bool, std::string> tryHexToBin(const std::string &hex);
 
 std::string bin2hex(const std::string &raw, bool uc = false);
 
+std::string decodeBcd(const std::string &raw);
+
 inline std::string hex2bin(const std::string &hex) {
 	auto [success, decoded] = tryHexToBin(hex);
 	return success ? decoded : hex;

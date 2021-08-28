@@ -14,6 +14,7 @@ add_executable(usbmodem
 	Events.cpp
 	GsmUtils.cpp
 	AtParser.cpp
+	BinaryParser.cpp
 	Modem.cpp
 	Modem/BaseAt.cpp
 	Modem/Asr1802.cpp

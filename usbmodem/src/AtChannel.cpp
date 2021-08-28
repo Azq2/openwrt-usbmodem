@@ -294,8 +294,11 @@ int AtChannel::sendCommand(ResultType type, const std::string &cmd, const std::s
 		LOGE("[ %s ] error = %d, status = %s\n", cmd.c_str(), response->error, response->status.c_str());
 	
 	if (m_verbose) {
-		for (int i = 0; i < response->lines.size(); i++)
-			LOGD("AT << %s\n", response->lines[i].c_str());
+		if (type != NO_PREFIX) {
+			for (int i = 0; i < response->lines.size(); i++)
+				LOGD("AT << %s\n", response->lines[i].c_str());
+		}
+		
 		if (response->status.size() > 0)
 			LOGD("AT << %s\n", response->status.c_str());
 	}
