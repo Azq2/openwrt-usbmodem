@@ -133,7 +133,7 @@ void blobmsgElementFromJson(blob_buf *dst, const char *key, const json &value) {
 		case json::value_t::number_unsigned:
 		{
 			uint64_t i64 = value;
-			if (i64 >= std::numeric_limits<uint32_t>::min() && i64 <= std::numeric_limits<uint32_t>::max()) {
+			if (i64 <= std::numeric_limits<int>::max()) {
 				 blobmsg_add_u32(dst, key, (uint32_t) i64);
 			} else {
 				 blobmsg_add_u64(dst, key, (uint64_t) i64);

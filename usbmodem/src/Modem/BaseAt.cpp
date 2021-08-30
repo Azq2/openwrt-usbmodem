@@ -2,6 +2,8 @@
 #include "../Loop.h"
 #include "../GsmUtils.h"
 
+#include "zlib.h"
+
 bool ModemBaseAt::Creg::isRegistered() const {
 	switch (status) {
 		case CREG_REGISTERED_HOME:				return true;
@@ -166,7 +168,7 @@ std::pair<bool, std::string> ModemBaseAt::sendAtCommand(const std::string &cmd, 
 /*
  * SMS
  * */
-bool ModemBaseAt::decodeSmsToPdu(const std::string &data, SmsDir *dir, Pdu *pdu, int *id) {
+bool ModemBaseAt::decodeSmsToPdu(const std::string &data, SmsDir *dir, Pdu *pdu, int *id, uint32_t *hash) {
 	int stat;
 	std::string pdu_bytes;
 	bool direction;
@@ -216,10 +218,19 @@ bool ModemBaseAt::decodeSmsToPdu(const std::string &data, SmsDir *dir, Pdu *pdu,
 		return false;
 	}
 	
+	// Calculate PDU hash
+	*hash = crc32(0, reinterpret_cast<const uint8_t *>(id), sizeof(*id));
+	*hash = crc32(*hash, reinterpret_cast<const uint8_t *>(pdu_bytes.c_str()), pdu_bytes.size());
+	
 	return true;
 }
 
 void ModemBaseAt::getSmsList(SmsDir from_dir, SmsReadCallback callback) {
+	if (from_dir > SMS_DIR_ALL) {
+		callback(false, {});
+		return;
+	}
+	
 	auto response = m_at.sendCommandMultiline("AT+CMGL=" + std::to_string(from_dir), "+CMGL");
 	if (response.error) {
 		callback(false, {});
@@ -242,9 +253,10 @@ void ModemBaseAt::getSmsList(SmsDir from_dir, SmsReadCallback callback) {
 			SmsDir dir;
 			PduUserDataHeader hdr;
 			std::string decoded_text;
+			size_t msg_hash;
 			
 			bool decode_success = false;
-			if (decodeSmsToPdu(line, &dir, &pdu, &msg_id)) {
+			if (decodeSmsToPdu(line, &dir, &pdu, &msg_id, &msg_hash)) {
 				std::tie(decode_success, decoded_text) = decodeSmsDcsData(&pdu, &hdr);
 				
 				if (!decode_success)
@@ -290,13 +302,15 @@ void ModemBaseAt::getSmsList(SmsDir from_dir, SmsReadCallback callback) {
 				sms->parts.resize(parts);
 			}
 			
+			sms->id = msg_hash;
+			sms->dir = dir;
 			sms->unread = (dir == SMS_DIR_UNREAD);
 			
 			switch (pdu.type) {
 				case PDU_TYPE_DELIVER:
 				{
 					auto &deliver = pdu.deliver();
-					sms->direction = false;
+					sms->type = SMS_INCOMING;
 					sms->time = deliver.dt.timestamp;
 					sms->addr = deliver.src.number;
 				}
@@ -305,7 +319,7 @@ void ModemBaseAt::getSmsList(SmsDir from_dir, SmsReadCallback callback) {
 				case PDU_TYPE_SUBMIT:
 				{
 					auto &submit = pdu.submit();
-					sms->direction = true;
+					sms->type = SMS_OUTGOING;
 					sms->time = 0;
 					sms->addr = submit.dst.number;
 				}
@@ -316,7 +330,7 @@ void ModemBaseAt::getSmsList(SmsDir from_dir, SmsReadCallback callback) {
 			sms->parts[part - 1].text = decoded_text;
 		}
 		auto elapsed = getCurrentTimestamp() - start;
-		LOGD("Sms decode time: %llu\n", elapsed);
+		LOGD("Sms decode time: %d\n", static_cast<int>(elapsed));
 		
 		callback(true, sms_list);
 	}, 0);

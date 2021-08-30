@@ -123,6 +123,6 @@ class ModemBaseAt: public Modem {
 		virtual bool isUssdWaitReply() override;
 		
 		// SMS API
-		virtual bool decodeSmsToPdu(const std::string &data, SmsDir *dir, Pdu *pdu, int *id);
-		virtual void getSmsList(SmsDir dir, SmsReadCallback callback) override;
+		virtual bool decodeSmsToPdu(const std::string &data, SmsDir *dir, Pdu *pdu, int *id, uint32_t *hash);
+		virtual void getSmsList(SmsDir from_dir, SmsReadCallback callback) override;
 };

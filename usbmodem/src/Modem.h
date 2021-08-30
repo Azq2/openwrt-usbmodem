@@ -81,12 +81,17 @@ class Modem {
 		typedef std::function<void(UssdCode, const std::string &)> UssdCallback;
 		
 		// Abstract SMS presentation
-		enum SmsDir {
+		enum SmsDir: uint8_t {
 			SMS_DIR_UNREAD		= 0,
 			SMS_DIR_READ		= 1,
 			SMS_DIR_UNSENT		= 2,
 			SMS_DIR_SENT		= 3,
 			SMS_DIR_ALL			= 4,
+		};
+		
+		enum SmsType {
+			SMS_INCOMING	= 0,
+			SMS_OUTGOING	= 1
 		};
 		
 		struct SmsPart {
@@ -96,8 +101,9 @@ class Modem {
 		
 		struct Sms {
 			uint32_t id = 0;
+			SmsDir dir;
+			SmsType type = SMS_INCOMING;
 			bool unread = false;
-			bool direction = false;
 			time_t time = 0;
 			std::string addr;
 			std::vector<SmsPart> parts;

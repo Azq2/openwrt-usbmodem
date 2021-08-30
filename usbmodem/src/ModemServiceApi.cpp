@@ -121,30 +121,46 @@ int ModemService::apiGetInfo(std::shared_ptr<UbusRequest> req) {
 }
 
 int ModemService::apiReadSms(std::shared_ptr<UbusRequest> req) {
-	Modem::Sms sms;
-	m_modem->getSmsList(Modem::SMS_DIR_ALL, [=](bool status, std::vector<Modem::Sms> list) {
-		LOGD("Total SMS: %d\n\n", list.size());
-		for (auto &sms: list) {
-			if (sms.direction) {
-				LOGD("[out] to: %s\n", sms.addr.c_str());
-			} else {
-				LOGD("[in] from: %s\n", sms.addr.c_str());
-				LOGD("Date: %ld\n", sms.time);
-			}
-			
-			LOGD("Parts: ");
-			for (auto &part: sms.parts)
-				LOGD("<%d> ", part.id);
-			LOGD("\n");
-			
-			LOGD("Text: ");
-			for (auto &part: sms.parts)
-				LOGD("%s", part.text.c_str());
-			LOGD("\n");
-			LOGD("\n");
+	auto &params = req->data();
+	Modem::SmsDir dir = Modem::SMS_DIR_ALL;
+	
+	if (params["dir"].is_number())
+		dir = params["dir"].get<Modem::SmsDir>();
+	
+	req->defer();
+	
+	m_modem->getSmsList(dir, [=](bool status, std::vector<Modem::Sms> list) {
+		if (!status) {
+			req->reply({{"error", "Can't get SMS from modem."}});
+			return;
 		}
 		
+		json response = {{"messages", json::array()}};
+		
+		for (auto &sms: list) {
+			json message = {
+				{"id", sms.id},
+				{"addr", sms.addr},
+				{"time", sms.time},
+				{"type", sms.type},
+				{"unread", sms.unread},
+				{"dir", sms.dir},
+				{"parts", json::array()}
+			};
+			
+			for (auto &part: sms.parts) {
+				message["parts"].push_back({
+					{"id", part.id},
+					{"text", part.text}
+				});
+			}
+			
+			response["messages"].push_back(message);
+		}
+		
+		req->reply(response);
 	});
+	
 	return 0;
 }
 

@@ -29,7 +29,7 @@ add_executable(usbmodem
 	Loop.cpp
 	Uci.cpp
 )
-target_link_libraries(usbmodem -lubox -lubus -luci -lstdc++ -lstdc++fs)
+target_link_libraries(usbmodem -lubox -lubus -luci -lstdc++ -lstdc++fs -lz)
 install(TARGETS usbmodem DESTINATION sbin/)
 
 # target_precompile_headers(usbmodem PUBLIC Json.h)
