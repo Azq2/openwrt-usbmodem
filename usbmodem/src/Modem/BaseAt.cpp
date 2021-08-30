@@ -254,6 +254,7 @@ void ModemBaseAt::getSmsList(SmsDir from_dir, SmsReadCallback callback) {
 			PduUserDataHeader hdr;
 			std::string decoded_text;
 			size_t msg_hash;
+			bool invalid = false;
 			
 			bool decode_success = false;
 			if (decodeSmsToPdu(line, &dir, &pdu, &msg_id, &msg_hash)) {
@@ -266,6 +267,15 @@ void ModemBaseAt::getSmsList(SmsDir from_dir, SmsReadCallback callback) {
 			if (!decode_success) {
 				hdr = {};
 				decoded_text = "Invalid PDU:\n" + line;
+				invalid = true;
+			}
+			
+			if (hdr.app_port) {
+				decoded_text = "Wireless Datagram Protocol\n"
+					"Src port: " + std::to_string(hdr.app_port->src) + "\n"
+					"Dst port: " + std::to_string(hdr.app_port->dst) + "\n"
+					"Data: " + bin2hex(decoded_text) + "\n";
+				invalid = true;
 			}
 			
 			uint16_t ref_id = hdr.concatenated ? hdr.concatenated->ref_id : 0;
@@ -305,6 +315,7 @@ void ModemBaseAt::getSmsList(SmsDir from_dir, SmsReadCallback callback) {
 			sms->id = msg_hash;
 			sms->dir = dir;
 			sms->unread = (dir == SMS_DIR_UNREAD);
+			sms->invalid = invalid;
 			
 			switch (pdu.type) {
 				case PDU_TYPE_DELIVER:
@@ -313,6 +324,12 @@ void ModemBaseAt::getSmsList(SmsDir from_dir, SmsReadCallback callback) {
 					sms->type = SMS_INCOMING;
 					sms->time = deliver.dt.timestamp;
 					sms->addr = deliver.src.number;
+					
+					if (deliver.src.type == PDU_ADDR_INTERNATIONAL) {
+						sms->addr = "+" + deliver.src.number;
+					} else {
+						sms->addr = deliver.src.number;
+					}
 				}
 				break;
 				
@@ -321,7 +338,12 @@ void ModemBaseAt::getSmsList(SmsDir from_dir, SmsReadCallback callback) {
 					auto &submit = pdu.submit();
 					sms->type = SMS_OUTGOING;
 					sms->time = 0;
-					sms->addr = submit.dst.number;
+					
+					if (submit.dst.type == PDU_ADDR_INTERNATIONAL) {
+						sms->addr = "+" + submit.dst.number;
+					} else {
+						sms->addr = submit.dst.number;
+					}
 				}
 				break;
 			}
@@ -334,6 +356,10 @@ void ModemBaseAt::getSmsList(SmsDir from_dir, SmsReadCallback callback) {
 		
 		callback(true, sms_list);
 	}, 0);
+}
+
+bool ModemBaseAt::deleteSms(int id) {
+	return m_at.sendCommandNoResponse("AT+CMGD=" + std::to_string(id)) == 0;
 }
 
 /*

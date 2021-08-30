@@ -89,7 +89,7 @@ class Modem {
 			SMS_DIR_ALL			= 4,
 		};
 		
-		enum SmsType {
+		enum SmsType: uint8_t {
 			SMS_INCOMING	= 0,
 			SMS_OUTGOING	= 1
 		};
@@ -103,6 +103,7 @@ class Modem {
 			uint32_t id = 0;
 			SmsDir dir;
 			SmsType type = SMS_INCOMING;
+			bool invalid = false;
 			bool unread = false;
 			time_t time = 0;
 			std::string addr;
@@ -311,4 +312,5 @@ class Modem {
 		 * SMS API
 		 * */
 		virtual void getSmsList(SmsDir dir, SmsReadCallback callback) = 0;
+		virtual bool deleteSms(int id) = 0;
 };

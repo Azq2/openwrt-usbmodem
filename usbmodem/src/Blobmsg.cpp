@@ -13,11 +13,11 @@ void blobmsgElementToJson(blob_attr *src, json &dst) {
 		break;
 		
 		case BLOBMSG_TYPE_INT16:
-			dst = (int16_t) be64_to_cpu(*(uint16_t *) blobmsg_data(src));
+			dst = (int16_t) be16_to_cpu(*(uint16_t *) blobmsg_data(src));
 		break;
 		
 		case BLOBMSG_TYPE_INT32:
-			dst = (int32_t) be64_to_cpu(*(uint32_t *) blobmsg_data(src));
+			dst = (int32_t) be32_to_cpu(*(uint32_t *) blobmsg_data(src));
 		break;
 		
 		case BLOBMSG_TYPE_INT64:

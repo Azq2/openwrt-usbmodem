@@ -125,4 +125,5 @@ class ModemBaseAt: public Modem {
 		// SMS API
 		virtual bool decodeSmsToPdu(const std::string &data, SmsDir *dir, Pdu *pdu, int *id, uint32_t *hash);
 		virtual void getSmsList(SmsDir from_dir, SmsReadCallback callback) override;
+		virtual bool deleteSms(int id) override;
 };

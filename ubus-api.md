@@ -86,3 +86,117 @@ Canceling current USSD session (when previous query respond with code=1 and wait
 ```
 $ ubus call usbmodem.LTE cancel_ussd
 ```
+
+# read_sms
+
+Reading sms from modem.
+
+**Arguments:**
+| Name | Type | Description |
+|---|---|---|
+| dir | int | 0 - unread messages<br>1 - read messages<br>2 - unsent messages<br>3 - sent messages<br>4 - all messages |
+
+**Response:**
+| Name | Type | Description |
+|---|---|---|
+| messages | array | Array of message objects. |
+
+**Each message object**
+| Name | Type | Description |
+|---|---|---|
+| id | uint | uniq id (really hash of PDU and message index) |
+| addr | string | From/to phone number |
+| type | int | 0 - incoming message<br>1 - outgoing message |
+| dir | int | 0 - unread messages<br>1 - read messages<br>2 - unsent messages<br>3 - sent messages<br>4 - all messages |
+| time | uint | Unix timestamp. For outgoing messages always 0 |
+| invalid | bool | True, when message is not decoded properly |
+| unread | bool | True, when message is not read |
+| parts | array | Text parts of message |
+
+**Each message part**
+| Name | Type | Description |
+|---|---|---|
+| id | int | ID of message part in modem |
+| text | string | Text content |
+
+**Example:**
+```
+$ ubus call usbmodem.LTE read_sms
+{
+	"messages": [
+		{
+			"addr": "+11232342334",
+			"dir": 1,
+			"id": 2884079854,
+			"invalid": false,
+			"parts": [
+				{
+					"id": 1,
+					"text": "Test sms "
+				}
+			],
+			"time": 1630060386,
+			"type": 0,
+			"unread": false
+		},
+		{
+			"addr": "+112323434332",
+			"dir": 1,
+			"id": 1397996874,
+			"invalid": false,
+			"parts": [
+				{
+					"id": 3,
+					"text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis"
+				},
+				{
+					"id": 4,
+					"text": " nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolo"
+				},
+				{
+					"id": 5,
+					"text": "re eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
+				}
+			],
+			"time": 1630245213,
+			"type": 0,
+			"unread": false
+		}
+	]
+}
+```
+
+# delete_sms
+
+Delete sms from modem.
+
+**Arguments:**
+| Name | Type | Description |
+|---|---|---|
+| ids | array | Array of **id** from sms object in **parts** field. |
+
+**Response:**
+| Name | Type | Description |
+|---|---|---|
+| errors | object | Error for each **id** |
+| result | object | Status for each **id**, true of false. |
+
+**Example:**
+```
+$ ubus call usbmodem.LTE delete_sms '{"ids": [2]}'
+{
+	"errors": false,
+	"result": {
+		"2": true
+	}
+}
+$ ubus call usbmodem.LTE delete_sms '{"ids": [2]}'
+{
+	"errors": {
+		"2": "Message #2 failed to delete."
+	},
+	"result": {
+		"2": false
+	}
+}
+```

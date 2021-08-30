@@ -124,6 +124,7 @@ int ModemService::apiReadSms(std::shared_ptr<UbusRequest> req) {
 	auto &params = req->data();
 	Modem::SmsDir dir = Modem::SMS_DIR_ALL;
 	
+	int dir_id = 4;
 	if (params["dir"].is_number())
 		dir = params["dir"].get<Modem::SmsDir>();
 	
@@ -144,6 +145,7 @@ int ModemService::apiReadSms(std::shared_ptr<UbusRequest> req) {
 				{"time", sms.time},
 				{"type", sms.type},
 				{"unread", sms.unread},
+				{"invalid", sms.invalid},
 				{"dir", sms.dir},
 				{"parts", json::array()}
 			};
@@ -162,6 +164,40 @@ int ModemService::apiReadSms(std::shared_ptr<UbusRequest> req) {
 	});
 	
 	return 0;
+}
+
+int ModemService::apiDeleteSms(std::shared_ptr<UbusRequest> req) {
+	auto &params = req->data();
+	
+	if (params["ids"].is_array() && params["ids"].size() > 0) {
+		json response = {
+			{"result", json::object()},
+			{"errors", json::object()},
+		};
+		
+		for (auto &id_item: params["ids"]) {
+			if (!id_item.is_number())
+				return UBUS_STATUS_INVALID_ARGUMENT;
+		}
+		
+		for (auto &id_item: params["ids"]) {
+			int id = id_item.get<int>();
+			if (!m_modem->deleteSms(id)) {
+				response["result"][std::to_string(id)] = false;
+				response["errors"][std::to_string(id)] = strprintf("Message #%d failed to delete.", id);
+			} else {
+				response["result"][std::to_string(id)] = true;
+			}
+		}
+		
+		if (!response["errors"].size())
+			response["errors"] = false;
+		
+		req->reply(response);
+		
+		return 0;
+	}
+	return UBUS_STATUS_INVALID_ARGUMENT;
 }
 
 bool ModemService::runApi() {
@@ -189,6 +225,11 @@ bool ModemService::runApi() {
 			return apiReadSms(req);
 		}, {
 			{"dir", UbusObject::STRING}
+		})
+		.method("delete_sms", [=](auto req) {
+			return apiDeleteSms(req);
+		}, {
+			{"ids", UbusObject::ARRAY}
 		})
 		.attach();
 }
