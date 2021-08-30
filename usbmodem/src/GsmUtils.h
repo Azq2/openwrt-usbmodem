@@ -38,6 +38,14 @@ enum GsmEncoding {
 	GSM_ENC_UCS2		= 2
 };
 
+enum GsmMessageClass {
+	GSM_MSG_CLASS_0			= 0,
+	GSM_MSG_CLASS_1			= 1,
+	GSM_MSG_CLASS_2			= 2,
+	GSM_MSG_CLASS_3			= 3,
+	GSM_MSG_CLASS_UNSPEC	= 0xFF
+};
+
 enum PduAddrNumberingPlan: uint8_t {
 	PDU_ADDR_PLAN_UNKNOWN	= 0,
 	PDU_ADDR_PLAN_ISDN		= 1,
@@ -84,6 +92,22 @@ enum PduType: uint8_t {
 	PDU_TYPE_SUBMIT			= 5,
 	PDU_TYPE_COMMAND		= 6,
 	PDU_TYPE_UNKNOWN		= 0xFF
+};
+
+struct PduUserDataHeaderConcatenated {
+	uint16_t ref_id;
+	uint16_t parts;
+	uint16_t part;
+};
+
+struct PduUserDataHeaderAppPort {
+	uint16_t dst;
+	uint16_t src;
+};
+
+struct PduUserDataHeader {
+	std::optional<PduUserDataHeaderConcatenated> concatenated;
+	std::optional<PduUserDataHeaderAppPort> app_port;
 };
 
 struct PduDateTime {
@@ -188,12 +212,16 @@ bool decodePduDateTime(BinaryParser *parser, PduDateTime *dt);
 bool decodePduValidityPeriodFormat(BinaryParser *parser, PduValidityPeriodFormat vpf, PduValidityPeriod *vp);
 bool decodePduDeliver(BinaryParser *parser, Pdu *pdu, uint8_t flags);
 bool decodePduSubmit(BinaryParser *parser, Pdu *pdu, uint8_t flags);
-size_t udlToBytes(uint8_t udl, uint8_t dcs);
+size_t udlToBytes(uint8_t udl, int dcs);
+int decodeUserDataHeader(const std::string &data, PduUserDataHeader *header);
 
 // Data Coding
 bool isValidLanguage(GsmLanguage lang);
 bool decodeCbsDcs(int dcs, GsmEncoding *out_encoding, GsmLanguage *out_language, bool *out_compression, bool *out_has_iso_lang);
+bool decodeSmsDcs(int dcs, GsmEncoding *out_encoding, bool *out_compression);
 std::pair<bool, std::string> decodeCbsDcsString(const std::string &data, int dcs);
+std::pair<bool, std::string> decodeSmsDcsData(const std::string &data, uint8_t udl, bool udhi, int dcs, PduUserDataHeader *header_out);
+std::pair<bool, std::string> decodeSmsDcsData(Pdu *pdu, PduUserDataHeader *header_out);
 
 // Ussd
 bool isValidUssd(const std::string &cmd);

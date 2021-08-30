@@ -31,7 +31,20 @@ class BinaryParser {
 			m_offset = 0;
 		}
 		
+		inline size_t offset() const {
+			return m_offset;
+		}
+		
+		inline bool eof() const {
+			return m_offset >= m_size;
+		}
+		
+		bool truncate(size_t len);
+		
 		bool readByte(uint8_t *byte);
+		bool readShortLE(uint16_t *value);
+		bool readShortBE(uint16_t *value);
 		bool readByteArray(uint8_t *data, size_t len);
 		bool readString(std::string *str, size_t len);
+		bool skip(size_t len);
 };

@@ -80,6 +80,31 @@ class Modem {
 		
 		typedef std::function<void(UssdCode, const std::string &)> UssdCallback;
 		
+		// Abstract SMS presentation
+		enum SmsDir {
+			SMS_DIR_UNREAD		= 0,
+			SMS_DIR_READ		= 1,
+			SMS_DIR_UNSENT		= 2,
+			SMS_DIR_SENT		= 3,
+			SMS_DIR_ALL			= 4,
+		};
+		
+		struct SmsPart {
+			int id = -1;
+			std::string text;
+		};
+		
+		struct Sms {
+			uint32_t id = 0;
+			bool unread = false;
+			bool direction = false;
+			time_t time = 0;
+			std::string addr;
+			std::vector<SmsPart> parts;
+		};
+		
+		typedef std::function<void(bool success, std::vector<Sms>)> SmsReadCallback;
+		
 		enum Features: uint32_t {
 			FEATURE_USSD				= 1 << 0,
 			FEATURE_SMS					= 1 << 1,
@@ -275,4 +300,9 @@ class Modem {
 		virtual bool cancelUssd() = 0;
 		virtual bool isUssdBusy() = 0;
 		virtual bool isUssdWaitReply() = 0;
+		
+		/*
+		 * SMS API
+		 * */
+		virtual void getSmsList(SmsDir dir, SmsReadCallback callback) = 0;
 };

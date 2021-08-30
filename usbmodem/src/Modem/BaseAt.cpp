@@ -164,6 +164,165 @@ std::pair<bool, std::string> ModemBaseAt::sendAtCommand(const std::string &cmd, 
 }
 
 /*
+ * SMS
+ * */
+bool ModemBaseAt::decodeSmsToPdu(const std::string &data, SmsDir *dir, Pdu *pdu, int *id) {
+	int stat;
+	std::string pdu_bytes;
+	bool direction;
+	
+	bool success = AtParser(data)
+		.parseInt(id)
+		.parseInt(&stat)
+		.parseSkip()
+		.parseSkip()
+		.parseNewLine()
+		.parseString(&pdu_bytes)
+		.success();
+	
+	if (!success)
+		return false;
+	
+	switch (stat) {
+		case 0:
+			*dir = SMS_DIR_UNREAD;
+			direction = false;
+		break;
+		case 1:
+			*dir = SMS_DIR_READ;
+			direction = false;
+		break;
+		case 2:
+			*dir = SMS_DIR_UNSENT;
+			direction = true;
+		break;
+		case 3:
+			*dir = SMS_DIR_SENT;
+			direction = true;
+		break;
+		default:
+			LOGE("Unknown SMS <stat>: '%s'\n", data.c_str());
+			return false;
+		break;
+	}
+	
+	if (!decodePdu(hex2bin(pdu_bytes), pdu, direction)) {
+		LOGE("Invalid PDU in SMS: '%s'\n", pdu_bytes.c_str());
+		return false;
+	}
+	
+	if (pdu->type != PDU_TYPE_DELIVER && pdu->type != PDU_TYPE_SUBMIT) {
+		LOGE("Unsupported PDU type in SMS: '%s'\n", pdu_bytes.c_str());
+		return false;
+	}
+	
+	return true;
+}
+
+void ModemBaseAt::getSmsList(SmsDir from_dir, SmsReadCallback callback) {
+	auto response = m_at.sendCommandMultiline("AT+CMGL=" + std::to_string(from_dir), "+CMGL");
+	if (response.error) {
+		callback(false, {});
+		return;
+	}
+	
+	Loop::setTimeout([=]() {
+		auto start = getCurrentTimestamp();
+		
+		// <smsc>, <addr>, <ref_id>, <parts>
+		std::vector<Sms> sms_list;
+		std::map<std::tuple<uint8_t, std::string, std::string, uint16_t, uint8_t>, size_t> sms_parts;
+		std::tuple<uint8_t, std::string, std::string, uint16_t, uint8_t> sms_key;
+		
+		sms_list.reserve(response.lines.size());
+		
+		for (auto &line: response.lines) {
+			int msg_id;
+			Pdu pdu;
+			SmsDir dir;
+			PduUserDataHeader hdr;
+			std::string decoded_text;
+			
+			bool decode_success = false;
+			if (decodeSmsToPdu(line, &dir, &pdu, &msg_id)) {
+				std::tie(decode_success, decoded_text) = decodeSmsDcsData(&pdu, &hdr);
+				
+				if (!decode_success)
+					LOGE("Invalid PDU data in SMS: '%s'\n", line.c_str());
+			}
+			
+			if (!decode_success) {
+				hdr = {};
+				decoded_text = "Invalid PDU:\n" + line;
+			}
+			
+			uint16_t ref_id = hdr.concatenated ? hdr.concatenated->ref_id : 0;
+			uint8_t parts = hdr.concatenated ? hdr.concatenated->parts : 1;
+			uint8_t part = hdr.concatenated ? hdr.concatenated->part : 1;
+			
+			if (part < 1 || part > parts) {
+				LOGE("Invalid SMS part id: %d / %d, in: '%s'\n", part, parts, line.c_str());
+				parts = 1;
+				part = 1;
+				ref_id = 0;
+			}
+			
+			Sms *sms = nullptr;
+			
+			if (parts > 1) {
+				if (pdu.type == PDU_TYPE_DELIVER) {
+					sms_key = std::make_tuple(pdu.type, pdu.smsc.number, pdu.deliver().src.number, ref_id, parts);
+				} else if (pdu.type == PDU_TYPE_SUBMIT) {
+					sms_key = std::make_tuple(pdu.type, pdu.smsc.number, pdu.submit().dst.number, ref_id, parts);
+				}
+				
+				if (sms_parts.find(sms_key) != sms_parts.cend()) {
+					sms = &sms_list[sms_parts[sms_key]];
+				} else {
+					sms_parts[sms_key] = sms_list.size();
+					sms_list.resize(sms_list.size() + 1);
+					sms = &sms_list.back();
+					sms->parts.resize(parts);
+				}
+			} else {
+				sms_list.resize(sms_list.size() + 1);
+				sms = &sms_list.back();
+				sms->parts.resize(parts);
+			}
+			
+			sms->unread = (dir == SMS_DIR_UNREAD);
+			
+			switch (pdu.type) {
+				case PDU_TYPE_DELIVER:
+				{
+					auto &deliver = pdu.deliver();
+					sms->direction = false;
+					sms->time = deliver.dt.timestamp;
+					sms->addr = deliver.src.number;
+				}
+				break;
+				
+				case PDU_TYPE_SUBMIT:
+				{
+					auto &submit = pdu.submit();
+					sms->direction = true;
+					sms->time = 0;
+					sms->addr = submit.dst.number;
+				}
+				break;
+			}
+			
+			sms->parts[part - 1].id = msg_id;
+			sms->parts[part - 1].text = decoded_text;
+		}
+		auto elapsed = getCurrentTimestamp() - start;
+		LOGD("Sms decode time: %llu\n", elapsed);
+		
+		callback(true, sms_list);
+	}, 0);
+}
+
+/*
  * USSD
  * */
 void ModemBaseAt::handleUssdResponse(int code, const std::string &data, int dcs) {

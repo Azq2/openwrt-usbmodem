@@ -145,64 +145,14 @@ bool decodePduValidityPeriodFormat(BinaryParser *parser, PduValidityPeriodFormat
 	return false;
 }
 
-size_t udlToBytes(uint8_t udl, uint8_t dcs) {
-	size_t len_7bit = (udl + 1) * 7 / 8;
-	size_t len_8bit = udl;
-	
-	// Zero dcs mean "GSM 7 bit default alphabet"
-	if (!dcs)
-		return len_7bit;
-	
-	uint8_t group = (dcs & 0xF0) >> 4;
-	uint8_t value = (dcs & 0x0F);
-	
-	// SMS Data Coding Scheme
-	switch (group) {
-		case 0: case 1: case 2: case 3: // 00xx
-		case 4: case 5: case 6: case 7: // 01xx
-		{
-			// Compression
-			if ((group & 1))
-				return len_8bit;
-			
-			uint8_t encoding = (value >> 2) & 0x3;
-			if (encoding == 0) {
-				// GSM 7 bit default alphabet
-				return len_7bit;
-			} else if (encoding == 1) {
-				// 8 bit data
-				return len_8bit;
-			} else if (encoding == 2) {
-				// CUS2
-				return len_8bit;
-			}
-			
-			// Unknown
-			return 0;
-		}
-		break;
-		
-		case 12: // 1100
-		case 13: // 1101
-			return len_7bit; // GSM 7 bit default alphabet
-		break;
-		
-		case 14: // 1110
-			return len_8bit; // UCS2
-		break;
-		
-		case 15: // 1111
-			if ((value & (1 << 2))) {
-				// 8 bit data
-				return len_8bit;
-			} else {
-				// GSM 7 bit default alphabet
-				return len_7bit;
-			}
-		break;
-	}
-	
-	return 0;
+size_t udlToBytes(uint8_t udl, int dcs) {
+	GsmEncoding enc;
+	bool compression;
+	if (!decodeSmsDcs(dcs, &enc, &compression))
+		return 0;
+	if (!compression && enc == GSM_ENC_7BIT)
+		return (udl + 1) * 7 / 8;
+	return udl;
 }
 
 bool decodePduDeliver(BinaryParser *parser, Pdu *pdu, uint8_t flags) {
@@ -323,6 +273,123 @@ bool decodePdu(const std::string &pdu_bytes, Pdu *pdu, bool direction_to_smsc) {
 	return false;
 }
 
+int decodeUserDataHeader(const std::string &data, PduUserDataHeader *header) {
+	BinaryParser parser(data);
+	
+	uint8_t udh_len;
+	if (!parser.readByte(&udh_len))
+		return -1;
+	
+	if (!parser.truncate(udh_len + 1))
+		return -1;
+	
+	while (!parser.eof()) {
+		uint8_t type, len;
+		
+		if (!parser.readByte(&type))
+			return -1;
+		if (!parser.readByte(&len))
+			return -1;
+		
+		switch (type) {
+			// Concatenated short messages, 8-bit reference number
+			case 0:
+			{
+				uint8_t ref_id, parts, part;
+				
+				if (len != 3)
+					return -1;
+				if (!parser.readByte(&ref_id))
+					return -1;
+				if (!parser.readByte(&parts))
+					return -1;
+				if (!parser.readByte(&part))
+					return -1;
+				
+				header->concatenated = {
+					.ref_id = ref_id,
+					.parts = parts,
+					.part = part
+				};
+			}
+			break;
+			
+			// 	Application port addressing scheme, 8 bit address
+			case 4:
+			{
+				uint8_t src, dst;
+				
+				if (len != 2)
+					return -1;
+				if (!parser.readByte(&src))
+					return -1;
+				if (!parser.readByte(&dst))
+					return -1;
+				
+				header->app_port = {
+					.dst = dst,
+					.src = src
+				};
+			}
+			break;
+			
+			// 	Application port addressing scheme, 16 bit address
+			case 5:
+			{
+				uint16_t src, dst;
+				
+				if (len != 4)
+					return -1;
+				if (!parser.readShortBE(&src))
+					return -1;
+				if (!parser.readShortBE(&dst))
+					return -1;
+				
+				header->app_port = {
+					.dst = dst,
+					.src = src
+				};
+			}
+			break;
+			
+			// Concatenated short messages, 16-bit reference number
+			case 8:
+			{
+				uint16_t ref_id;
+				uint8_t parts, part;
+				
+				if (len != 4)
+					return -1;
+				if (!parser.readShortBE(&ref_id))
+					return -1;
+				if (!parser.readByte(&parts))
+					return -1;
+				if (!parser.readByte(&part))
+					return -1;
+				
+				header->concatenated = {
+					.ref_id = ref_id,
+					.parts = parts,
+					.part = part
+				};
+			}
+			break;
+			
+			default:
+				if (!parser.skip(len))
+					return -1;
+			break;
+		}
+	}
+	
+	return parser.offset();
+}
+
+bool decodePduData(const std::string &data, int dcs, std::string *out, PduUserDataHeader *header) {
+	
+	return false;
+}
+
 static constexpr uint16_t makeWideChar(uint8_t upper, uint8_t lower, bool be) {
 	if (be) {
 		return (upper << 8) | lower;
@@ -370,16 +437,73 @@ bool isValidLanguage(GsmLanguage lang) {
 	return false;
 }
 
+// SMS Data Coding Scheme
+bool decodeSmsDcs(int dcs, GsmEncoding *out_encoding, bool *out_compression) {
+	bool autodel = false;
+	bool compression = false;
+	GsmEncoding encoding = GSM_ENC_7BIT;
+	GsmMessageClass msg_class = GSM_MSG_CLASS_UNSPEC;
+	
+	uint8_t group = (dcs & 0xF0) >> 4;
+	switch (group) {
+		case 0: case 1: case 2: case 3: // 00xx
+		case 4: case 5: case 6: case 7: // 01xx
+		{
+			// Compression
+			compression = (dcs & (1 << 5)) != 0;
+			
+			uint8_t charset_bits = (dcs >> 2) & 0x3;
+			if (charset_bits == 0) {
+				encoding = GSM_ENC_7BIT;
+			} else if (charset_bits == 1) {
+				encoding = GSM_ENC_8BIT;
+			} else if (charset_bits == 2) {
+				encoding = GSM_ENC_UCS2;
+			} else {
+				// Unknown encoding
+				return false;
+			}
+		}
+		break;
+		
+		case 12: // 1100
+		case 13: // 1101
+			encoding = GSM_ENC_7BIT;
+		break;
+		
+		case 14: // 1110
+			encoding = GSM_ENC_UCS2;
+		break;
+		
+		case 15: // 1111
+			encoding = (dcs & (1 << 2)) ? GSM_ENC_8BIT : GSM_ENC_7BIT;
+		break;
+		
+		default:
+			// Unsupported group
+			return false;
+		break;
+	}
+	
+	if (out_encoding)
+		*out_encoding = encoding;
+	
+	if (out_compression)
+		*out_compression = compression;
+	
+	return true;
+}
+
+// CBS Data Coding Scheme
 bool decodeCbsDcs(int dcs, GsmEncoding *out_encoding, GsmLanguage *out_language, bool *out_compression, bool *out_has_iso_lang) {
 	GsmLanguage language = GSM_LANG_UNSPEC;
 	GsmEncoding encoding = GSM_ENC_7BIT;
-	bool compressed = false;
+	bool compression = false;
 	bool has_iso_lang = false;
 	
 	uint8_t group = (dcs & 0xF0) >> 4;
 	uint8_t value = (dcs & 0x0F);
 	
-	// CBS Data Coding Scheme
 	switch (group) {
 		case 0:
 			encoding = GSM_ENC_7BIT;
@@ -387,7 +511,7 @@ bool decodeCbsDcs(int dcs, GsmEncoding *out_encoding, GsmLanguage *out_language,
 		break;
 		
 		case 1:
-			encoding = value ? GSM_ENC_UCS2 : GSM_ENC_7BIT;
+			encoding = value == 1 ? GSM_ENC_UCS2 : GSM_ENC_7BIT;
 			language = GSM_LANG_UNSPEC;
 			has_iso_lang = true;
 		break;
@@ -404,7 +528,7 @@ bool decodeCbsDcs(int dcs, GsmEncoding *out_encoding, GsmLanguage *out_language,
 		
 		case 4: case 5: case 6: case 7:
 		{
-			compressed = ((dcs & (1 << 5))) != 0;
+			compression = ((dcs & (1 << 5))) != 0;
 			
 			uint8_t charset_bits = (value & 0x0C) >> 2;
 			if (charset_bits == 0) {
@@ -448,12 +572,75 @@ bool decodeCbsDcs(int dcs, GsmEncoding *out_encoding, GsmLanguage *out_language,
 		*out_encoding = encoding;
 	
 	if (out_compression)
-		*out_compression = compressed;
+		*out_compression = compression;
 	
 	if (out_has_iso_lang)
 		*out_has_iso_lang = has_iso_lang;
 	
 	return true;
+}
+
+std::pair<bool, std::string> decodeSmsDcsData(Pdu *pdu, PduUserDataHeader *header_out) {
+	switch (pdu->type) {
+		case PDU_TYPE_DELIVER:
+		{
+			auto &deliver = pdu->deliver();
+			return decodeSmsDcsData(deliver.data, deliver.udl, deliver.udhi, deliver.dcs, header_out);
+		}
+		break;
+		
+		case PDU_TYPE_SUBMIT:
+		{
+			auto &submit = pdu->submit();
+			return decodeSmsDcsData(submit.data, submit.udl, submit.udhi, submit.dcs, header_out);
+		}	
+		break;
+	}
+	return std::make_pair(false, "");
+}
+
+std::pair<bool, std::string> decodeSmsDcsData(const std::string &data, uint8_t udl, bool udhi, int dcs, PduUserDataHeader *header_out) {
+	GsmEncoding encoding;
+	bool compression;
+	
+	if (!decodeSmsDcs(dcs, &encoding, &compression))
+		return std::make_pair(false, "");
+	
+	int udhl = 0;
+	if (udhi) {
+		udhl = decodeUserDataHeader(data, header_out);
+		if (udhl < 0)
+			return std::make_pair(false, "");
+	}
+	
+	std::string bytes;
+	if (udhl > 0) {
+		// Remove UDH from data
+		if (encoding == GSM_ENC_7BIT) {
+			size_t udhl_7bit = (udhl * 8 + 6) / 7;
+			bytes = unpack7bit(data, udl).substr(udhl_7bit);
+		} else {
+			bytes = data.substr(udhl);
+		}
+	} else {
+		bytes = (encoding == GSM_ENC_7BIT ? unpack7bit(data, udl) : data);
+	}
+	
+	switch (encoding) {
+		case GSM_ENC_7BIT:
+			return std::make_pair(true, convertGsmToUtf8(bytes));
+		break;
+		
+		case GSM_ENC_8BIT:
+			return std::make_pair(true, bytes);
+		break;
+		
+		case GSM_ENC_UCS2:
+			return convertUcs2ToUtf8(bytes, true);
+		break;
+	}
+	
+	return std::make_pair(false, "");
 }
 
 std::pair<bool, std::string> decodeCbsDcsString(const std::string &data, int dcs) {
@@ -475,7 +662,7 @@ std::pair<bool, std::string> decodeCbsDcsString(const std::string &data, int dcs
 		break;
 		
 		case GSM_ENC_8BIT:
-			return std::make_pair(true, convertGsmToUtf8(data));
+			return std::make_pair(true, data);
 		break;
 		
 		case GSM_ENC_UCS2:
@@ -497,7 +684,6 @@ bool strAppendCodepoint(std::string &out, uint32_t value) {
 			// Invalid codepoint
 			return false;
 		}
-		
 		out += static_cast<char>((value >> 12) | 0xE0);
 		out += static_cast<char>(((value >> 6) & 0x3F) | 0x80);
 		out += static_cast<char>((value & 0x3F) | 0x80);
@@ -510,7 +696,6 @@ bool strAppendCodepoint(std::string &out, uint32_t value) {
 		// Invalid codepoint
 		return false;
 	}
-	
 	return true;
 }
 

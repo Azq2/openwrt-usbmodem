@@ -74,6 +74,23 @@ bool AtParser::parseNumeric(const char *start, const char *end, int base, bool i
 	return number_end != start && number_end <= end;
 }
 
+bool AtParser::parseNextNewLine() {
+	arg_cnt++;
+	
+	while (isspace(*m_cursor) && *m_cursor != '\n')
+		m_cursor++;
+	
+	if (*m_cursor != '\n') {
+		LOGE("AtParser:%s: can't parse #%d argument (new line) in '%s'\n", __FUNCTION__, arg_cnt, m_str);
+		m_success = false;
+		return false;
+	}
+	
+	m_cursor++;
+	
+	return true;
+}
+
 bool AtParser::parseNextSkip() {
 	const char *start, *end;
 	m_cursor = parseNextArg(m_cursor, &start, &end);
@@ -108,7 +125,7 @@ const char *AtParser::parseNextArg(const char *str, const char **start, const ch
 	*start = *end = nullptr;
 	
 	// Skip spaces
-	while (isspace(*cursor))
+	while (isspace(*cursor) && *cursor != '\n')
 		cursor++;
 	
 	// Is quoted value
@@ -129,24 +146,24 @@ const char *AtParser::parseNextArg(const char *str, const char **start, const ch
 		cursor++;
 		
 		// Skip spaces
-		while (isspace(*cursor))
+		while (isspace(*cursor) && *cursor != '\n')
 			cursor++;
 		
-		// Success, if next char is arg separator or std::string ened
-		if (!*cursor || *cursor == ',')
-			return *cursor ? cursor + 1 : cursor;
+		// Success, if next char is arg separator or string ended
+		if (!*cursor || *cursor == ',' || *cursor == '\n')
+			return *cursor == ',' ? cursor + 1 : cursor;
 	}
 	// Is raw value
 	else {
 		*start = cursor;
 		
 		// Wait for next argument or EOF
-		while (*cursor && *cursor != ',')
+		while (*cursor && (*cursor != ',' && *cursor != '\n'))
 			cursor++;
 		
 		*end = cursor;
 		
-		return *cursor ? cursor + 1 : cursor;
+		return *cursor == ',' ? cursor + 1 : cursor;
 	}
 	
 	return nullptr;

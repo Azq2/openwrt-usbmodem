@@ -200,12 +200,10 @@ void AtChannel::handleLine() {
 				handleUnsolicitedLine();
 			}
 		} else if (m_curr_type == MULTILINE) {
-			if (m_curr_response->lines.size() > 0 || strStartsWith(m_buffer, m_curr_prefix)) {
-				if (m_curr_response->lines.size() > 0) {
-					m_curr_response->lines[0] += "\r\n" + m_buffer;
-				} else {
-					m_curr_response->lines.push_back(m_buffer);
-				}
+			if (strStartsWith(m_buffer, m_curr_prefix)) {
+				m_curr_response->lines.push_back(m_buffer);
+			} else if (m_curr_response->lines.size() > 0) {
+				m_curr_response->lines.back() += "\r\n" + m_buffer;
 			}
 		} else {
 			handleUnsolicitedLine();

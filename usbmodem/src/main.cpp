@@ -22,7 +22,6 @@ static int modemDaemon(int argc, char *argv[]) {
 }
 
 static int test(int argc, char *argv[]) {
-	
 	LOGD("test!\n");
 	return 0;
 }

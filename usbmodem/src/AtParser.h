@@ -71,6 +71,11 @@ class AtParser {
 			return *this;
 		}
 		
+		inline AtParser &parseNewLine() {
+			parseNextNewLine();
+			return *this;
+		}
+		
 		inline AtParser &parseSkip() {
 			parseNextSkip();
 			return *this;
@@ -80,5 +85,6 @@ class AtParser {
 		bool parseNextInt(int32_t *value, int base = 10);
 		bool parseNextUInt(uint32_t *value, int base = 10);
 		bool parseNextBool(bool *value);
+		bool parseNextNewLine();
 		bool parseNextSkip();
 };

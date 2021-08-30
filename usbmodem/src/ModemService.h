@@ -46,6 +46,7 @@ class ModemService {
 		int apiSendCommand(std::shared_ptr<UbusRequest> req);
 		int apiSendUssd(std::shared_ptr<UbusRequest> req);
 		int apiCancelUssd(std::shared_ptr<UbusRequest> req);
+		int apiReadSms(std::shared_ptr<UbusRequest> req);
 	public:
 		explicit ModemService(const std::string &iface);
 		

@@ -3,11 +3,13 @@
 #include <vector>
 #include <string>
 #include <tuple>
+#include <map>
 
 #include "../Modem.h"
 #include "../Serial.h"
 #include "../AtChannel.h"
 #include "../AtParser.h"
+#include "../GsmUtils.h"
 
 /*
  * Base driver for any AT modem
@@ -119,4 +121,8 @@ class ModemBaseAt: public Modem {
 		virtual bool cancelUssd() override;
 		virtual bool isUssdBusy() override;
 		virtual bool isUssdWaitReply() override;
+		
+		// SMS API
+		virtual bool decodeSmsToPdu(const std::string &data, SmsDir *dir, Pdu *pdu, int *id);
+		virtual void getSmsList(SmsDir dir, SmsReadCallback callback) override;
 };

@@ -1,5 +1,6 @@
 #include "ModemService.h"
 #include "AtChannel.h"
+#include "GsmUtils.h"
 
 int ModemService::apiSendUssd(std::shared_ptr<UbusRequest> req) {
 	auto &params = req->data();
@@ -119,6 +120,34 @@ int ModemService::apiGetInfo(std::shared_ptr<UbusRequest> req) {
 	return 0;
 }
 
+int ModemService::apiReadSms(std::shared_ptr<UbusRequest> req) {
+	Modem::Sms sms;
+	m_modem->getSmsList(Modem::SMS_DIR_ALL, [=](bool status, std::vector<Modem::Sms> list) {
+		LOGD("Total SMS: %d\n\n", list.size());
+		for (auto &sms: list) {
+			if (sms.direction) {
+				LOGD("[out] to: %s\n", sms.addr.c_str());
+			} else {
+				LOGD("[in] from: %s\n", sms.addr.c_str());
+				LOGD("Date: %ld\n", sms.time);
+			}
+			
+			LOGD("Parts: ");
+			for (auto &part: sms.parts)
+				LOGD("<%d> ", part.id);
+			LOGD("\n");
+			
+			LOGD("Text: ");
+			for (auto &part: sms.parts)
+				LOGD("%s", part.text.c_str());
+			LOGD("\n");
+			LOGD("\n");
+		}
+		
+	});
+	return 0;
+}
+
 bool ModemService::runApi() {
 	return m_ubus.object("usbmodem." + m_iface)
 		.method("info", [=](auto req) {
@@ -139,6 +168,11 @@ bool ModemService::runApi() {
 		})
 		.method("cancel_ussd", [=](auto req) {
 			return apiCancelUssd(req);
+		})
+		.method("read_sms", [=](auto req) {
+			return apiReadSms(req);
+		}, {
+			{"dir", UbusObject::STRING}
 		})
 		.attach();
 }
