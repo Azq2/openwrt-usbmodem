@@ -10,6 +10,7 @@
 #include "Loop.h"
 #include "Utils.h"
 #include "GsmUtils.h"
+#include "AtParser.h"
 
 static int modemDaemon(int argc, char *argv[]) {
 	if (argc == 3) {
@@ -22,7 +23,39 @@ static int modemDaemon(int argc, char *argv[]) {
 }
 
 static int test(int argc, char *argv[]) {
-	LOGD("test!\n");
+	// std::string line = "+CPMS: (\"SM\"),(\"ME\"),(\"SM\")";
+	std::string line = "+CPMS: (\"ME\",\"MT\",\"SM\",\"SR\"),(\"ME\",\"MT\",\"SM\",\"SR\"),(\"ME\",\"MT\",\"SM\",\"SR\")";
+	
+	std::vector<std::string> mem1;
+	std::vector<std::string> mem2;
+	std::vector<std::string> mem3;
+	
+	int arg_cnt = AtParser::getArgCnt(line);
+	
+	bool success = AtParser(line)
+		.parseList(&mem1)
+		.parseList(&mem2)
+		.parseList(&mem3)
+		.success();
+	
+	LOGD("arg_cnt=%d\n", arg_cnt);
+	
+	LOGD("mem1:");
+	for (auto &m: mem1)
+		LOGD(" %s", m.c_str());
+	LOGD("\n");
+	
+	LOGD("mem2:");
+	for (auto &m: mem2)
+		LOGD(" %s", m.c_str());
+	LOGD("\n");
+	
+	LOGD("mem3:");
+	for (auto &m: mem3)
+		LOGD(" %s", m.c_str());
+	LOGD("\n");
+	
+	LOGD("success = %d\n", success);
 	return 0;
 }
 

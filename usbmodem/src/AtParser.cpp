@@ -91,6 +91,29 @@ bool AtParser::parseNextNewLine() {
 	return true;
 }
 
+bool AtParser::parseNextList(std::vector<std::string> *values) {
+	std::string list_raw;
+	if (!parseNextString(&list_raw))
+		return false;
+	
+	const char *start, *end, *cursor = list_raw.c_str();
+	int count = 0;
+	do {
+		count++;
+		
+		cursor = parseNextArg(cursor, &start, &end);
+		if (!cursor) {
+			LOGE("AtParser:%s: can't parse #%d argument in '%s'\n", __FUNCTION__, count, list_raw.c_str());
+			m_success = false;
+			return false;
+		}
+		
+		values->push_back(std::string(start, end - start));
+	} while (cursor && *cursor);
+	
+	return true;
+}
+
 bool AtParser::parseNextSkip() {
 	const char *start, *end;
 	m_cursor = parseNextArg(m_cursor, &start, &end);
@@ -116,6 +139,12 @@ int AtParser::getArgCnt(const std::string &value) {
 	return count;
 }
 
+const char *AtParser::skipSpaces(const char *cursor) {
+	while (isspace(*cursor) && *cursor != '\n')
+		cursor++;
+	return cursor;
+}
+
 const char *AtParser::parseNextArg(const char *str, const char **start, const char **end) {
 	const char *cursor = str;
 	
@@ -124,10 +153,47 @@ const char *AtParser::parseNextArg(const char *str, const char **start, const ch
 	
 	*start = *end = nullptr;
 	
-	// Skip spaces
-	while (isspace(*cursor) && *cursor != '\n')
-		cursor++;
+	cursor = skipSpaces(cursor);
 	
+	// Is list
+	if (*cursor == '(') {
+		int level = 1;
+		char wait_char = 0;
+		
+		cursor++;
+		
+		*start = cursor;
+		
+		while (*cursor) {
+			if (wait_char) {
+				if (*cursor == wait_char)
+					wait_char = 0;
+			} else {
+				if (*cursor == ')') {
+					level--;
+					
+					if (level == 0) {
+						*end = cursor;
+						
+						cursor++;
+						
+						cursor = skipSpaces(cursor);
+						
+						if (!*cursor || *cursor == ',' || *cursor == '\n')
+							return *cursor == ',' ? cursor + 1 : cursor;
+						return nullptr;
+					}
+				} else if (*cursor == '(') {
+					level++;
+				} else if (*cursor == '"') {
+					wait_char = '"';
+				}
+			}
+			cursor++;
+		}
+		
+		return nullptr;
+	}
 	// Is quoted value
 	if (*cursor == '"') {
 		cursor++;
@@ -145,9 +211,7 @@ const char *AtParser::parseNextArg(const char *str, const char **start, const ch
 		
 		cursor++;
 		
-		// Skip spaces
-		while (isspace(*cursor) && *cursor != '\n')
-			cursor++;
+		cursor = skipSpaces(cursor);
 		
 		// Success, if next char is arg separator or string ended
 		if (!*cursor || *cursor == ',' || *cursor == '\n')

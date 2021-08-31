@@ -121,6 +121,12 @@ int ModemService::apiGetInfo(std::shared_ptr<UbusRequest> req) {
 }
 
 int ModemService::apiReadSms(std::shared_ptr<UbusRequest> req) {
+	static std::map<Modem::SmsStorage, std::string> storage_names = {
+		{Modem::SMS_STORAGE_MT, "MT"},
+		{Modem::SMS_STORAGE_ME, "ME"},
+		{Modem::SMS_STORAGE_SM, "SM"},
+	};
+	
 	auto &params = req->data();
 	Modem::SmsDir dir = Modem::SMS_DIR_ALL;
 	
@@ -136,11 +142,25 @@ int ModemService::apiReadSms(std::shared_ptr<UbusRequest> req) {
 			return;
 		}
 		
-		json response = {{"messages", json::array()}};
+		Modem::SmsStorageCapacity capacity = m_modem->getSmsCapacity();
+		Modem::SmsStorage storage = m_modem->getSmsStorage();
+		
+		std::string storage_id = "UNKNOWN";
+		if (storage_names.find(storage) != storage_names.cend())
+			storage_id = storage_names[storage];
+		
+		json response = {
+			{"capacity", {
+				{"used", capacity.used},
+				{"total", capacity.total}
+			}},
+			{"storage", storage_id},
+			{"messages", json::array()}
+		};
 		
 		for (auto &sms: list) {
 			json message = {
-				{"id", sms.id},
+				{"hash", sms.hash},
 				{"addr", sms.addr},
 				{"time", sms.time},
 				{"type", sms.type},

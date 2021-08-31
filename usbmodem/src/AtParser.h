@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 #include "Log.h"
 
@@ -13,6 +14,8 @@ class AtParser {
 		
 		static const char *parseNextArg(const char *str, const char **start, const char **end);
 		static bool parseNumeric(const char *start, const char *end, int base, bool is_unsigned, void *out);
+		
+		static const char *skipSpaces(const char *cursor);
 	public:
 		explicit AtParser(const std::string &s) {
 			parse(s.c_str());
@@ -71,6 +74,11 @@ class AtParser {
 			return *this;
 		}
 		
+		inline AtParser &parseList(std::vector<std::string> *values) {
+			parseNextList(values);
+			return *this;
+		}
+		
 		inline AtParser &parseNewLine() {
 			parseNextNewLine();
 			return *this;
@@ -85,6 +93,7 @@ class AtParser {
 		bool parseNextInt(int32_t *value, int base = 10);
 		bool parseNextUInt(uint32_t *value, int base = 10);
 		bool parseNextBool(bool *value);
+		bool parseNextList(std::vector<std::string> *values);
 		bool parseNextNewLine();
 		bool parseNextSkip();
 };

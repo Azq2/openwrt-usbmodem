@@ -80,7 +80,19 @@ class Modem {
 		
 		typedef std::function<void(UssdCode, const std::string &)> UssdCallback;
 		
-		// Abstract SMS presentation
+		// SMS
+		enum SmsStorage: uint8_t {
+			SMS_STORAGE_MT			= 0,	// Sim + Phone
+			SMS_STORAGE_ME			= 1,	// Phone
+			SMS_STORAGE_SM			= 2,	// Sim
+			SMS_STORAGE_UNKNOWN		= 0xFF
+		};
+		
+		struct SmsStorageCapacity {
+			int used;
+			int total;
+		};
+		
 		enum SmsDir: uint8_t {
 			SMS_DIR_UNREAD		= 0,
 			SMS_DIR_READ		= 1,
@@ -100,7 +112,7 @@ class Modem {
 		};
 		
 		struct Sms {
-			uint32_t id = 0;
+			uint32_t hash = 0;
 			SmsDir dir;
 			SmsType type = SMS_INCOMING;
 			bool invalid = false;
@@ -313,4 +325,6 @@ class Modem {
 		 * */
 		virtual void getSmsList(SmsDir dir, SmsReadCallback callback) = 0;
 		virtual bool deleteSms(int id) = 0;
+		virtual SmsStorageCapacity getSmsCapacity() = 0;
+		virtual SmsStorage getSmsStorage() = 0;
 };

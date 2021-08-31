@@ -36,9 +36,6 @@ bool ModemAsr1802::initDefaults() {
 		// Enable CGEV events
 		"AT+CGEREP=2,0",
 		
-		// Set PDU mode
-		"AT+CMGF=0",
-		
 		// Setup indication mode of new message to TE
 		"AT+CNMI=0,1,0,2,0",
 		
@@ -619,6 +616,11 @@ bool ModemAsr1802::init() {
 			m_at.sendCommandNoResponse("AT+CESQ");
 		}, 0);
 	}
+	
+	Loop::setTimeout([=]() {
+		if (!intiSms())
+			LOGD("SMS not supported by this modem.\n");
+	}, 0);
 	
 	// Sync SIM state
 	startSimPolling();

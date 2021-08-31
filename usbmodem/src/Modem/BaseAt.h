@@ -74,6 +74,14 @@ class ModemBaseAt: public Modem {
 		bool m_ussd_session = false;
 		UssdCallback m_ussd_callback;
 		
+		bool m_sms_ready = false;
+		bool m_prefer_sim_to_sms = false;
+		bool m_storages_loaded = false;
+		std::vector<SmsStorage> m_sms_all_storages[3];
+		
+		SmsStorage m_sms_mem[3] = {SMS_STORAGE_UNKNOWN, SMS_STORAGE_UNKNOWN, SMS_STORAGE_UNKNOWN};
+		SmsStorageCapacity m_sms_capacity[3] = {};
+		
 		// Modem events handlers
 		virtual void handleCesq(const std::string &event);
 		virtual void handleCusd(const std::string &event);
@@ -82,6 +90,19 @@ class ModemBaseAt: public Modem {
 		
 		virtual bool ping(int tries);
 		virtual bool handshake();
+		
+		/*
+		 * SMS
+		 * */
+		virtual bool intiSms();
+		virtual SmsStorage getSmsStorageId(const std::string &name);
+		virtual std::string getSmsStorageName(SmsStorage storage);
+		virtual bool findBestSmsStorage(bool prefer_sim);
+		virtual bool discoverSmsStorages();
+		virtual bool isSmsStorageSupported(int mem_id, SmsStorage check_storage);
+		virtual bool decodeSmsToPdu(const std::string &data, SmsDir *dir, Pdu *pdu, int *id, uint32_t *hash);
+		virtual bool syncSmsCapacity();
+		virtual bool syncSmsStorage();
 		
 		/*
 		 * SIM PIN
@@ -113,17 +134,24 @@ class ModemBaseAt: public Modem {
 		virtual void close() override;
 		virtual bool setCustomOption(const std::string &name, const std::any &value) override;
 		
-		// AT commands API
+		/*
+		 * Command API
+		 */
 		virtual std::pair<bool, std::string> sendAtCommand(const std::string &cmd, int timeout = 0) override;
 		
-		// USSD API
+		/*
+		 * USSD API
+		 */
 		virtual bool sendUssd(const std::string &cmd, UssdCallback callback, int timeout = 0) override;
 		virtual bool cancelUssd() override;
 		virtual bool isUssdBusy() override;
 		virtual bool isUssdWaitReply() override;
 		
-		// SMS API
-		virtual bool decodeSmsToPdu(const std::string &data, SmsDir *dir, Pdu *pdu, int *id, uint32_t *hash);
+		/*
+		 * SMS API
+		 */
 		virtual void getSmsList(SmsDir from_dir, SmsReadCallback callback) override;
 		virtual bool deleteSms(int id) override;
+		virtual SmsStorageCapacity getSmsCapacity() override;
+		virtual SmsStorage getSmsStorage() override;
 };

@@ -104,7 +104,7 @@ Reading sms from modem.
 **Each message object**
 | Name | Type | Description |
 |---|---|---|
-| id | uint | uniq id (really hash of PDU and message index) |
+| hash | uint | uniq id, hash of PDU and message index |
 | addr | string | From/to phone number |
 | type | int | 0 - incoming message<br>1 - outgoing message |
 | dir | int | 0 - unread messages<br>1 - read messages<br>2 - unsent messages<br>3 - sent messages<br>4 - all messages |
@@ -179,7 +179,7 @@ Delete sms from modem.
 | Name | Type | Description |
 |---|---|---|
 | errors | object | Error for each **id** |
-| result | object | Status for each **id**, true of false. |
+| result | object | Status of deletion for each **id** |
 
 **Example:**
 ```
