@@ -75,7 +75,7 @@ class ModemBaseAt: public Modem {
 		UssdCallback m_ussd_callback;
 		
 		bool m_sms_ready = false;
-		bool m_prefer_sim_to_sms = false;
+		bool m_prefer_sms_to_sim = false;
 		bool m_storages_loaded = false;
 		std::vector<SmsStorage> m_sms_all_storages[3];
 		

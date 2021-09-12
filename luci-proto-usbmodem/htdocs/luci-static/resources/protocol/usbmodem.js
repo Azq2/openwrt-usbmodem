@@ -13,16 +13,18 @@ function loadUsbDevices(option) {
 		fs.exec("/usr/sbin/usbmodem", ["discover"]).then(function (res) {
 			var json = JSON.parse(res.stdout.trim());
 			
+			console.log(json);
+			
 			option.value('', _('-- Please choose --'), '');
-			for (var i = 0, l = json.modems.length; i < l; i++) {
+			for (var i = 0; i < json.modems.length; i++) {
 				var modem = json.modems[i];
 				
 				modem.tty.sort(function (a, b) {
 					return a.interface - b.interface;
 				});
 				
-				for (var j = 0, l = modem.tty.length; i < l; i++) {
-					var tty = modem.tty[i];
+				for (var j = 0; j < modem.tty.length; j++) {
+					var tty = modem.tty[j];
 					
 					var descr;
 					if (tty.interface_name) {
@@ -36,7 +38,7 @@ function loadUsbDevices(option) {
 			}
 			
 			json.tty.sort();
-			for (var i = 0, l = json.tty.length; i < l; i++) {
+			for (var i = 0; i < json.tty.length; i++) {
 				var tty = json.tty[i];
 				option.value(tty, tty, '', '');
 			}
@@ -108,8 +110,10 @@ return network.registerProtocol('usbmodem', {
 		device_type.ucioption = 'modem_type';
 		device_type.optional = false;
 		device_type.value('', _('-- Please choose --'));
-		device_type.value('asr1802', _('ASR1802 LTE module'));
+		device_type.value('ppp', _('PPP (AT modem)'));
+		device_type.value('asr1802', _('ASR1802 / PXA1802'));
 		device_type.value('ncm', _('NCM (Huawei)'));
+		device_type.value('info', _('Info only (AT modem)'));
 		device_type.default = '';
 		device_type.validate = function (section_id, value) {
 			if (value == '')
@@ -168,6 +172,7 @@ return network.registerProtocol('usbmodem', {
 		auth_password.rmempty = true;
 		
 		s.tab('modem', _('Modem Settings'));
+		s.tab('sms', _('SMS Settings'));
 		
 		// Connect timeout
 		var connect_timeout = s.taboption(
@@ -206,5 +211,15 @@ return network.registerProtocol('usbmodem', {
 			_('May be useful for some weird modems, but slows down internet connection after reboot.')
 		);
 		prefer_dhcp.depends('modem_type', 'asr1802');
+		
+		// SMS storage
+		var prefer_sms_to_sim = s.taboption(
+			'sms',
+			form.Flag,
+			'prefer_sms_to_sim',
+			_('SMS to SIM card'),
+			_('Save SMS to sim card instead of modem memory, if available.') + '<br />' +
+			_('By default, modem memory is preferred.')
+		);
 	}
 });

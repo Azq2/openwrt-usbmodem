@@ -13,8 +13,10 @@ fi
 
 if [[ $TEST_ROUTER == "" ]]; then
 	# Test router
-	TEST_ROUTER=root@192.168.3.1
+	TEST_ROUTER=root@192.168.1.155
 fi
+
+export PATH="$PATH:$TOPDIR/staging_dir/host/bin"
 
 # Build package
 echo "Build..."

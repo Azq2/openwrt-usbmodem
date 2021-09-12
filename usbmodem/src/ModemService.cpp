@@ -21,6 +21,7 @@ ModemService::ModemService(const std::string &iface): m_iface(iface) {
 	m_uci_options["password"] = "";
 	m_uci_options["pincode"] = "";
 	m_uci_options["prefer_dhcp"] = "0";
+	m_uci_options["prefer_sms_to_sim"] = "0";
 	m_uci_options["force_network_restart"] = "0";
 	m_uci_options["connect_timeout"] = "300";
 }
@@ -145,9 +146,11 @@ bool ModemService::init() {
 		return setError("NO_DEVICE");
 	}
 	
-	if (!m_net_iface.size()) {
-		LOGE("Network device not found: %s\n", m_uci_options["modem_device"].c_str());
-		return setError("NO_DEVICE");
+	if (hasNetDev()) {
+		if (!m_net_iface.size()) {
+			LOGE("Network device not found: %s\n", m_uci_options["modem_device"].c_str());
+			return setError("NO_DEVICE");
+		}
 	}
 	
 	// Link modem net dev to interface
@@ -175,6 +178,7 @@ bool ModemService::runModem() {
 	
 	// Setup custom options to driver
 	m_modem->setCustomOption<bool>("prefer_dhcp", m_uci_options["prefer_dhcp"] == "1");
+	m_modem->setCustomOption<bool>("prefer_sms_to_sim", m_uci_options["prefer_sms_to_sim"] == "1");
 	m_modem->setCustomOption<int>("connect_timeout", strToInt(m_uci_options["connect_timeout"]) * 1000);
 	
 	m_modem->on<Modem::EvNetworkChanged>([=](const auto &event) {

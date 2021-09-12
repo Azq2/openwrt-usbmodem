@@ -85,8 +85,8 @@ bool ModemBaseAt::setCustomOption(const std::string &name, const std::any &value
 	if (name == "connect_timeout") {
 		m_connect_timeout = std::any_cast<int>(value);
 		return true;
-	} else if (name == "prefer_sim_to_sms") {
-		m_prefer_sim_to_sms = std::any_cast<bool>(value);
+	} else if (name == "prefer_sms_to_sim") {
+		m_prefer_sms_to_sim = std::any_cast<bool>(value);
 		return true;
 	}
 	return false;
@@ -177,7 +177,7 @@ bool ModemBaseAt::intiSms() {
 		return false;
 	
 	// Find best SMS storage
-	if (!findBestSmsStorage(m_prefer_sim_to_sms))
+	if (!findBestSmsStorage(m_prefer_sms_to_sim))
 		return false;
 	
 	// Set SMS storage
@@ -441,7 +441,7 @@ void ModemBaseAt::getSmsList(SmsDir from_dir, SmsReadCallback callback) {
 			SmsDir dir;
 			PduUserDataHeader hdr;
 			std::string decoded_text;
-			size_t msg_hash;
+			uint32_t msg_hash;
 			bool invalid = false;
 			
 			bool decode_success = false;

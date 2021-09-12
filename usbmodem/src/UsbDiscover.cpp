@@ -27,6 +27,7 @@ static json discoverModem(std::string path) {
 		{"serial", serial},
 		{"tty", json::array()},
 		{"net", json::array()},
+		{"can_internet", false}
 	};
 	
 	int tty_count = 0;
@@ -85,10 +86,13 @@ static json discoverModem(std::string path) {
 		}
 	}
 	
-	if ((tty_count > 0 && net_count > 0) || tty_count > 1)
-		return modem;
+	if (!tty_count)
+		return nullptr;
 	
-	return nullptr;
+	if ((tty_count > 0 && net_count > 0) || tty_count > 1)
+		modem["can_internet"] = true;
+	
+	return modem;
 }
 
 int checkDevice(int argc, char *argv[]) {
