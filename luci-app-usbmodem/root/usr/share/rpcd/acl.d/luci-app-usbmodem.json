@@ -1,0 +1,15 @@
+{
+	"luci-app-usbmodem": {
+		"description": "Grant access to LuCI app usbmodem",
+		"read": {
+			"ubus": {
+				"usbmodem.*": [ "info" ]
+			}
+		},
+		"write": {
+			"ubus": {
+				"usbmodem.*": [ "info" ]
+			}
+		}
+	}
+}

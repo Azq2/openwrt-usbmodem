@@ -1,0 +1,44 @@
+{
+	"admin/services/usbmodem": {
+		"title": "USB Modems",
+		"order": "100",
+		"action": {
+			"type": "firstchild"
+		},
+		"depends": {
+			"acl": [ "luci-app-usbmodem" ]
+		}
+	},
+	"admin/services/usbmodem/status": {
+		"title": "Status",
+		"order": 10,
+		"action": {
+			"type": "view",
+			"path": "usbmodem/status"
+		}
+	},
+	"admin/services/usbmodem/sms": {
+		"title": "SMS",
+		"order": 11,
+		"action": {
+			"type": "view",
+			"path": "usbmodem/status"
+		}
+	},
+	"admin/services/usbmodem/commands": {
+		"title": "AT Commands",
+		"order": 12,
+		"action": {
+			"type": "view",
+			"path": "usbmodem/status"
+		}
+	},
+	"admin/services/usbmodem/settings": {
+		"title": "Settings",
+		"order": 13,
+		"action": {
+			"type": "view",
+			"path": "usbmodem/status"
+		}
+	}
+}

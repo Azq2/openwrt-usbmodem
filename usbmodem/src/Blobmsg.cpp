@@ -1,3 +1,5 @@
+#include <math.h>
+
 #include "Blobmsg.h"
 #include "Log.h"
 
@@ -144,7 +146,11 @@ void blobmsgElementFromJson(blob_buf *dst, const char *key, const json &value) {
 		case json::value_t::number_float:
 		{
 			double d = value;
-			blobmsg_add_double(dst, key, d);
+			if (isnan(d)) {
+				blobmsg_add_field(dst, BLOBMSG_TYPE_UNSPEC, key, NULL, 0);
+			} else {
+				blobmsg_add_double(dst, key, d);
+			}
 		}
 		break;
 		
