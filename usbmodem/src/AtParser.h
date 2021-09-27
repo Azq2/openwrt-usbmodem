@@ -37,8 +37,11 @@ class AtParser {
 			while (*m_cursor && *m_cursor != ':')
 				m_cursor++;
 			
-			if (*m_cursor)
+			if (*m_cursor) {
 				m_cursor++;
+			} else {
+				m_cursor = s;
+			}
 			
 			m_success = true;
 			arg_cnt = 0;

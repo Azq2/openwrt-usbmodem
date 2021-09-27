@@ -56,6 +56,11 @@ int execFile(const std::string &path, std::vector<std::string> args, std::vector
 	return execvpe(path.c_str(), args_c_array.data(), envs_c_array.data());
 }
 
+double rssiToPercent(double rssi, double min, double max) {
+	double signal_quality = (rssi - min) / (max - min) * 100;
+	return std::min(100.0, std::max(0.0, signal_quality));
+}
+
 std::string strJoin(const std::vector<std::string> &lines, const std::string &delim) {
 	std::string out;
 	size_t length = lines.size() > 1 ? delim.size() * (lines.size() - 1) : 0;

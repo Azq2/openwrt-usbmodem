@@ -45,6 +45,9 @@ bool ModemAsr1802::initDefaults() {
 		// USSD mode
 		"AT+CUSD=1",
 		
+		// Enable background search
+		"AT+BGLTEPLMN=1,30",
+		
 		nullptr
 	};
 	
@@ -185,6 +188,13 @@ void ModemAsr1802::handleUssdResponse(int code, const std::string &data, int dcs
 		dcs = 68; /* 8bit GSM */
 	
 	ModemBaseAt::handleUssdResponse(code, data, dcs);
+}
+
+void ModemAsr1802::handleCesq(const std::string &event) {
+	ModemBaseAt::handleCesq(event);
+	
+	if (std::isnan(m_levels.rssi_dbm) && !std::isnan(m_levels.rscp_dbm))
+		m_levels.rssi_dbm = m_levels.rscp_dbm;
 }
 
 bool ModemAsr1802::dial() {
@@ -638,6 +648,11 @@ bool ModemAsr1802::init() {
 	on<EvTechChanged>([=](const auto &event) {
 		startDataConnection();
 		stopNetRegWhatchdog();
+	});
+	
+	on<EvPinStateChaned>([=](const auto &event) {
+		if (event.state == PIN_READY || event.state == PIN_NOT_SUPPORTED)
+			readSimIdentification();
 	});
 	
 	// Poweron

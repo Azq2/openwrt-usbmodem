@@ -3,7 +3,6 @@
 'require view';
 'require rpc';
 'require ui';
-'require poll';
 
 var callInterfaceDump = rpc.declare({
 	object: 'network.interface',
@@ -65,7 +64,7 @@ return view.extend({
 				result_body.appendChild(E('p', { "class": "alert-message error" }, result.error));
 			} else {
 				if (!result.response && result.code == 2) {
-					result_body.appendChild(E('p', { "class": "alert-message error" }, _('Discard by network.')));
+					result_body.appendChild(E('p', { "class": "alert-message error" }, _('Discard by network. On some ISP ussd codes available only on 3G.')));
 				} else {
 					result_body.appendChild(E('pre', { }, result.response));
 				}
@@ -77,7 +76,8 @@ return view.extend({
 						"type": "text",
 						"value": "",
 						"placeholder": "",
-						"class": "js-ussd-answer"
+						"class": "js-ussd-answer",
+						"style": "margin-bottom: 5px"
 					}),
 					E('button', {
 						"class": "btn cbi-button cbi-button-apply",
@@ -109,7 +109,8 @@ return view.extend({
 					"type": "text",
 					"value": "",
 					"placeholder": "*123#",
-					"class": "js-ussd-query"
+					"class": "js-ussd-query",
+					"style": "margin-bottom: 5px"
 				}),
 				E('button', {
 					"class": "btn cbi-button cbi-button-apply",

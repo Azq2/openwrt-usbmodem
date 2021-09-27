@@ -3,7 +3,6 @@
 'require view';
 'require rpc';
 'require ui';
-'require poll';
 
 var callInterfaceDump = rpc.declare({
 	object: 'network.interface',
@@ -68,7 +67,8 @@ return view.extend({
 					"type": "text",
 					"value": "",
 					"placeholder": "AT",
-					"class": "js-atcmd"
+					"class": "js-atcmd",
+					"style": "margin-bottom: 5px"
 				}),
 				E('button', {
 					"class": "btn cbi-button cbi-button-apply",

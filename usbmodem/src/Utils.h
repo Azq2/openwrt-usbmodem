@@ -27,6 +27,8 @@ inline void msToTimespec(int64_t ms, struct timespec *tm) {
 	tm->tv_nsec = (ms - (seconds * 1000)) * 1000000;
 }
 
+double rssiToPercent(double rssi, double min, double max);
+
 static inline bool strHasEol(const std::string &s) {
 	return s.size() >= 2 && s[s.size() - 2] == '\r' && s[s.size() - 1] == '\n';
 }

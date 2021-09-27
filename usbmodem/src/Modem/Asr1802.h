@@ -35,6 +35,7 @@ class ModemAsr1802: public ModemBaseAt {
 		// Modem events handlers
 		void handleCgev(const std::string &event);
 		void handleCreg(const std::string &event);
+		void handleCesq(const std::string &event);
 		void handleNetworkChange();
 		
 		void handleUssdResponse(int code, const std::string &data, int dcs) override;

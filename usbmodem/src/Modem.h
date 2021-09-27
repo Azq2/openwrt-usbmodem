@@ -186,6 +186,10 @@ class Modem {
 		// Pin
 		std::string m_pincode;
 		
+		// SIM
+		std::string m_sim_number;
+		std::string m_sim_imsi;
+		
 		// Current connection
 		IpInfo m_ipv4 = {};
 		IpInfo m_ipv6 = {};
@@ -286,6 +290,14 @@ class Modem {
 		
 		const inline std::string &getImei() const {
 			return m_imei;
+		}
+		
+		const inline std::string &getSimImsi() const {
+			return m_sim_imsi;
+		}
+		
+		const inline std::string &getSimNumber() const {
+			return m_sim_number;
 		}
 		
 		/*

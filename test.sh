@@ -40,7 +40,7 @@ function copy_files {
 	scp "$DIR/usbmodem/files/usbmodem.usb" $TEST_ROUTER:/tmp
 	scp "$DIR/usbmodem/files/usbmodem.sh" $TEST_ROUTER:/tmp
 	scp "$DIR/usbmodem/files/usbmodem.user" $TEST_ROUTER:/tmp
-	# ssh $TEST_ROUTER killall -9 usbmodem
+	ssh $TEST_ROUTER killall -9 usbmodem
 	scp $TOPDIR/build_dir/*/usbmodem/ipkg-install/usr/sbin/usbmodem $TEST_ROUTER:/tmp
 }
 

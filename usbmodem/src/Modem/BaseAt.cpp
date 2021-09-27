@@ -838,6 +838,23 @@ bool ModemBaseAt::readModemIdentification() {
 	return true;
 }
 
+/*
+ * Read sim identification (IMSI, number, ...)
+ * */
+bool ModemBaseAt::readSimIdentification() {
+	AtChannel::Response response;
+	
+	response = m_at.sendCommand("AT+CNUM", "+CNUM");
+	if (response.error || !AtParser(response.data()).parseSkip().parseString(&m_sim_number).success())
+		m_sim_number = "";
+	
+	response = m_at.sendCommandNumericOrWithPrefix("AT+CIMI", "+CIMI");
+	if (response.error || !AtParser(response.data()).parseString(&m_sim_imsi).success())
+		m_sim_imsi = "";
+	
+	return true;
+}
+
 bool ModemBaseAt::open() {
 	// Try open serial
 	if (m_serial.open(m_tty, m_speed) != 0) {

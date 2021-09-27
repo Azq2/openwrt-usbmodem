@@ -75,6 +75,10 @@ int ModemService::apiGetInfo(std::shared_ptr<UbusRequest> req) {
 	auto ipv4 = m_modem->getIpInfo(4);
 	auto ipv6 = m_modem->getIpInfo(6);
 	
+	double quality = 0;
+	if (!std::isnan(levels.rssi_dbm))
+		quality = rssiToPercent(levels.rssi_dbm, -100, -50);
+	
 	json response = {
 		{"daemon", {
 			{"uptime", getCurrentTimestamp() - m_start_time}
@@ -84,6 +88,10 @@ int ModemService::apiGetInfo(std::shared_ptr<UbusRequest> req) {
 			{"model", m_modem->getModel()},
 			{"version", m_modem->getSwVersion()},
 			{"imei", m_modem->getImei()},
+		}},
+		{"sim", {
+			{"imsi", m_modem->getSimImsi()},
+			{"number", m_modem->getSimNumber()},
 		}},
 		{"ipv4", {
 			{"ip", ipv4.ip},
@@ -106,6 +114,7 @@ int ModemService::apiGetInfo(std::shared_ptr<UbusRequest> req) {
 			{"eclo_db", levels.eclo_db},
 			{"rsrq_db", levels.rsrq_db},
 			{"rsrp_dbm", levels.rsrp_dbm},
+			{"quality", quality}
 		}},
 		{"tech", {
 			{"id", m_modem->getTech()},

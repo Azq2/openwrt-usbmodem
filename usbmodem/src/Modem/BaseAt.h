@@ -122,6 +122,11 @@ class ModemBaseAt: public Modem {
 		virtual bool readModemIdentification();
 		
 		/*
+		 * SIM identification
+		 * */
+		virtual bool readSimIdentification();
+		
+		/*
 		 * Internal
 		 * */
 		virtual int getCommandTimeout(const std::string &cmd);
