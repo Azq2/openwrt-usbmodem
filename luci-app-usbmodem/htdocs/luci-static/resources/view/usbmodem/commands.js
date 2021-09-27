@@ -38,59 +38,18 @@ return view.extend({
 		var self = this;
 		self.active_tab = iface;
 	},
-	cancelUssd: function () {
+	sendCommand: function () {
 		var self = this;
-		var form = document.querySelector('#ussd-form-' + self.active_tab);
-		form.querySelector('.js-ussd-result').innerHTML = '';
-		callUsbmodem(self.active_tab, 'cancel_ussd', {});
-	},
-	sendUssd: function (is_answer) {
-		var self = this;
-		var form = document.querySelector('#ussd-form-' + self.active_tab);
-		var result_body = form.querySelector('.js-ussd-result');
-		
-		var params = {};
-		if (is_answer) {
-			params.answer = form.querySelector('.js-ussd-answer').value;
-		} else {
-			params.query = form.querySelector('.js-ussd-query').value;
-		}
+		var form = document.querySelector('#atcmd-form-' + self.active_tab);
+		var result_body = form.querySelector('.js-atcmd-result');
+		var command = form.querySelector('.js-atcmd').value;
 		
 		result_body.innerHTML = '';
 		result_body.appendChild(E('p', { 'class': 'spinning' }, _('Waiting for response...')));
 		
-		callUsbmodem(self.active_tab, 'send_ussd', params).then(function (result) {
+		callUsbmodem(self.active_tab, 'send_command', { "command": command }).then(function (result) {
 			result_body.innerHTML = '';
-			if (result.error) {
-				result_body.appendChild(E('p', { "class": "alert-message error" }, result.error));
-			} else {
-				if (!result.response && result.code == 2) {
-					result_body.appendChild(E('p', { "class": "alert-message error" }, _('Discard by network.')));
-				} else {
-					result_body.appendChild(E('pre', { }, result.response));
-				}
-			}
-			
-			if (result.code == 1) {
-				result_body.appendChild(E('div', { }, [
-					E('input', {
-						"type": "text",
-						"value": "",
-						"placeholder": "",
-						"class": "js-ussd-answer"
-					}),
-					E('button', {
-						"class": "btn cbi-button cbi-button-apply",
-						"click": ui.createHandlerFn(self, 'sendUssd', true)
-					}, [_("Send answer")]),
-					E('div', { "style": "padding-top: 1em" }, [
-						E('button', {
-							"class": "btn cbi-button cbi-button-reset",
-							"click": ui.createHandlerFn(self, 'cancelUssd')
-						}, [_("Cancel session")])
-					])
-				]));
-			}
+			result_body.appendChild(E('pre', { }, result.response));
 		}).catch(function (err) {
 			result_body.innerHTML = '';
 			if (err.message.indexOf('Object not found') >= 0) {
@@ -103,20 +62,20 @@ return view.extend({
 	renderForm: function (iface) {
 		var self = this;
 		
-		return E('div', { "id": "ussd-form-" + iface }, [
+		return E('div', { "id": "atcmd-form-" + iface }, [
 			E('div', {}, [
 				E('input', {
 					"type": "text",
 					"value": "",
-					"placeholder": "*123#",
-					"class": "js-ussd-query"
+					"placeholder": "AT",
+					"class": "js-atcmd"
 				}),
 				E('button', {
 					"class": "btn cbi-button cbi-button-apply",
-					"click": ui.createHandlerFn(self, 'sendUssd', false)
-				}, [_("Send code")])
+					"click": ui.createHandlerFn(self, 'sendCommand')
+				}, [_("Execute")])
 			]),
-			E('div', { "class": "js-ussd-result", "style": "padding-top: 1em" }, [])
+			E('div', { "class": "js-atcmd-result", "style": "padding-top: 1em" }, [])
 		]);
 	},
 	render: function (interfaces) {
