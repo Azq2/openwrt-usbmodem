@@ -22,23 +22,31 @@
 		"order": 11,
 		"action": {
 			"type": "view",
-			"path": "usbmodem/status"
+			"path": "usbmodem/sms"
+		}
+	},
+	"admin/services/usbmodem/ussd": {
+		"title": "USSD",
+		"order": 12,
+		"action": {
+			"type": "view",
+			"path": "usbmodem/ussd"
 		}
 	},
 	"admin/services/usbmodem/commands": {
 		"title": "AT Commands",
-		"order": 12,
+		"order": 13,
 		"action": {
 			"type": "view",
-			"path": "usbmodem/status"
+			"path": "usbmodem/commands"
 		}
 	},
 	"admin/services/usbmodem/settings": {
 		"title": "Settings",
-		"order": 13,
+		"order": 14,
 		"action": {
 			"type": "view",
-			"path": "usbmodem/status"
+			"path": "usbmodem/settings"
 		}
 	}
 }

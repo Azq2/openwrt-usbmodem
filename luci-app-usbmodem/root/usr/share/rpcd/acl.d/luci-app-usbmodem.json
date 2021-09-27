@@ -3,12 +3,12 @@
 		"description": "Grant access to LuCI app usbmodem",
 		"read": {
 			"ubus": {
-				"usbmodem.*": [ "info" ]
+				"usbmodem.*": [ "info", "send_ussd", "cancel_ussd", "send_command" ]
 			}
 		},
 		"write": {
 			"ubus": {
-				"usbmodem.*": [ "info" ]
+				"usbmodem.*": [ "info", "send_ussd", "cancel_ussd", "send_command" ]
 			}
 		}
 	}
