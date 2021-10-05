@@ -64,7 +64,7 @@ return view.extend({
 				result_body.appendChild(E('p', { "class": "alert-message error" }, result.error));
 			} else {
 				if (!result.response && result.code == 2) {
-					result_body.appendChild(E('p', { "class": "alert-message error" }, _('Discard by network. On some ISP ussd codes available only on 3G.')));
+					result_body.appendChild(E('p', { "class": "alert-message error" }, _('Discard by network.')));
 				} else {
 					result_body.appendChild(E('pre', { }, result.response));
 				}

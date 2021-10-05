@@ -203,7 +203,11 @@ void AtChannel::handleLine() {
 			if (strStartsWith(m_buffer, m_curr_prefix)) {
 				m_curr_response->lines.push_back(m_buffer);
 			} else if (m_curr_response->lines.size() > 0) {
-				m_curr_response->lines.back() += "\r\n" + m_buffer;
+				if (m_buffer[0] == '+' || m_buffer[0] == '*' || m_buffer[0] == '^') {
+					handleUnsolicitedLine();
+				} else {
+					m_curr_response->lines.back() += "\r\n" + m_buffer;
+				}
 			}
 		} else {
 			handleUnsolicitedLine();
