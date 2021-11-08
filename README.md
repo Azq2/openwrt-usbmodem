@@ -1,5 +1,5 @@
 # USB Modem Service
-Rethinking of USB modems support in openwrt.
+Rethinking of USB modems support in OpenWRT.
 
 # Usage
 1. Add to **feeds.conf.default**
