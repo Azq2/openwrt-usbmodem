@@ -682,6 +682,78 @@ bool ModemBaseAt::isUssdWaitReply() {
 }
 
 /*
+ * Network
+ * */
+
+bool ModemBaseAt::readCurrentOperator(Operator *op) {
+	bool success;
+	std::string id;
+	std::string name;
+	int format;
+	int mode;
+	int tech;
+	
+	op->id = "00000";
+	op->tech = TECH_UNKNOWN;
+	op->status = OPERATOR_STATUS_UNKNOWN;
+	op->name = "Unknown";
+	
+	// Parse long name
+	if (m_at.sendCommandNoResponse("AT+COPS=3,0") != 0)
+		return false;
+	
+	auto response = m_at.sendCommand("AT+COPS?", "+COPS");
+	if (response.error)
+		return false;
+	
+	success = AtParser(response.data())
+		.parseSkip()
+		.parseSkip()
+		.parseString(&name)
+		.success();
+	
+	if (!success)
+		return false;
+	
+	// Parse numeric name
+	if (m_at.sendCommandNoResponse("AT+COPS=3,2") != 0)
+		return false;
+	
+	response = m_at.sendCommand("AT+COPS?", "+COPS");
+	if (response.error)
+		return false;
+	
+	success = AtParser(response.data())
+		.parseInt(&mode)
+		.parseInt(&format)
+		.parseString(&id)
+		.parseInt(&tech)
+		.success();
+	
+	if (!success)
+		return false;
+	
+	op->id = id;
+	op->name = name;
+	op->tech = TECH_UNKNOWN;
+	op->status = OPERATOR_STATUS_REGISTERED;
+	
+	switch (tech) {
+		case CREG_TECH_GSM:				op->tech = TECH_GSM;		break;
+		case CREG_TECH_GSM_COMPACT:		op->tech = TECH_GSM;		break;
+		case CREG_TECH_UMTS:			op->tech = TECH_UMTS;		break;
+		case CREG_TECH_EDGE:			op->tech = TECH_EDGE;		break;
+		case CREG_TECH_HSDPA:			op->tech = TECH_HSDPA;		break;
+		case CREG_TECH_HSUPA:			op->tech = TECH_HSUPA;		break;
+		case CREG_TECH_HSPA:			op->tech = TECH_HSPA;		break;
+		case CREG_TECH_HSPAP:			op->tech = TECH_HSPAP;		break;
+		case CREG_TECH_LTE:				op->tech = TECH_LTE;		break;
+	};
+	
+	return true;
+}
+
+/*
  * SIM PIN
  * */
 void ModemBaseAt::startSimPolling() {
@@ -898,6 +970,15 @@ bool ModemBaseAt::open() {
 		close();
 		return false;
 	}
+	
+	on<EvNetworkChanged>([=](const auto &event) {
+		Operator old_operator = m_operator;
+		
+		readCurrentOperator(&m_operator);
+		
+		if (old_operator.id != m_operator.id || old_operator.tech != m_operator.tech)
+			emit<EvOperatorChanged>({});
+	});
 	
 	// Init modem
 	if (!init()) {

@@ -8,19 +8,19 @@ DIR=$(dirname $0)
 
 if [[ $TOPDIR == "" ]]; then
 	# Openwrt build root
-	export TOPDIR=/openwrt
+	export TOPDIR=~/openwrt
 fi
 
 if [[ $TEST_ROUTER == "" ]]; then
 	# Test router
-	TEST_ROUTER=root@192.168.1.155
+	TEST_ROUTER=root@192.168.2.1
 fi
 
 export PATH="$PATH:$TOPDIR/staging_dir/host/bin"
 
 # Build package
 echo "Build..."
-make -C "$DIR/usbmodem" compile || exit 1
+make -C "$DIR/usbmodem" -j9 compile || exit 1
 
 function install_links {
 	src="$1"

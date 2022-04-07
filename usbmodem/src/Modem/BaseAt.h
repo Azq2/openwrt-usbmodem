@@ -92,6 +92,11 @@ class ModemBaseAt: public Modem {
 		virtual bool handshake();
 		
 		/*
+		 * Network
+		 * */
+		virtual bool readCurrentOperator(Operator *op);
+		
+		/*
 		 * SMS
 		 * */
 		virtual bool intiSms();

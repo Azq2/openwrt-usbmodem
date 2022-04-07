@@ -51,6 +51,22 @@ class Modem {
 			PIN_NOT_SUPPORTED	= 4
 		};
 		
+		// Cell operator status
+		enum OperatorStatus {
+			OPERATOR_STATUS_UNKNOWN		= 0,
+			OPERATOR_STATUS_AVAILABLE	= 1,
+			OPERATOR_STATUS_REGISTERED	= 2,
+			OPERATOR_STATUS_FORBIDDEN	= 3,
+		};
+		
+		// Cell operator
+		struct Operator {
+			NetworkTech tech;
+			OperatorStatus status;
+			std::string id;
+			std::string name;
+		};
+		
 		// Network signal levels
 		struct SignalLevels {
 			float rssi_dbm;
@@ -157,6 +173,9 @@ class Modem {
 			const NetworkReg status;
 		};
 		
+		// Event when changed current operator
+		struct EvOperatorChanged { };
+		
 		// Event when signal levels changed
 		struct EvSignalLevels { };
 		
@@ -189,6 +208,9 @@ class Modem {
 		// SIM
 		std::string m_sim_number;
 		std::string m_sim_imsi;
+		
+		// Current operator
+		Operator m_operator = {};
 		
 		// Current connection
 		IpInfo m_ipv4 = {};
@@ -246,6 +268,10 @@ class Modem {
 		
 		inline PinState getPinState() const {
 			return m_pin_state;
+		}
+		
+		inline Operator getOperator() const {
+			return m_operator;
 		}
 		
 		/*

@@ -74,6 +74,7 @@ int ModemService::apiGetInfo(std::shared_ptr<UbusRequest> req) {
 	auto levels = m_modem->getSignalLevels();
 	auto ipv4 = m_modem->getIpInfo(4);
 	auto ipv6 = m_modem->getIpInfo(6);
+	auto op = m_modem->getOperator();
 	
 	double quality = 0;
 	if (!std::isnan(levels.rssi_dbm))
@@ -119,6 +120,11 @@ int ModemService::apiGetInfo(std::shared_ptr<UbusRequest> req) {
 		{"tech", {
 			{"id", m_modem->getTech()},
 			{"name", Modem::getTechName(m_modem->getTech())}
+		}},
+		{"operator", {
+			{"id", op.id},
+			{"name", op.name},
+			{"tech", Modem::getTechName(op.tech)}
 		}},
 		{"network_status", {
 			{"id", m_modem->getNetRegStatus()},

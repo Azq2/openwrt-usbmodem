@@ -94,6 +94,7 @@ return view.extend({
 			
 			var net_section = [
 				_('Network registration'), NETWORK_STATUSES[result.network_status.name],
+				_('Network operator'), '%s (%s)'.format(result.operator.name, result.operator.id),
 				_('Network type'), result.tech.name
 			];
 			if (result.levels.rssi_dbm !== null) {

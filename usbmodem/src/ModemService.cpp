@@ -181,6 +181,11 @@ bool ModemService::runModem() {
 	m_modem->setCustomOption<bool>("prefer_sms_to_sim", m_uci_options["prefer_sms_to_sim"] == "1");
 	m_modem->setCustomOption<int>("connect_timeout", strToInt(m_uci_options["connect_timeout"]) * 1000);
 	
+	m_modem->on<Modem::EvOperatorChanged>([=](const auto &event) {
+		Modem::Operator op = m_modem->getOperator();
+		LOGD("Operator: %s - %s %s\n", op.id.c_str(), op.name.c_str(), Modem::getTechName(op.tech));
+	});
+	
 	m_modem->on<Modem::EvNetworkChanged>([=](const auto &event) {
 		if (event.status == Modem::NET_NOT_REGISTERED) {
 			LOGD("Unregistered from network\n");

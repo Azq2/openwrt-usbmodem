@@ -11,7 +11,8 @@ define Package/usbmodem
 	SECTION:=net
 	CATEGORY:=Network
 	SUBMENU:=WWAN
-	DEPENDS:=+libubus +libstdcpp +libubox +libuci +nlohmannjson +zlib
+	DEPENDS:=+libubus +libstdcpp +libubox +libuci +zlib
+	PKG_BUILD_DEPENDS:=nlohmannjson
 	TITLE:=USB Modem Service
 endef
 
@@ -20,7 +21,10 @@ define Package/usbmodem/description
 endef
 
 define Package/usbmodem/install
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/usbmodem $(1)/usr/sbin/
+	$(INSTALL_DIR) $(1)/usr/sbin
+	$(INSTALL_DIR) $(1)/etc/hotplug.d/tty
+	$(INSTALL_DIR) $(1)/lib/netifd/proto
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/sbin/usbmodem $(1)/usr/sbin/
 	$(INSTALL_BIN) ./files/usbmodem.sh $(1)/lib/netifd/proto/usbmodem.sh
 	$(INSTALL_BIN) ./files/usbmodem.usb $(1)/etc/hotplug.d/tty/30-usbmodem
 endef
