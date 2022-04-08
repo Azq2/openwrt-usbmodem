@@ -59,20 +59,30 @@ class Modem {
 			OPERATOR_STATUS_FORBIDDEN	= 3,
 		};
 		
+		// Cell operator registration status
+		enum OperatorRegStatus {
+			OPERATOR_REG_NONE		= 0,
+			OPERATOR_REG_AUTO		= 1,
+			OPERATOR_REG_MANUAL		= 2,
+		};
+		
 		// Cell operator
 		struct Operator {
 			NetworkTech tech;
 			OperatorStatus status;
+			OperatorRegStatus reg;
 			std::string id;
 			std::string name;
 		};
+		
+		typedef std::function<void(bool, std::vector<Operator>)> OperatorSearchCallback;
 		
 		// Network signal levels
 		struct SignalLevels {
 			float rssi_dbm;
 			float bit_err_pct;
 			float rscp_dbm;
-			float eclo_db;
+			float ecio_db;
 			float rsrq_db;
 			float rsrp_dbm;
 		};
@@ -273,6 +283,12 @@ class Modem {
 		inline Operator getOperator() const {
 			return m_operator;
 		}
+		
+		/*
+		 * Network
+		 * */
+		virtual bool searchOperators(OperatorSearchCallback callback) = 0;
+		virtual bool setOperator(std::string id, NetworkTech tech = TECH_UNKNOWN) = 0;
 		
 		/*
 		 * Modem configuration

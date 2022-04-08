@@ -92,6 +92,24 @@ bool AtParser::parseNextNewLine() {
 }
 
 bool AtParser::parseNextList(std::vector<std::string> *values) {
+	const char *start, *end;
+	int count = 0;
+	do {
+		count++;
+		
+		m_cursor = parseNextArg(m_cursor, &start, &end);
+		if (!m_cursor) {
+			LOGE("AtParser:%s: can't parse #%d argument in '%s'\n", __FUNCTION__, count, m_cursor);
+			m_success = false;
+			return false;
+		}
+		
+		values->push_back(std::string(start, end - start));
+	} while (m_cursor && *m_cursor);
+	return true;
+}
+
+bool AtParser::parseNextArray(std::vector<std::string> *values) {
 	std::string list_raw;
 	if (!parseNextString(&list_raw))
 		return false;

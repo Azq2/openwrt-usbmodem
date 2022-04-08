@@ -183,7 +183,8 @@ bool ModemService::runModem() {
 	
 	m_modem->on<Modem::EvOperatorChanged>([=](const auto &event) {
 		Modem::Operator op = m_modem->getOperator();
-		LOGD("Operator: %s - %s %s\n", op.id.c_str(), op.name.c_str(), Modem::getTechName(op.tech));
+		if (op.reg != Modem::OPERATOR_REG_NONE)
+			LOGD("Operator: %s - %s %s\n", op.id.c_str(), op.name.c_str(), Modem::getTechName(op.tech));
 	});
 	
 	m_modem->on<Modem::EvNetworkChanged>([=](const auto &event) {
@@ -294,8 +295,8 @@ bool ModemService::runModem() {
 		if (!std::isnan(levels.rscp_dbm))
 			info.push_back("RSCP: " + numberFormat(levels.rscp_dbm, 1) + " dBm");
 		
-		if (!std::isnan(levels.eclo_db))
-			info.push_back("Ec/lo: " + numberFormat(levels.eclo_db, 1) + " dB");
+		if (!std::isnan(levels.ecio_db))
+			info.push_back("Ec/lo: " + numberFormat(levels.ecio_db, 1) + " dB");
 		
 		if (!std::isnan(levels.rsrq_db))
 			info.push_back("RSRQ: " + numberFormat(levels.rsrq_db, 1) + " dB");

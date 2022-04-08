@@ -31,6 +31,7 @@ class ModemAsr1802: public ModemBaseAt {
 		void handleConnect();
 		void handleDisconnect();
 		void handleConnectError();
+		void handleOperatorChange();
 		
 		// Modem events handlers
 		void handleCgev(const std::string &event);

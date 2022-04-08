@@ -29,6 +29,13 @@ class AtParser {
 		
 		static int getArgCnt(const std::string &value);
 		
+		inline AtParser &reset() {
+			m_cursor = m_str;
+			m_success = true;
+			arg_cnt = 0;
+			return *this;
+		}
+		
 		inline AtParser &parse(const char *s) {
 			m_str = s;
 			m_cursor = s;
@@ -77,6 +84,11 @@ class AtParser {
 			return *this;
 		}
 		
+		inline AtParser &parseArray(std::vector<std::string> *values) {
+			parseNextArray(values);
+			return *this;
+		}
+		
 		inline AtParser &parseList(std::vector<std::string> *values) {
 			parseNextList(values);
 			return *this;
@@ -96,6 +108,7 @@ class AtParser {
 		bool parseNextInt(int32_t *value, int base = 10);
 		bool parseNextUInt(uint32_t *value, int base = 10);
 		bool parseNextBool(bool *value);
+		bool parseNextArray(std::vector<std::string> *values);
 		bool parseNextList(std::vector<std::string> *values);
 		bool parseNextNewLine();
 		bool parseNextSkip();

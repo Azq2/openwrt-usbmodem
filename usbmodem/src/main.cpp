@@ -33,9 +33,9 @@ static int test(int argc, char *argv[]) {
 	int arg_cnt = AtParser::getArgCnt(line);
 	
 	bool success = AtParser(line)
-		.parseList(&mem1)
-		.parseList(&mem2)
-		.parseList(&mem3)
+		.parseArray(&mem1)
+		.parseArray(&mem2)
+		.parseArray(&mem3)
 		.success();
 	
 	LOGD("arg_cnt=%d\n", arg_cnt);

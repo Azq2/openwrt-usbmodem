@@ -25,6 +25,9 @@ class ModemService {
 		bool m_error_fatal = false;
 		struct sigaction m_sigaction = {};
 		
+		bool m_operators_search = false;
+		std::vector<Modem::Operator> m_operators_list;
+		
 		int64_t m_start_time = 0;
 		int64_t m_last_connected = 0;
 		int64_t m_last_disconnected = 0;
@@ -54,6 +57,9 @@ class ModemService {
 		int apiCancelUssd(std::shared_ptr<UbusRequest> req);
 		int apiReadSms(std::shared_ptr<UbusRequest> req);
 		int apiDeleteSms(std::shared_ptr<UbusRequest> req);
+		int apiSearchOperators(std::shared_ptr<UbusRequest> req);
+		int apiSearchOperatorsResult(std::shared_ptr<UbusRequest> req);
+		int apiSetOperator(std::shared_ptr<UbusRequest> req);
 	public:
 		explicit ModemService(const std::string &iface);
 		

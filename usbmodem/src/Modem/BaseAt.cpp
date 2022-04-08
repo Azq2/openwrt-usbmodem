@@ -17,19 +17,7 @@ bool ModemBaseAt::Creg::isRegistered() const {
 Modem::NetworkTech ModemBaseAt::Creg::toNetworkTech() const {
 	if (!isRegistered())
 		return TECH_NO_SERVICE;
-	
-	switch (tech) {
-		case CREG_TECH_GSM:				return TECH_GSM;
-		case CREG_TECH_GSM_COMPACT:		return TECH_GSM;
-		case CREG_TECH_UMTS:			return TECH_UMTS;
-		case CREG_TECH_EDGE:			return TECH_EDGE;
-		case CREG_TECH_HSDPA:			return TECH_HSDPA;
-		case CREG_TECH_HSUPA:			return TECH_HSUPA;
-		case CREG_TECH_HSPA:			return TECH_HSPA;
-		case CREG_TECH_HSPAP:			return TECH_HSPAP;
-		case CREG_TECH_LTE:				return TECH_LTE;
-	}
-	return TECH_UNKNOWN;
+	return cregToTech(tech);
 }
 
 Modem::NetworkReg ModemBaseAt::Creg::toNetworkReg() const {
@@ -72,6 +60,10 @@ int ModemBaseAt::getCommandTimeout(const std::string &cmd) {
 	
 	// Default timeout for unsolicited USSD response
 	if (cmd == "+CUSD")
+		return 110 * 1000;
+	
+	// Default timeout for operators search
+	if (strStartsWith(cmd, "AT+COPS"))
 		return 110 * 1000;
 	
 	// Default timeout
@@ -268,9 +260,9 @@ bool ModemBaseAt::discoverSmsStorages() {
 	std::vector<std::string> mem_names[3];
 	
 	bool success = AtParser(response.data())
-		.parseList(&mem_names[0])
-		.parseList(&mem_names[1])
-		.parseList(&mem_names[2])
+		.parseArray(&mem_names[0])
+		.parseArray(&mem_names[1])
+		.parseArray(&mem_names[2])
 		.success();
 	
 	if (!success)
@@ -684,6 +676,109 @@ bool ModemBaseAt::isUssdWaitReply() {
 /*
  * Network
  * */
+ModemBaseAt::NetworkTech ModemBaseAt::cregToTech(CregTech creg_tech) {
+	switch (creg_tech) {
+		case CREG_TECH_GSM:				return TECH_GSM;
+		case CREG_TECH_GSM_COMPACT:		return TECH_GSM;
+		case CREG_TECH_UMTS:			return TECH_UMTS;
+		case CREG_TECH_EDGE:			return TECH_EDGE;
+		case CREG_TECH_HSDPA:			return TECH_HSDPA;
+		case CREG_TECH_HSUPA:			return TECH_HSUPA;
+		case CREG_TECH_HSPA:			return TECH_HSPA;
+		case CREG_TECH_HSPAP:			return TECH_HSPAP;
+		case CREG_TECH_LTE:				return TECH_LTE;
+	}
+	return TECH_UNKNOWN;
+}
+
+ModemBaseAt::CregTech ModemBaseAt::techToCreg(NetworkTech tech) {
+	switch (tech) {
+		case TECH_GSM:		return CREG_TECH_GSM;
+		case TECH_UMTS:		return CREG_TECH_UMTS;
+		case TECH_EDGE:		return CREG_TECH_EDGE;
+		case TECH_HSDPA:	return CREG_TECH_HSDPA;
+		case TECH_HSUPA:	return CREG_TECH_HSUPA;
+		case TECH_HSPA:		return CREG_TECH_HSPA;
+		case TECH_HSPAP:	return CREG_TECH_HSPAP;
+		case TECH_LTE:		return CREG_TECH_LTE;
+	}
+	return CREG_TECH_UNKNOWN;
+}
+
+bool ModemBaseAt::searchOperators(OperatorSearchCallback callback) {
+	std::vector<Operator> operators;
+	std::vector<std::string> operators_raw;
+	
+	auto response = m_at.sendCommand("AT+COPS=?", "+COPS");
+	if (response.error) {
+		callback(false, {});
+		return false;
+	}
+	
+	if (!AtParser(response.data()).parseNextList(&operators_raw)) {
+		callback(false, {});
+		return false;
+	}
+	
+	for (auto opearator_info: operators_raw) {
+		int status = 0;
+		int tech = 0;
+		std::string name_short;
+		std::string name_long;
+		std::string name_numeric;
+		
+		if (!opearator_info.size())
+			break;
+		
+		bool success = AtParser(opearator_info)
+			.reset()
+			.parseInt(&status, 10)
+			.parseString(&name_long)
+			.parseString(&name_short)
+			.parseString(&name_numeric)
+			.parseInt(&tech, 10)
+			.success();
+		
+		if (success) {
+			operators.resize(operators.size() + 1);
+			
+			Operator &op = operators.back();
+			op.id = name_numeric;
+			op.name = name_long;
+			op.tech = cregToTech(static_cast<CregTech>(tech));
+			op.status = OPERATOR_STATUS_UNKNOWN;
+			op.reg = OPERATOR_REG_NONE;
+			
+			if ((status >= 0 && status < 4))
+				op.status = static_cast<OperatorStatus>(status);
+		} else {
+			LOGE("Invalid operator entry: %s", opearator_info.c_str());
+		}
+	}
+	
+	callback(true, operators);
+	return true;
+}
+
+bool ModemBaseAt::setOperator(std::string id, NetworkTech tech) {
+	CregTech act = techToCreg(tech);
+	
+	std::string at_cmd;
+	if (id == "auto") {
+		if (m_at.sendCommandNoResponse("AT+COPS=2") != 0)
+			return false;
+		
+		at_cmd = "AT+COPS=0";
+	} else {
+		if (act != CREG_TECH_UNKNOWN) {
+			at_cmd = strprintf("AT+COPS=1,2,%s,%s", id.c_str(), static_cast<int>(act));
+		} else {
+			at_cmd = strprintf("AT+COPS=1,2,%s", id.c_str());
+		}
+	}
+	
+	return m_at.sendCommandNoResponse(at_cmd) == 0;
+}
 
 bool ModemBaseAt::readCurrentOperator(Operator *op) {
 	bool success;
@@ -697,6 +792,7 @@ bool ModemBaseAt::readCurrentOperator(Operator *op) {
 	op->tech = TECH_UNKNOWN;
 	op->status = OPERATOR_STATUS_UNKNOWN;
 	op->name = "Unknown";
+	op->reg = OPERATOR_REG_NONE;
 	
 	// Parse long name
 	if (m_at.sendCommandNoResponse("AT+COPS=3,0") != 0)
@@ -737,18 +833,8 @@ bool ModemBaseAt::readCurrentOperator(Operator *op) {
 	op->name = name;
 	op->tech = TECH_UNKNOWN;
 	op->status = OPERATOR_STATUS_REGISTERED;
-	
-	switch (tech) {
-		case CREG_TECH_GSM:				op->tech = TECH_GSM;		break;
-		case CREG_TECH_GSM_COMPACT:		op->tech = TECH_GSM;		break;
-		case CREG_TECH_UMTS:			op->tech = TECH_UMTS;		break;
-		case CREG_TECH_EDGE:			op->tech = TECH_EDGE;		break;
-		case CREG_TECH_HSDPA:			op->tech = TECH_HSDPA;		break;
-		case CREG_TECH_HSUPA:			op->tech = TECH_HSUPA;		break;
-		case CREG_TECH_HSPA:			op->tech = TECH_HSPA;		break;
-		case CREG_TECH_HSPAP:			op->tech = TECH_HSPAP;		break;
-		case CREG_TECH_LTE:				op->tech = TECH_LTE;		break;
-	};
+	op->tech = cregToTech(static_cast<CregTech>(tech));
+	op->reg = (mode == 0 ? OPERATOR_REG_AUTO : OPERATOR_REG_MANUAL);
 	
 	return true;
 }
@@ -841,15 +927,29 @@ void ModemBaseAt::handleCpin(const std::string &event) {
 /*
  * Network signal levels
  * */
+void ModemBaseAt::handleCsq(const std::string &event) {
+	int rssi, ecio;
+	bool parsed = AtParser(event)
+		.parseInt(&rssi)
+		.parseInt(&ecio)
+		.success();
+	
+	if (!parsed)
+		return;
+	
+	// RSSI (Received signal strength)
+	m_levels.rssi_dbm = -(rssi >= 99 ? NAN : 113 - (rssi * 2));
+}
+
 void ModemBaseAt::handleCesq(const std::string &event) {
 	static const double bit_errors[] = {0.14, 0.28, 0.57, 1.13, 2.26, 4.53, 9.05, 18.10};
-	int rssi, ber, rscp, eclo, rsrq, rsrp;
+	int rssi, ber, rscp, ecio, rsrq, rsrp;
 	
 	bool parsed = AtParser(event)
 		.parseInt(&rssi)
 		.parseInt(&ber)
 		.parseInt(&rscp)
-		.parseInt(&eclo)
+		.parseInt(&ecio)
 		.parseInt(&rsrq)
 		.parseInt(&rsrp)
 		.success();
@@ -867,7 +967,7 @@ void ModemBaseAt::handleCesq(const std::string &event) {
 	m_levels.rscp_dbm = -(rscp >= 255 ? NAN : 121 - rscp);
 	
 	// Ec/lo
-	m_levels.eclo_db = -(eclo >= 255 ? NAN : (49.0f - (float) eclo) / 2.0f);
+	m_levels.ecio_db = -(ecio >= 255 ? NAN : (49.0f - (float) ecio) / 2.0f);
 	
 	// RSRQ (Reference signal received quality)
 	m_levels.rsrq_db = -(rsrq >= 255 ? NAN : (40.0f - (float) rsrq) / 2.0f);
@@ -970,15 +1070,6 @@ bool ModemBaseAt::open() {
 		close();
 		return false;
 	}
-	
-	on<EvNetworkChanged>([=](const auto &event) {
-		Operator old_operator = m_operator;
-		
-		readCurrentOperator(&m_operator);
-		
-		if (old_operator.id != m_operator.id || old_operator.tech != m_operator.tech)
-			emit<EvOperatorChanged>({});
-	});
 	
 	// Init modem
 	if (!init()) {

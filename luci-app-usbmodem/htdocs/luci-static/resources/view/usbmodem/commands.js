@@ -4,24 +4,24 @@
 'require rpc';
 'require ui';
 
-var callInterfaceDump = rpc.declare({
+let callInterfaceDump = rpc.declare({
 	object: 'network.interface',
 	method: 'dump',
 	expect: { interface: [] }
 });
 
 function callUsbmodem(iface, method, params) {
-	var keys = [];
-	var values = [];
+	let keys = [];
+	let values = [];
 	
 	if (params) {
-		for (var k in params) {
+		for (let k in params) {
 			keys.push(k);
 			values.push(params[k]);
 		}
 	}
 	
-	var callback = rpc.declare({
+	let callback = rpc.declare({
 		object: 'usbmodem.%s'.format(iface),
 		method: method,
 		params: keys,
@@ -30,26 +30,25 @@ function callUsbmodem(iface, method, params) {
 }
 
 return view.extend({
-	load: function () {
+	load() {
 		return callInterfaceDump();
 	},
-	onTabSelected: function (iface) {
-		var self = this;
-		self.active_tab = iface;
+	onTabSelected(iface) {
+		this.active_tab = iface;
 	},
-	sendCommand: function () {
-		var self = this;
-		var form = document.querySelector('#atcmd-form-' + self.active_tab);
-		var result_body = form.querySelector('.js-atcmd-result');
-		var command = form.querySelector('.js-atcmd').value;
+	sendCommand() {
+		let self = this;
+		let form = document.querySelector('#atcmd-form-' + this.active_tab);
+		let result_body = form.querySelector('.js-atcmd-result');
+		let command = form.querySelector('.js-atcmd').value;
 		
 		result_body.innerHTML = '';
 		result_body.appendChild(E('p', { 'class': 'spinning' }, _('Waiting for response...')));
 		
-		callUsbmodem(self.active_tab, 'send_command', { "command": command }).then(function (result) {
+		callUsbmodem(this.active_tab, 'send_command', { "command": command }).then((result) => {
 			result_body.innerHTML = '';
 			result_body.appendChild(E('pre', { }, result.response));
-		}).catch(function (err) {
+		}).catch((err) => {
 			result_body.innerHTML = '';
 			if (err.message.indexOf('Object not found') >= 0) {
 				result_body.appendChild(E('p', {}, _('Modem not found. Please insert your modem to USB.')));
@@ -58,9 +57,7 @@ return view.extend({
 			}
 		});
 	},
-	renderForm: function (iface) {
-		var self = this;
-		
+	renderForm(iface) {
 		return E('div', { "id": "atcmd-form-" + iface }, [
 			E('div', {}, [
 				E('input', {
@@ -72,31 +69,29 @@ return view.extend({
 				}),
 				E('button', {
 					"class": "btn cbi-button cbi-button-apply",
-					"click": ui.createHandlerFn(self, 'sendCommand')
+					"click": ui.createHandlerFn(this, 'sendCommand')
 				}, [_("Execute")])
 			]),
 			E('div', { "class": "js-atcmd-result", "style": "padding-top: 1em" }, [])
 		]);
 	},
-	render: function (interfaces) {
-		var self = this;
-		
-		var usbmodems = interfaces.filter(function (v) {
+	render(interfaces) {
+		let usbmodems = interfaces.filter((v) => {
 			return v.proto == "usbmodem";
 		});
 		
-		var tabs = [];
-		usbmodems.forEach(function (modem) {
+		let tabs = [];
+		usbmodems.forEach((modem) => {
 			tabs.push(E('div', {
 				'data-tab': modem.interface,
 				'data-tab-title': modem.interface,
-				'cbi-tab-active': ui.createHandlerFn(self, 'onTabSelected', modem.interface)
+				'cbi-tab-active': ui.createHandlerFn(this, 'onTabSelected', modem.interface)
 			}, [
-				self.renderForm(modem.interface)
+				this.renderForm(modem.interface)
 			]));
 		});
 		
-		var view = E('div', {}, [
+		let view = E('div', {}, [
 			E('div', {}, tabs)
 		]);
 		

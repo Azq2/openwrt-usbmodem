@@ -4,24 +4,24 @@
 'require rpc';
 'require ui';
 
-var callInterfaceDump = rpc.declare({
+let callInterfaceDump = rpc.declare({
 	object: 'network.interface',
 	method: 'dump',
 	expect: { interface: [] }
 });
 
 function callUsbmodem(iface, method, params) {
-	var keys = [];
-	var values = [];
+	let keys = [];
+	let values = [];
 	
 	if (params) {
-		for (var k in params) {
+		for (let k in params) {
 			keys.push(k);
 			values.push(params[k]);
 		}
 	}
 	
-	var callback = rpc.declare({
+	let callback = rpc.declare({
 		object: 'usbmodem.%s'.format(iface),
 		method: method,
 		params: keys,
@@ -30,25 +30,22 @@ function callUsbmodem(iface, method, params) {
 }
 
 return view.extend({
-	load: function () {
+	load() {
 		return callInterfaceDump();
 	},
-	onTabSelected: function (iface) {
-		var self = this;
-		self.active_tab = iface;
+	onTabSelected(iface) {
+		this.active_tab = iface;
 	},
-	cancelUssd: function () {
-		var self = this;
-		var form = document.querySelector('#ussd-form-' + self.active_tab);
+	cancelUssd() {
+		let form = document.querySelector('#ussd-form-' + this.active_tab);
 		form.querySelector('.js-ussd-result').innerHTML = '';
-		callUsbmodem(self.active_tab, 'cancel_ussd', {});
+		callUsbmodem(this.active_tab, 'cancel_ussd', {});
 	},
-	sendUssd: function (is_answer) {
-		var self = this;
-		var form = document.querySelector('#ussd-form-' + self.active_tab);
-		var result_body = form.querySelector('.js-ussd-result');
+	sendUssd(is_answer) {
+		let form = document.querySelector('#ussd-form-' + this.active_tab);
+		let result_body = form.querySelector('.js-ussd-result');
 		
-		var params = {};
+		let params = {};
 		if (is_answer) {
 			params.answer = form.querySelector('.js-ussd-answer').value;
 		} else {
@@ -58,7 +55,7 @@ return view.extend({
 		result_body.innerHTML = '';
 		result_body.appendChild(E('p', { 'class': 'spinning' }, _('Waiting for response...')));
 		
-		callUsbmodem(self.active_tab, 'send_ussd', params).then(function (result) {
+		callUsbmodem(this.active_tab, 'send_ussd', params).then((result) => {
 			result_body.innerHTML = '';
 			if (result.error) {
 				result_body.appendChild(E('p', { "class": "alert-message error" }, result.error));
@@ -81,17 +78,17 @@ return view.extend({
 					}),
 					E('button', {
 						"class": "btn cbi-button cbi-button-apply",
-						"click": ui.createHandlerFn(self, 'sendUssd', true)
+						"click": ui.createHandlerFn(this, 'sendUssd', true)
 					}, [_("Send answer")]),
 					E('div', { "style": "padding-top: 1em" }, [
 						E('button', {
 							"class": "btn cbi-button cbi-button-reset",
-							"click": ui.createHandlerFn(self, 'cancelUssd')
+							"click": ui.createHandlerFn(this, 'cancelUssd')
 						}, [_("Cancel session")])
 					])
 				]));
 			}
-		}).catch(function (err) {
+		}).catch((err) => {
 			result_body.innerHTML = '';
 			if (err.message.indexOf('Object not found') >= 0) {
 				result_body.appendChild(E('p', {}, _('Modem not found. Please insert your modem to USB.')));
@@ -100,9 +97,7 @@ return view.extend({
 			}
 		});
 	},
-	renderForm: function (iface) {
-		var self = this;
-		
+	renderForm(iface) {
 		return E('div', { "id": "ussd-form-" + iface }, [
 			E('div', {}, [
 				E('input', {
@@ -114,31 +109,29 @@ return view.extend({
 				}),
 				E('button', {
 					"class": "btn cbi-button cbi-button-apply",
-					"click": ui.createHandlerFn(self, 'sendUssd', false)
+					"click": ui.createHandlerFn(this, 'sendUssd', false)
 				}, [_("Send code")])
 			]),
 			E('div', { "class": "js-ussd-result", "style": "padding-top: 1em" }, [])
 		]);
 	},
-	render: function (interfaces) {
-		var self = this;
-		
-		var usbmodems = interfaces.filter(function (v) {
+	render(interfaces) {
+		let usbmodems = interfaces.filter((v) => {
 			return v.proto == "usbmodem";
 		});
 		
-		var tabs = [];
-		usbmodems.forEach(function (modem) {
+		let tabs = [];
+		usbmodems.forEach((modem) => {
 			tabs.push(E('div', {
 				'data-tab': modem.interface,
 				'data-tab-title': modem.interface,
-				'cbi-tab-active': ui.createHandlerFn(self, 'onTabSelected', modem.interface)
+				'cbi-tab-active': ui.createHandlerFn(this, 'onTabSelected', modem.interface)
 			}, [
-				self.renderForm(modem.interface)
+				this.renderForm(modem.interface)
 			]));
 		});
 		
-		var view = E('div', {}, [
+		let view = E('div', {}, [
 			E('div', {}, tabs)
 		]);
 		

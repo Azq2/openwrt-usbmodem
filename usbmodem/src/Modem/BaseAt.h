@@ -84,6 +84,7 @@ class ModemBaseAt: public Modem {
 		
 		// Modem events handlers
 		virtual void handleCesq(const std::string &event);
+		virtual void handleCsq(const std::string &event);
 		virtual void handleCusd(const std::string &event);
 		
 		virtual void handleUssdResponse(int code, const std::string &data, int dcs);
@@ -94,7 +95,11 @@ class ModemBaseAt: public Modem {
 		/*
 		 * Network
 		 * */
-		virtual bool readCurrentOperator(Operator *op);
+		static NetworkTech cregToTech(CregTech creg_tech);
+		static CregTech techToCreg(NetworkTech tech);
+		virtual bool searchOperators(OperatorSearchCallback callback);
+		virtual bool setOperator(std::string id, NetworkTech tech = TECH_UNKNOWN);
+		bool readCurrentOperator(Operator *op);
 		
 		/*
 		 * SMS

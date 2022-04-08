@@ -193,8 +193,10 @@ void ModemAsr1802::handleUssdResponse(int code, const std::string &data, int dcs
 void ModemAsr1802::handleCesq(const std::string &event) {
 	ModemBaseAt::handleCesq(event);
 	
-	if (std::isnan(m_levels.rssi_dbm) && !std::isnan(m_levels.rscp_dbm))
+	if (std::isnan(m_levels.rssi_dbm) && !std::isnan(m_levels.rscp_dbm)) {
 		m_levels.rssi_dbm = m_levels.rscp_dbm;
+		m_levels.rscp_dbm = NAN;
+	}
 }
 
 bool ModemAsr1802::dial() {
@@ -231,12 +233,15 @@ void ModemAsr1802::handleNetworkChange() {
 	NetworkTech new_tech;
 	NetworkReg new_net_reg;
 	
+	bool is_registered = false;
 	if (m_cereg.isRegistered()) {
 		new_tech = m_cereg.toNetworkTech();
 		new_net_reg = m_cereg.toNetworkReg();
+		is_registered = true;
 	} else if (m_cgreg.isRegistered()) {
 		new_tech = m_cgreg.toNetworkTech();
 		new_net_reg = m_cgreg.toNetworkReg();
+		is_registered = true;
 	} else {
 		new_tech = TECH_NO_SERVICE;
 		new_net_reg = m_creg.toNetworkReg();
@@ -245,12 +250,23 @@ void ModemAsr1802::handleNetworkChange() {
 	if (m_net_reg != new_net_reg) {
 		m_net_reg = new_net_reg;
 		emit<EvNetworkChanged>({.status = m_net_reg});
+		
+		Loop::setTimeout([=]() {
+			handleOperatorChange();
+		}, 0);
 	}
 	
 	if (m_tech != new_tech) {
 		m_tech = new_tech;
 		emit<EvTechChanged>({.tech = m_tech});
 	}
+}
+
+void ModemAsr1802::handleOperatorChange() {
+	Operator old_operator = m_operator;
+	readCurrentOperator(&m_operator);
+	if (old_operator.id != m_operator.id || old_operator.tech != m_operator.tech)
+		emit<EvOperatorChanged>({});
 }
 
 int ModemAsr1802::getCurrentPdpCid() {
@@ -602,6 +618,11 @@ bool ModemAsr1802::init() {
 		handleCesq(event);
 	});
 	
+	// Signal levels
+	m_at.onUnsolicited("+CSQ", [=](const std::string &event) {
+		handleCsq(event);
+	});
+	
 	// SIM pin state
 	m_at.onUnsolicited("+CPIN", [=](const std::string &event) {
 		handleCpin(event);
@@ -661,6 +682,10 @@ bool ModemAsr1802::init() {
 	
 	if (m_data_state != CONNECTED)
 		startNetRegWhatchdog();
+	
+	Loop::setTimeout([=]() {
+		handleOperatorChange();
+	}, 0);
 	
 	return true;
 }

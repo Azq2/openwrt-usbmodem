@@ -2,6 +2,19 @@
 #include "AtChannel.h"
 #include "GsmUtils.h"
 
+static std::map<Modem::OperatorRegStatus, std::string> REG_STATUS_NAMES = {
+	{Modem::OPERATOR_REG_NONE, "none"},
+	{Modem::OPERATOR_REG_AUTO, "auto"},
+	{Modem::OPERATOR_REG_MANUAL, "manual"},
+};
+
+static std::map<Modem::OperatorStatus, std::string> OPERATOR_STATUS_NAMES = {
+	{Modem::OPERATOR_STATUS_UNKNOWN, "unknown"},
+	{Modem::OPERATOR_STATUS_AVAILABLE, "available"},
+	{Modem::OPERATOR_STATUS_REGISTERED, "registered"},
+	{Modem::OPERATOR_STATUS_FORBIDDEN, "forbidden"},
+};
+
 int ModemService::apiSendUssd(std::shared_ptr<UbusRequest> req) {
 	auto &params = req->data();
 	
@@ -112,7 +125,7 @@ int ModemService::apiGetInfo(std::shared_ptr<UbusRequest> req) {
 			{"rssi_dbm", levels.rssi_dbm},
 			{"bit_err_pct", levels.bit_err_pct},
 			{"rscp_dbm", levels.rscp_dbm},
-			{"eclo_db", levels.eclo_db},
+			{"ecio_db", levels.ecio_db},
 			{"rsrq_db", levels.rsrq_db},
 			{"rsrp_dbm", levels.rsrp_dbm},
 			{"quality", quality}
@@ -124,7 +137,7 @@ int ModemService::apiGetInfo(std::shared_ptr<UbusRequest> req) {
 		{"operator", {
 			{"id", op.id},
 			{"name", op.name},
-			{"tech", Modem::getTechName(op.tech)}
+			{"registration", REG_STATUS_NAMES[op.reg]}
 		}},
 		{"network_status", {
 			{"id", m_modem->getNetRegStatus()},
@@ -235,6 +248,72 @@ int ModemService::apiDeleteSms(std::shared_ptr<UbusRequest> req) {
 	return UBUS_STATUS_INVALID_ARGUMENT;
 }
 
+int ModemService::apiSearchOperatorsResult(std::shared_ptr<UbusRequest> req) {
+	json response = {
+		{"list", json::array()},
+		{"searching", m_operators_search}
+	};
+	for (auto &op: m_operators_list) {
+		json op_json = json::object();
+		op_json["id"] = op.id;
+		op_json["name"] = op.name;
+		op_json["status"] = OPERATOR_STATUS_NAMES[op.status];
+		op_json["tech"] = {
+			{"id", op.tech},
+			{"name", Modem::getTechName(op.tech)}
+		};
+		response["list"].push_back(op_json);
+	}
+	req->reply(response);
+	return 0;
+}
+
+int ModemService::apiSearchOperators(std::shared_ptr<UbusRequest> req) {
+	json response = {};
+	
+	if (m_operators_search) {
+		response["error"] = "Network search already in progress...";
+		req->reply(response);
+		return 0;
+	}
+	
+	m_operators_search = true;
+	
+	Loop::setTimeout([=]() {
+		m_modem->searchOperators([=](bool status, std::vector<Modem::Operator> list) {
+			m_operators_search = false;
+			m_operators_list = list;
+		});
+	}, 0);
+	
+	req->reply(response);
+	
+	return 0;
+}
+
+int ModemService::apiSetOperator(std::shared_ptr<UbusRequest> req) {
+	auto &params = req->data();
+	Modem::NetworkTech tech = Modem::TECH_UNKNOWN;
+	std::string id = "auto";
+	
+	if (params["tech"].is_number())
+		tech = static_cast<Modem::NetworkTech>(params["tech"]);
+	
+	if (params["id"].is_string())
+		id = params["id"];
+	
+	json response = {};
+	if (m_modem->setOperator(id, tech)) {
+		response["success"] = true;
+	} else {
+		response["success"] = false;
+	}
+	
+	req->reply(response);
+	
+	return 0;
+}
+
 bool ModemService::runApi() {
 	return m_ubus.object("usbmodem." + m_iface)
 		.method("info", [=](auto req) {
@@ -255,6 +334,18 @@ bool ModemService::runApi() {
 		})
 		.method("cancel_ussd", [=](auto req) {
 			return apiCancelUssd(req);
+		})
+		.method("search_operators", [=](auto req) {
+			return apiSearchOperators(req);
+		})
+		.method("search_operators_result", [=](auto req) {
+			return apiSearchOperatorsResult(req);
+		})
+		.method("set_operator", [=](auto req) {
+			return apiSetOperator(req);
+		}, {
+			{"id", UbusObject::STRING},
+			{"tech", UbusObject::INT32}
 		})
 		.method("read_sms", [=](auto req) {
 			return apiReadSms(req);

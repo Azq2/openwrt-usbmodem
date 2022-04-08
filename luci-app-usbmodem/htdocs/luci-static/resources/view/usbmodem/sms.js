@@ -5,7 +5,7 @@
 'require ui';
 'require form';
 
-var GSM7_CHARS = [
+let GSM7_CHARS = [
 	"\\u000a", "\\u000c-\\u000d", "\\u0020-\\u005f", "\\u0061-\\u007e", "\\u00a0-\\u00a1",
 	"\\u00a3-\\u00a5", "\\u00a7", "\\u00bf", "\\u00c4-\\u00c7", "\\u00c9", "\\u00d1", "\\u00d6",
 	"\\u00d8", "\\u00dc", "\\u00df-\\u00e0", "\\u00e4-\\u00e6", "\\u00e8-\\u00e9", "\\u00ec",
@@ -13,34 +13,34 @@ var GSM7_CHARS = [
 	"\\u039e", "\\u03a0", "\\u03a3", "\\u03a6", "\\u03a8-\\u03a9", "\\u20ac"
 ];
 
-var RE_GSM7_CHARS = new RegExp('^[' + GSM7_CHARS.join('') + ']+$', '');
+let RE_GSM7_CHARS = new RegExp('^[' + GSM7_CHARS.join('') + ']+$', '');
 
-var RE_GSM7_ESC_CHARS = /([\f^{}\\\[~\]\|€])/g;
+let RE_GSM7_ESC_CHARS = /([\f^{}\\\[~\]\|€])/g;
 
-var SMS_MEMORY_NAMES = {
+let SMS_MEMORY_NAMES = {
 	SM:		_("SIM Memory"),
 	ME:		_("Modem Memory"),
 	MT:		_("Modem + SIM Memory")
 };
 
-var callInterfaceDump = rpc.declare({
+let callInterfaceDump = rpc.declare({
 	object: 'network.interface',
 	method: 'dump',
 	expect: { interface: [] }
 });
 
 function callUsbmodem(iface, method, params) {
-	var keys = [];
-	var values = [];
+	let keys = [];
+	let values = [];
 	
 	if (params) {
-		for (var k in params) {
+		for (let k in params) {
 			keys.push(k);
 			values.push(params[k]);
 		}
 	}
 	
-	var callback = rpc.declare({
+	let callback = rpc.declare({
 		object: 'usbmodem.%s'.format(iface),
 		method: method,
 		params: keys,
@@ -49,7 +49,7 @@ function callUsbmodem(iface, method, params) {
 }
 
 function progressbar(value, max, byte) {
-	var vn = parseInt(value) || 0,
+	let vn = parseInt(value) || 0,
 	    mn = parseInt(max) || 100,
 	    fv = byte ? String.format('%1024.2mB', value) : value,
 	    fm = byte ? String.format('%1024.2mB', max) : max,
@@ -62,12 +62,12 @@ function progressbar(value, max, byte) {
 }
 
 function getSmsCount(value) {
-	var capacity, parts;
+	let capacity, parts;
 	
 	value = value || "";
 	
 	if (RE_GSM7_CHARS.test(value) || !value.length) {
-		var tmp = value.replace(RE_GSM7_ESC_CHARS, "\x1B$1");
+		let tmp = value.replace(RE_GSM7_ESC_CHARS, "\x1B$1");
 		
 		if (tmp.length <= 160) {
 			parts = 1;
@@ -95,12 +95,12 @@ function getSmsCount(value) {
 }
 
 return view.extend({
-	load: function () {
+	load() {
 		return callInterfaceDump();
 	},
-	createInfoTable: function (title, fields) {
-		var table = E('table', { 'class': 'table' });
-		for (var i = 0; i < fields.length; i += 2) {
+	createInfoTable(title, fields) {
+		let table = E('table', { 'class': 'table' });
+		for (let i = 0; i < fields.length; i += 2) {
 			table.appendChild(E('tr', { 'class': 'tr' }, [
 				E('td', { 'class': 'td left', 'width': '33%' }, [ fields[i] ]),
 				E('td', { 'class': 'td left' }, [ fields[i + 1] ])
@@ -113,30 +113,24 @@ return view.extend({
 			return E('div', {}, [ table ]);
 		}
 	},
-	refresh: function () {
-		var self = this;
-		return self.updateSmsList(self.active_tab, false);
+	refresh() {
+		return this.updateSmsList(this.active_tab, false);
 	},
-	deletedSelected: function () {
-		var self = this;
+	deletedSelected() {
 		console.log(document.querySelectorAll('input[name="sms-select"]'));
 	},
-	onTabSelected: function (iface, e) {
-		var self = this;
-		self.active_tab = iface;
-		self.active_dir = 'inbox';
-		return self.refresh();
+	onTabSelected(iface, e) {
+		this.active_tab = iface;
+		this.active_dir = 'inbox';
+		return this.refresh();
 	},
-	onDirSelected: function (dir, e) {
-		var self = this;
-		self.active_dir = dir;
-		return self.refresh();
+	onDirSelected(dir, e) {
+		this.active_dir = dir;
+		return this.refresh();
 	},
-	onMessageSelected: function (global, event) {
-		var self = this;
-		
-		var checked_cnt = 0;
-		self.view.querySelectorAll('input[name="sms-select"]').forEach(function (el) {
+	onMessageSelected(global, event) {
+		let checked_cnt = 0;
+		this.view.querySelectorAll('input[name="sms-select"]').forEach((el) => {
 			if (global)
 				el.checked = event.target.checked;
 			
@@ -146,23 +140,21 @@ return view.extend({
 		
 		document.getElementById('delete-sms').classList.toggle('hidden', !checked_cnt);
 	},
-	createSms: function (address) {
-		var self = this;
-		
-		var form_data = {
+	createSms(address) {
+		let form_data = {
 			message: {
 				address:	address,
 				text:		null
 			}
 		};
 		
-		var m = new form.JSONMap(form_data);
-		var s = m.section(form.NamedSection, 'message', 'message');
+		let m = new form.JSONMap(form_data);
+		let s = m.section(form.NamedSection, 'message', 'message');
 		
-		var address_widget = s.option(form.Value, 'address', _('Address'));
+		let address_widget = s.option(form.Value, 'address', _('Address'));
 		address_widget.placeholder = '+';
-		address_widget.validate = function (name, value) {
-			var normalized = value.replace(/\s+/, '');
+		address_widget.validate = (name, value) => {
+			let normalized = value.replace(/\s+/, '');
 			if (value.length > 0 && !/^\+?([0-9]{1,20})$/.test(normalized)) {
 				return [
 					_('Wrong number format.'),
@@ -173,19 +165,19 @@ return view.extend({
 			return true;
 		};
 		
-		var text_widget = s.option(form.TextValue, 'text', _('Message text'), getSmsCount(form_data.message.text));
+		let text_widget = s.option(form.TextValue, 'text', _('Message text'), getSmsCount(form_data.message.text));
 		text_widget.rows = 4;
-		text_widget.validate = function (name, value) {
+		text_widget.validate = (name, value) => {
 			text_widget.description = getSmsCount(value);
 			
-			var description_el = document.querySelector('#cbi-json-message-text .cbi-value-description');
+			let description_el = document.querySelector('#cbi-json-message-text .cbi-value-description');
 			if (description_el)
 				description_el.textContent = text_widget.description;
 			
 			return true;
 		};
 		
-		m.render().then(function (result) {
+		m.render().then((result) => {
 			ui.showModal(_('New message'), [
 				result,
 				E('div', { 'class': 'right' }, [
@@ -195,18 +187,16 @@ return view.extend({
 					}, _('Cancel')), ' ',
 					E('button', {
 						'class': 'btn cbi-button cbi-button-positive important',
-						'click': ui.createHandlerFn(self, 'onSendSms', form_data)
+						'click': ui.createHandlerFn(this, 'onSendSms', form_data)
 					}, _('Send'))
 				])
 			], 'cbi-modal');
 		});
 	},
-	renderSms: function (msg) {
-		var self = this;
-		
-		var text = "";
-		var parts = [];
-		msg.parts.forEach(function (p) {
+	renderSms(msg) {
+		let text = "";
+		let parts = [];
+		msg.parts.forEach((p) => {
 			if (p.id >= 0) {
 				text += p.text;
 				parts.push(p.id);
@@ -215,9 +205,9 @@ return view.extend({
 			}
 		});
 		
-		var date = '';
+		let date = '';
 		if (msg.time) {
-			var ctime = new Date(msg.time * 1000);
+			let ctime = new Date(msg.time * 1000);
 			date = '%04d-%02d-%02d %02d:%02d:%02d'.format(
 				ctime.getFullYear(),
 				ctime.getMonth() + 1,
@@ -238,7 +228,7 @@ return view.extend({
 						'name': 'sms-select',
 						'value': parts,
 						'style': 'vertical-align: text-bottom; margin: 0',
-						'click': ui.createHandlerFn(self, 'onMessageSelected', false)
+						'click': ui.createHandlerFn(this, 'onMessageSelected', false)
 					})
 				]),
 			]),
@@ -246,13 +236,13 @@ return view.extend({
 				E('a', {
 					'class': 'cbi-value-title',
 					'href': '#',
-					'click': ui.createHandlerFn(self, 'createSms', address)
+					'click': ui.createHandlerFn(this, 'createSms', address)
 				}, [
 					E('b', { }, [ address ])
 				])
 			]),
 			(
-				self.active_dir == 'outbox' || self.active_dir == 'drafts' ?
+				this.active_dir == 'outbox' || this.active_dir == 'drafts' ?
 				'' :
 				E('td', { 'class': 'td cbi-value-field left top nowrap' }, [ date ])
 			),
@@ -261,50 +251,48 @@ return view.extend({
 			])
 		]);
 	},
-	updateSmsList: function (iface, show_spinner) {
-		var self = this;
-		
-		var sms_list = document.querySelector('#usbmodem-sms-' + iface);
+	updateSmsList(iface, show_spinner) {
+		let sms_list = document.querySelector('#usbmodem-sms-' + iface);
 		
 		if (show_spinner) {
 			sms_list.innerHTML = '';
 			sms_list.appendChild(E('p', { 'class': 'spinning' }, _('Loading status...')));
 		}
 		
-		var SMS_DIRS = {
+		let SMS_DIRS = {
 			0:		'inbox',
 			1:		'inbox',
 			2:		'outbox',
 			3:		'drafts'
 		};
 		
-		var SMS_DIR_NAMES = {
+		let SMS_DIR_NAMES = {
 			'inbox':	_('Inbox (%d)'),
 			'outbox':	_('Outbox (%d)'),
 			'drafts':	_('Drafts (%d)'),
 		};
 		
-		return callUsbmodem(self.active_tab, 'read_sms').then(function (result) {
+		return callUsbmodem(this.active_tab, 'read_sms').then((result) => {
 			sms_list.innerHTML = '';
 			
-			var counters = {
+			let counters = {
 				inbox:	0,
 				outbox:	0,
 				drafts:	0
 			};
 			
-			var messages_in_dir = [];
-			result.messages.reverse().forEach(function (msg) {
-				var dir_id = SMS_DIRS[msg.dir];
+			let messages_in_dir = [];
+			result.messages.reverse().forEach((msg) => {
+				let dir_id = SMS_DIRS[msg.dir];
 				counters[dir_id]++;
 				
-				if (SMS_DIRS[msg.dir] == self.active_dir)
+				if (SMS_DIRS[msg.dir] == this.active_dir)
 					messages_in_dir.push(msg);
 			});
 			
 			// Capacity info
-			var used_sms_pct = result.capacity.used / result.capacity.total * 100;
-			var storage_progressbar = E('div', {
+			let used_sms_pct = result.capacity.used / result.capacity.total * 100;
+			let storage_progressbar = E('div', {
 				'class': 'cbi-progressbar',
 				'title': '%s: %d / %d (%d%%)'.format(SMS_MEMORY_NAMES[result.storage], result.capacity.used, result.capacity.total, used_sms_pct)
 			}, E('div', { 'style': 'width:%.2f%%'.format(used_sms_pct) }));
@@ -318,12 +306,12 @@ return view.extend({
 			}
 			
 			// SMS dirs tabs
-			var dirs_tabs = [];
-			for (var dir_id in SMS_DIR_NAMES) {
-				dirs_tabs.push(E('li', { 'class': self.active_dir == dir_id ? 'cbi-tab' : 'cbi-tab-disabled' }, [
+			let dirs_tabs = [];
+			for (let dir_id in SMS_DIR_NAMES) {
+				dirs_tabs.push(E('li', { 'class': this.active_dir == dir_id ? 'cbi-tab' : 'cbi-tab-disabled' }, [
 					E('a', {
 						'href': '#',
-						'click': ui.createHandlerFn(self, 'onDirSelected', dir_id)
+						'click': ui.createHandlerFn(this, 'onDirSelected', dir_id)
 					}, [ SMS_DIR_NAMES[dir_id].format(counters[dir_id]) ])
 				]));
 			}
@@ -333,24 +321,24 @@ return view.extend({
 			sms_list.appendChild(E('div', { 'class': 'controls', 'style': 'margin: 0 0 18px 0' }, [
 				E('button', {
 					'class': 'btn cbi-button-add',
-					'click': ui.createHandlerFn(self, 'createSms', '')
+					'click': ui.createHandlerFn(this, 'createSms', '')
 				}, [ _('New message') ]),
 				' ',
 				E('button', {
 					'class': 'btn cbi-button-neutral',
-					'click': ui.createHandlerFn(self, 'refresh')
+					'click': ui.createHandlerFn(this, 'refresh')
 				}, [ _('Refresh') ]),
 				' ',
 				E('button', {
 					'class': 'btn cbi-button-remove hidden',
 					'id': 'delete-sms',
-					'click': ui.createHandlerFn(self, 'deletedSelected')
+					'click': ui.createHandlerFn(this, 'deletedSelected')
 				}, [ _('Delete selected') ])
 			]));
 			
 			// Render messages
 			if (messages_in_dir.length > 0) {
-				var table = E('table', { 'class': 'table cbi-section-table' }, [
+				let table = E('table', { 'class': 'table cbi-section-table' }, [
 					E('tr', { 'class': 'tr cbi-section-table-titles' }, [
 						E('th', { 'class': 'th cbi-section-table-cell left top' }, [
 							E('label', { 'class': 'cbi-checkbox' }, [
@@ -358,12 +346,12 @@ return view.extend({
 									'type': 'checkbox',
 									'name': 'global-sms-select',
 									'style': 'vertical-align: text-bottom; margin: 0',
-									'click': ui.createHandlerFn(self, 'onMessageSelected', true)
+									'click': ui.createHandlerFn(this, 'onMessageSelected', true)
 								})
 							])
 						]),
 						(
-							self.active_dir == 'outbox' || self.active_dir == 'drafts' ?
+							this.active_dir == 'outbox' || this.active_dir == 'drafts' ?
 							'' :
 							E('th', { 'class': 'th cbi-section-table-cell left top' }, [ _('From') ])
 						),
@@ -372,8 +360,8 @@ return view.extend({
 					])
 				]);
 				
-				messages_in_dir.forEach(function (msg) {
-					table.appendChild(self.renderSms(msg));
+				messages_in_dir.forEach((msg) => {
+					table.appendChild(this.renderSms(msg));
 				});
 				sms_list.appendChild(table);
 			} else {
@@ -381,7 +369,7 @@ return view.extend({
 			}
 			
 			console.log(result);
-		}).catch(function (err) {
+		}).catch((err) => {
 			console.error(err);
 			
 			sms_list.innerHTML = '';
@@ -392,36 +380,34 @@ return view.extend({
 				sms_list.appendChild(E('p', { "class": "alert-message error" }, err.message));
 			}
 			
-			setTimeout(function () {
-				self.refresh();
+			setTimeout(() => {
+				this.refresh();
 			}, 5000);
 		});
 	},
-	render: function (interfaces) {
-		var self = this;
-		
-		var usbmodems = interfaces.filter(function (v) {
+	render(interfaces) {
+		let usbmodems = interfaces.filter((v) => {
 			return v.proto == "usbmodem";
 		});
 		
-		var tabs = [];
-		usbmodems.forEach(function (modem) {
+		let tabs = [];
+		usbmodems.forEach((modem) => {
 			tabs.push(E('div', {
 				'data-tab': modem.interface,
 				'data-tab-title': modem.interface,
-				'cbi-tab-active': ui.createHandlerFn(self, 'onTabSelected', modem.interface)
+				'cbi-tab-active': ui.createHandlerFn(this, 'onTabSelected', modem.interface)
 			}, [
 				E('div', {'id': 'usbmodem-sms-' + modem.interface}, [])
 			]));
 		});
 		
-		var view = E('div', {}, [
+		let view = E('div', {}, [
 			E('div', {}, tabs)
 		]);
 		
 		ui.tabs.initTabGroup(view.lastElementChild.childNodes);
 		
-		self.view = view;
+		this.view = view;
 		
 		return view;
 	},
