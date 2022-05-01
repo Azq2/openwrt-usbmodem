@@ -22,9 +22,6 @@ return baseclass.extend({
 		});
 		return callback.apply(undefined, values);
 	},
-	checkDeferredResult(iface, deferred_id, poll_result_fn, resolve, reject) {
-				
-	},
 	call(iface, method, params) {
 		return new Promise((resolve, reject) => {
 			this._call(iface, method, params).then((response) => {
@@ -34,6 +31,10 @@ return baseclass.extend({
 						return this._call(iface, 'get_deferred_result', {id: deferred_id}).then((response) => {
 							if (response.ready) {
 								poll.remove(poll_result_fn);
+								
+								if (response.result.error)
+									throw new Error(response.result.error);
+								
 								resolve(response.result);
 							} else if (!response.exists) {
 								throw new Error('Deferred result expired');
@@ -43,6 +44,8 @@ return baseclass.extend({
 					poll.add(poll_result_fn);
 					poll.start();
 				} else {
+					if (response.error)
+						throw new Error(response.error);
 					resolve(response);
 				}
 			}).catch(reject);
@@ -57,6 +60,19 @@ return baseclass.extend({
 		return callback().then((result) => {
 			return result.filter((v) => v.proto == "usbmodem");
 		});
+	},
+	clearError() {
+		let div = document.querySelector('#global-error');
+		div.innerHTML = '';
+	},
+	showMessage(text, type) {
+		let div = document.querySelector('#global-error');
+		div.innerHTML = '';
+		div.appendChild(E('p', { "class": "alert-message " + (type || 'success') }, text));
+	},
+	showApiError(err) {
+		let div = document.querySelector('#global-error');
+		return this.renderApiError(div, err);
 	},
 	renderApiError(div, err) {
 		div.innerHTML = '';

@@ -325,10 +325,73 @@ int ModemService::apiGetDeferredResult(std::shared_ptr<UbusRequest> req) {
 	return 0;
 }
 
+int ModemService::apiGetSettings(std::shared_ptr<UbusRequest> req) {
+	auto &params = req->data();
+	bool async = getBoolArg(params, "async", false);
+	
+	std::string deferred_id = enableDefferedResult(req, async);
+	
+	Loop::setTimeout([=]() {
+		json response = {};
+		response["network_modes"] = json::array();
+		
+		int mode_id = m_modem->getCurrentModeId();
+		for (auto &mode: m_modem->getAvailableNetworkModes()) {
+			response["network_modes"].push_back({
+				{"id", mode.id},
+				{"name", mode.name}
+			});
+		}
+		
+		response["network_mode"] = mode_id;
+		response["roaming_enabled"] = m_modem->isRoamingEnabled();
+		
+		if (async) {
+			setDeferredResult(deferred_id, response);
+		} else {
+			req->reply(response);
+		}
+	}, 0);
+	
+	return 0;
+}
+
+int ModemService::apiSetNetworkMode(std::shared_ptr<UbusRequest> req) {
+	auto &params = req->data();
+	bool async = getBoolArg(params, "async", false);
+	bool roaming = getBoolArg(params, "roaming", false);
+	int mode_id = getIntArg(params, "mode", -1);
+	
+	std::string deferred_id = enableDefferedResult(req, async);
+	
+	Loop::setTimeout([=]() {
+		json response = {{"success", true}};
+		
+		if (!m_modem->setNetworkMode(mode_id)) {
+			response["success"] = false;
+			response["error"] = "Can't set network mode";
+		} else if (!m_modem->setDataRoaming(roaming)) {
+			response["success"] = false;
+			response["error"] = "Can't set data roaming";
+		}
+		
+		if (async) {
+			setDeferredResult(deferred_id, response);
+		} else {
+			req->reply(response);
+		}
+	}, 0);
+	
+	return 0;
+}
+
 bool ModemService::runApi() {
 	return m_ubus.object("usbmodem." + m_iface)
 		.method("info", [=](auto req) {
 			return apiGetInfo(req);
+		})
+		.method("get_settings", [=](auto req) {
+			return apiGetSettings(req);
 		})
 		.method("send_command", [=](auto req) {
 			return apiSendCommand(req);
@@ -367,6 +430,9 @@ bool ModemService::runApi() {
 		})
 		.method("get_deferred_result", [=](auto req) {
 			return apiGetDeferredResult(req);
+		})
+		.method("set_network_mode", [=](auto req) {
+			return apiSetNetworkMode(req);
 		})
 		.attach();
 }

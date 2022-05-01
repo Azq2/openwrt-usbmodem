@@ -764,14 +764,16 @@ bool ModemBaseAt::setOperator(std::string id, NetworkTech tech) {
 	CregTech act = techToCreg(tech);
 	
 	std::string at_cmd;
-	if (id == "auto") {
+	if (id == "none") {
+		at_cmd = "AT+COPS=2";
+	} else if (id == "auto") {
 		if (m_at.sendCommandNoResponse("AT+COPS=2") != 0)
 			return false;
 		
 		at_cmd = "AT+COPS=0";
 	} else {
 		if (act != CREG_TECH_UNKNOWN) {
-			at_cmd = strprintf("AT+COPS=1,2,%s,%s", id.c_str(), static_cast<int>(act));
+			at_cmd = strprintf("AT+COPS=1,2,%s,%d", id.c_str(), static_cast<int>(act));
 		} else {
 			at_cmd = strprintf("AT+COPS=1,2,%s", id.c_str());
 		}
@@ -837,6 +839,26 @@ bool ModemBaseAt::readCurrentOperator(Operator *op) {
 	op->reg = (mode == 0 ? OPERATOR_REG_AUTO : OPERATOR_REG_MANUAL);
 	
 	return true;
+}
+
+std::vector<ModemBaseAt::NetworkTechMode> ModemBaseAt::getAvailableNetworkModes() {
+	return {};
+}
+
+int ModemBaseAt::getCurrentModeId() {
+	return -1;
+}
+
+bool ModemBaseAt::isRoamingEnabled() {
+	return true;
+}
+
+bool ModemBaseAt::setNetworkMode(int mode_id) {
+	return false;
+}
+
+bool ModemBaseAt::setDataRoaming(bool enable) {
+	return false;
 }
 
 /*

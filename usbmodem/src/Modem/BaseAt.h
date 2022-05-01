@@ -99,6 +99,11 @@ class ModemBaseAt: public Modem {
 		static CregTech techToCreg(NetworkTech tech);
 		virtual bool searchOperators(OperatorSearchCallback callback);
 		virtual bool setOperator(std::string id, NetworkTech tech = TECH_UNKNOWN);
+		virtual std::vector<NetworkTechMode> getAvailableNetworkModes();
+		virtual int getCurrentModeId();
+		virtual bool isRoamingEnabled();
+		virtual bool setNetworkMode(int mode_id);
+		virtual bool setDataRoaming(bool enable);
 		bool readCurrentOperator(Operator *op);
 		
 		/*

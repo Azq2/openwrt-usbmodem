@@ -56,6 +56,11 @@ class ModemAsr1802: public ModemBaseAt {
 	public:
 		IfaceProto getIfaceProto() override;
 		int getDelayAfterDhcpRelease() override;
+		std::vector<NetworkTechMode> getAvailableNetworkModes() override;
+		int getCurrentModeId() override;
+		bool isRoamingEnabled() override;
+		bool setNetworkMode(int mode_id) override;
+		bool setDataRoaming(bool enable) override;
 		void finish() override;
 		bool setCustomOption(const std::string &name, const std::any &value) override;
 		

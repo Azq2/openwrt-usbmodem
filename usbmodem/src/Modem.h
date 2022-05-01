@@ -77,6 +77,11 @@ class Modem {
 		
 		typedef std::function<void(bool, std::vector<Operator>)> OperatorSearchCallback;
 		
+		struct NetworkTechMode {
+			int id;
+			std::string name;
+		};
+		
 		// Network signal levels
 		struct SignalLevels {
 			float rssi_dbm;
@@ -102,11 +107,6 @@ class Modem {
 			USSD_OK				= 0,
 			USSD_WAIT_REPLY		= 1,
 			USSD_CANCELED		= 2
-		};
-		
-		struct NetworkTechMode {
-			int id;
-			std::string name;
 		};
 		
 		typedef std::function<void(UssdCode, const std::string &)> UssdCallback;
@@ -294,6 +294,11 @@ class Modem {
 		 * */
 		virtual bool searchOperators(OperatorSearchCallback callback) = 0;
 		virtual bool setOperator(std::string id, NetworkTech tech = TECH_UNKNOWN) = 0;
+		virtual std::vector<NetworkTechMode> getAvailableNetworkModes() = 0;
+		virtual int getCurrentModeId() = 0;
+		virtual bool isRoamingEnabled() = 0;
+		virtual bool setNetworkMode(int mode_id) = 0;
+		virtual bool setDataRoaming(bool enable) = 0;
 		
 		/*
 		 * Modem configuration

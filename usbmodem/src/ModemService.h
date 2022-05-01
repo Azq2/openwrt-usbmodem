@@ -61,7 +61,7 @@ class ModemService {
 				req->reply({
 					{"deferred", id}
 				});
-				m_deferred_results[id].time = 0;
+				m_deferred_results[id] = {.time = 0, .result = {}};
 				return id;
 			} else {
 				req->defer();
@@ -74,6 +74,8 @@ class ModemService {
 		}
 		
 		inline int getIntArg(const json &params, std::string key, int default_value = 0) {
+			if (params[key].is_string())
+				return std::stoi(params[key].get<std::string>());
 			return params[key].is_number() ? params[key].get<int>() : default_value;
 		}
 		
@@ -95,6 +97,8 @@ class ModemService {
 		int apiSearchOperators(std::shared_ptr<UbusRequest> req);
 		int apiSetOperator(std::shared_ptr<UbusRequest> req);
 		int apiGetDeferredResult(std::shared_ptr<UbusRequest> req);
+		int apiGetSettings(std::shared_ptr<UbusRequest> req);
+		int apiSetNetworkMode(std::shared_ptr<UbusRequest> req);
 	public:
 		explicit ModemService(const std::string &iface);
 		

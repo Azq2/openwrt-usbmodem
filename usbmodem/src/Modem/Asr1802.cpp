@@ -571,6 +571,117 @@ bool ModemAsr1802::setRadioOn(bool state) {
 	return m_at.sendCommandNoResponse(cmd) == 0;
 }
 
+std::vector<ModemAsr1802::NetworkTechMode> ModemAsr1802::getAvailableNetworkModes() {
+	std::vector<NetworkTechMode> result = {
+		{12, "auto"},
+		
+		{0, "only_2g"},
+		{1, "only_3g"},
+		{5, "only_4g"},
+		
+		{13, "prefer_2g"},
+		{14, "prefer_3g"},
+		{15, "prefer_4g"},
+		
+		{2, "2g_3g_auto"},
+		{3, "2g_3g_prefer_2g"},
+		{4, "2g_3g_prefer_3g"},
+		
+		{6, "2g_4g_auto"},
+		{7, "2g_4g_prefer_2g"},
+		{8, "2g_4g_prefer_4g"},
+		
+		{9, "3g_4g_auto"},
+		{10, "3g_4g_prefer_3g"},
+		{11, "3g_4g_prefer_4g"},
+	};
+	return result;
+}
+
+int ModemAsr1802::getCurrentModeId() {
+	auto response = m_at.sendCommand("AT*BAND?", "*BAND");
+	if (response.error)
+		return -1;
+	
+	int mode;
+	if (!AtParser(response.data()).parseNextInt(&mode))
+		return false;
+	
+	return mode;
+}
+
+bool ModemAsr1802::isRoamingEnabled() {
+	auto response = m_at.sendCommand("AT*BAND?", "*BAND");
+	if (response.error)
+		return false;
+	
+	int mode;
+	bool success = AtParser(response.data())
+		.parseSkip() // mode
+		.parseSkip() // GSMband
+		.parseSkip() // UMTSband
+		.parseSkip() // LTEbandH
+		.parseSkip() // LTEbandL
+		.parseInt(&mode) // roamingConfig
+		.success();
+	if (!success)
+		return false;
+	
+	return mode != 0;
+}
+
+bool ModemAsr1802::setNetworkMode(int new_mode) {
+	auto response = m_at.sendCommand("AT*BAND?", "*BAND");
+	if (response.error)
+		return false;
+	
+	int mode, gsm_band, umts_band, lte_bandh, lte_bandl, roaming_cfg, srv_domain, band_priority;
+	bool success = AtParser(response.data())
+		.parseInt(&mode) // mode
+		.parseInt(&gsm_band) // GSMband
+		.parseInt(&umts_band) // UMTSband
+		.parseInt(&lte_bandh) // LTEbandH
+		.parseInt(&lte_bandl) // LTEbandL
+		.parseInt(&roaming_cfg) // roamingConfig
+		.parseInt(&srv_domain) // srvDomain
+		.parseInt(&band_priority) // bandPriorityFlag
+		.success();
+	if (!success)
+		return false;
+	
+	mode = new_mode;
+	
+	std::string query = strprintf("AT*BAND=%d,%d,%d,%d,%d,%d,%d,%d",
+		mode, gsm_band, umts_band, lte_bandh, lte_bandl, roaming_cfg, srv_domain, band_priority);
+	return m_at.sendCommandNoResponse(query) == 0;
+}
+
+bool ModemAsr1802::setDataRoaming(bool enable) {
+	auto response = m_at.sendCommand("AT*BAND?", "*BAND");
+	if (response.error)
+		return false;
+	
+	int mode, gsm_band, umts_band, lte_bandh, lte_bandl, roaming_cfg, srv_domain, band_priority;
+	bool success = AtParser(response.data())
+		.parseInt(&mode) // mode
+		.parseInt(&gsm_band) // GSMband
+		.parseInt(&umts_band) // UMTSband
+		.parseInt(&lte_bandh) // LTEbandH
+		.parseInt(&lte_bandl) // LTEbandL
+		.parseInt(&roaming_cfg) // roamingConfig
+		.parseInt(&srv_domain) // srvDomain
+		.parseInt(&band_priority) // bandPriorityFlag
+		.success();
+	if (!success)
+		return false;
+	
+	roaming_cfg = enable ? 1 : 0;
+	
+	std::string query = strprintf("AT*BAND=%d,%d,%d,%d,%d,%d,%d,%d",
+		mode, gsm_band, umts_band, lte_bandh, lte_bandl, roaming_cfg, srv_domain, band_priority);
+	return m_at.sendCommandNoResponse(query) == 0;
+}
+
 bool ModemAsr1802::init() {
 	// Default AT timeout for this modem
 	m_at.setDefaultTimeout(10 * 1000);

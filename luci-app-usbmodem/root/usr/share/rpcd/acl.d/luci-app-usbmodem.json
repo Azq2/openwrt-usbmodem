@@ -5,7 +5,7 @@
 			"ubus": {
 				"usbmodem.*": [
 					"info", "send_ussd", "cancel_ussd", "send_command", "read_sms", "delete_sms", "search_operators",
-					"set_operator", "get_deferred_result"
+					"set_operator", "get_deferred_result", "get_settings", "set_network_mode"
 				]
 			}
 		},
@@ -13,7 +13,7 @@
 			"ubus": {
 				"usbmodem.*": [
 					"info", "send_ussd", "cancel_ussd", "send_command", "read_sms", "delete_sms", "search_operators",
-					"set_operator", "get_deferred_result"
+					"set_operator", "get_deferred_result", "get_settings", "set_network_mode"
 				]
 			}
 		}
