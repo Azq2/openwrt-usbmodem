@@ -104,6 +104,11 @@ class Modem {
 			USSD_CANCELED		= 2
 		};
 		
+		struct NetworkTechMode {
+			int id;
+			std::string name;
+		};
+		
 		typedef std::function<void(UssdCode, const std::string &)> UssdCallback;
 		
 		// SMS

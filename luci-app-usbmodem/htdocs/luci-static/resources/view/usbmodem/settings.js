@@ -1,46 +1,20 @@
 'use strict';
+'require usbmodem';
 'require fs';
 'require view';
-'require rpc';
 'require ui';
 'require poll';
 
-let callInterfaceDump = rpc.declare({
-	object: 'network.interface',
-	method: 'dump',
-	expect: { interface: [] }
-});
-
-function callUsbmodem(iface, method, params) {
-	let keys = [];
-	let values = [];
-	
-	if (params) {
-		for (let k in params) {
-			keys.push(k);
-			values.push(params[k]);
-		}
-	}
-	
-	let callback = rpc.declare({
-		object: 'usbmodem.%s'.format(iface),
-		method: method,
-		params: keys,
-	});
-	
-	return callback.apply(undefined, values);
-}
-
 return view.extend({
 	load() {
-		return callInterfaceDump();
+		return usbmodem.getInterfaces();
 	},
 	onTabSelected(iface) {
 		this.active_tab = iface;
 		this.updateStatus();
 	},
 	joinNetwork(id, tech) {
-		return callUsbmodem(this.active_tab, 'set_operator', {id: id, tech: tech}).then((result) => {
+		return usbmodem.call(this.active_tab, 'set_operator', {id: id, tech: tech}).then((result) => {
 			console.log(result);
 		});
 	},
@@ -48,7 +22,7 @@ return view.extend({
 		let network_list = document.getElementById('network-list');
 		network_list.innerHTML = '';
 		
-		return callUsbmodem(this.active_tab, 'search_operators').then(() => {
+		return usbmodem.call(this.active_tab, 'search_operators').then(() => {
 			return new Promise((resolve, reject) => {
 				this.search_operators_resolve = resolve;
 			});
@@ -89,7 +63,7 @@ return view.extend({
 	},
 	updateStatus() {
 		let promises = [];
-		promises.push(callUsbmodem(this.active_tab, 'info').then((result) => {
+		promises.push(usbmodem.call(this.active_tab, 'info').then((result) => {
 			let current_network = document.getElementById('current-network');
 			current_network.innerHTML = '%s - %s %s%s'.format(
 				result.operator.id, result.operator.name, result.tech.name, 
@@ -97,7 +71,7 @@ return view.extend({
 			);
 		}));
 		if (this.search_operators_resolve) {
-			promises.push(callUsbmodem(this.active_tab, 'search_operators_result').then((result) => {
+			promises.push(usbmodem.call(this.active_tab, 'search_operators_result').then((result) => {
 				if (!result.searching) {
 					if (this.search_operators_resolve) {
 						this.search_operators_resolve();
@@ -141,23 +115,10 @@ return view.extend({
 		]);
 	},
 	render(interfaces) {
-		let usbmodems = interfaces.filter((v) => {
-			return v.proto == "usbmodem";
-		});
-		
-		let tabs = [];
-		usbmodems.forEach((modem) => {
-			tabs.push(E('div', {
-				'data-tab': modem.interface,
-				'data-tab-title': modem.interface,
-				'cbi-tab-active': ui.createHandlerFn(this, 'onTabSelected', modem.interface)
-			}, [
-				this.renderForm(modem.interface)
-			]));
-		});
-		
 		let view = E('div', {}, [
-			E('div', {}, tabs)
+			usbmodem.createModemTabs(interfaces, [this, 'onTabSelected'], (iface) => {
+				return this.renderForm(iface);
+			})
 		]);
 		
 		ui.tabs.initTabGroup(view.lastElementChild.childNodes);

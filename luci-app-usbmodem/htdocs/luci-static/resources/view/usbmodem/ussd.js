@@ -1,37 +1,12 @@
 'use strict';
+'require usbmodem';
 'require fs';
 'require view';
-'require rpc';
 'require ui';
-
-let callInterfaceDump = rpc.declare({
-	object: 'network.interface',
-	method: 'dump',
-	expect: { interface: [] }
-});
-
-function callUsbmodem(iface, method, params) {
-	let keys = [];
-	let values = [];
-	
-	if (params) {
-		for (let k in params) {
-			keys.push(k);
-			values.push(params[k]);
-		}
-	}
-	
-	let callback = rpc.declare({
-		object: 'usbmodem.%s'.format(iface),
-		method: method,
-		params: keys,
-	});
-	return callback.apply(undefined, values);
-}
 
 return view.extend({
 	load() {
-		return callInterfaceDump();
+		return usbmodem.getInterfaces();
 	},
 	onTabSelected(iface) {
 		this.active_tab = iface;
@@ -39,7 +14,7 @@ return view.extend({
 	cancelUssd() {
 		let form = document.querySelector('#ussd-form-' + this.active_tab);
 		form.querySelector('.js-ussd-result').innerHTML = '';
-		callUsbmodem(this.active_tab, 'cancel_ussd', {});
+		usbmodem.call(this.active_tab, 'cancel_ussd', {});
 	},
 	sendUssd(is_answer) {
 		let form = document.querySelector('#ussd-form-' + this.active_tab);
@@ -55,7 +30,7 @@ return view.extend({
 		result_body.innerHTML = '';
 		result_body.appendChild(E('p', { 'class': 'spinning' }, _('Waiting for response...')));
 		
-		callUsbmodem(this.active_tab, 'send_ussd', params).then((result) => {
+		usbmodem.call(this.active_tab, 'send_ussd', params).then((result) => {
 			result_body.innerHTML = '';
 			if (result.error) {
 				result_body.appendChild(E('p', { "class": "alert-message error" }, result.error));
@@ -116,23 +91,10 @@ return view.extend({
 		]);
 	},
 	render(interfaces) {
-		let usbmodems = interfaces.filter((v) => {
-			return v.proto == "usbmodem";
-		});
-		
-		let tabs = [];
-		usbmodems.forEach((modem) => {
-			tabs.push(E('div', {
-				'data-tab': modem.interface,
-				'data-tab-title': modem.interface,
-				'cbi-tab-active': ui.createHandlerFn(this, 'onTabSelected', modem.interface)
-			}, [
-				this.renderForm(modem.interface)
-			]));
-		});
-		
 		let view = E('div', {}, [
-			E('div', {}, tabs)
+			usbmodem.createModemTabs(interfaces, [this, 'onTabSelected'], (iface) => {
+				return this.renderForm(iface);
+			})
 		]);
 		
 		ui.tabs.initTabGroup(view.lastElementChild.childNodes);

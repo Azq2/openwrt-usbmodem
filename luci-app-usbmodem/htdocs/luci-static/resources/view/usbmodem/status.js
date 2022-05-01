@@ -1,4 +1,5 @@
 'use strict';
+'require usbmodem';
 'require fs';
 'require view';
 'require rpc';
@@ -12,34 +13,12 @@ let NETWORK_STATUSES = {
 	"roaming":			_("Roaming network"),
 };
 
-let callInterfaceDump = rpc.declare({
-	object: 'network.interface',
-	method: 'dump',
-	expect: { interface: [] }
-});
-
-function callUsbmodem(iface, method, params) {
-	let keys = [];
-	let values = [];
-	
-	if (params) {
-		for (let k in params) {
-			keys.push(k);
-			values.push(params[k]);
-		}
-	}
-	
-	let callback = rpc.declare({
-		object: 'usbmodem.%s'.format(iface),
-		method: method,
-		params: keys,
-	});
-	return callback.apply(undefined, values);
-}
-
 return view.extend({
 	load() {
-		return callInterfaceDump();
+		return usbmodem.getInterfaces();
+	},
+	onTabSelected(iface) {
+		return this.updateStatus(iface, true);
 	},
 	createInfoTable(title, fields) {
 		let table = E('table', { 'class': 'table' });
@@ -84,7 +63,7 @@ return view.extend({
 			status_body.appendChild(E('p', { 'class': 'spinning' }, _('Loading status...')));
 		}
 		
-		callUsbmodem(iface, 'info').then((result) => {
+		usbmodem.call(iface, 'info').then((result) => {
 			let section_modem = [
 				_("Modem"), result.modem.vendor + " " + result.modem.model,
 				_("Software"), result.modem.version,
@@ -166,25 +145,10 @@ return view.extend({
 		});
 	},
 	render(interfaces) {
-		let usbmodems = interfaces.filter((v) => {
-			return v.proto == "usbmodem";
-		});
-		
-		let tabs = [];
-		usbmodems.forEach((modem) => {
-			tabs.push(E('div', {
-				'data-tab': modem.interface,
-				'data-tab-title': modem.interface,
-				'cbi-tab-active': ui.createHandlerFn(this, 'updateStatus', modem.interface, true)
-			}, [
-				E('div', {
-					'id': 'usbmodem-status-' + modem.interface
-				}, [])
-			]));
-		});
-		
 		let view = E('div', {}, [
-			E('div', {}, tabs)
+			usbmodem.createModemTabs(interfaces, [this, 'onTabSelected'], (iface) => {
+				return E('div', {'id': 'usbmodem-status-' + iface}, []);
+			})
 		]);
 		
 		ui.tabs.initTabGroup(view.lastElementChild.childNodes);

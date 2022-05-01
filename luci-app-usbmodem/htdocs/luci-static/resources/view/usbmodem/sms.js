@@ -1,4 +1,5 @@
 'use strict';
+'require usbmodem';
 'require fs';
 'require view';
 'require rpc';
@@ -22,31 +23,6 @@ let SMS_MEMORY_NAMES = {
 	ME:		_("Modem Memory"),
 	MT:		_("Modem + SIM Memory")
 };
-
-let callInterfaceDump = rpc.declare({
-	object: 'network.interface',
-	method: 'dump',
-	expect: { interface: [] }
-});
-
-function callUsbmodem(iface, method, params) {
-	let keys = [];
-	let values = [];
-	
-	if (params) {
-		for (let k in params) {
-			keys.push(k);
-			values.push(params[k]);
-		}
-	}
-	
-	let callback = rpc.declare({
-		object: 'usbmodem.%s'.format(iface),
-		method: method,
-		params: keys,
-	});
-	return callback.apply(undefined, values);
-}
 
 function progressbar(value, max, byte) {
 	let vn = parseInt(value) || 0,
@@ -96,7 +72,7 @@ function getSmsCount(value) {
 
 return view.extend({
 	load() {
-		return callInterfaceDump();
+		return usbmodem.getInterfaces();
 	},
 	createInfoTable(title, fields) {
 		let table = E('table', { 'class': 'table' });
@@ -272,7 +248,7 @@ return view.extend({
 			'drafts':	_('Drafts (%d)'),
 		};
 		
-		return callUsbmodem(this.active_tab, 'read_sms').then((result) => {
+		return usbmodem.call(this.active_tab, 'read_sms').then((result) => {
 			sms_list.innerHTML = '';
 			
 			let counters = {
@@ -386,23 +362,10 @@ return view.extend({
 		});
 	},
 	render(interfaces) {
-		let usbmodems = interfaces.filter((v) => {
-			return v.proto == "usbmodem";
-		});
-		
-		let tabs = [];
-		usbmodems.forEach((modem) => {
-			tabs.push(E('div', {
-				'data-tab': modem.interface,
-				'data-tab-title': modem.interface,
-				'cbi-tab-active': ui.createHandlerFn(this, 'onTabSelected', modem.interface)
-			}, [
-				E('div', {'id': 'usbmodem-sms-' + modem.interface}, [])
-			]));
-		});
-		
 		let view = E('div', {}, [
-			E('div', {}, tabs)
+			usbmodem.createModemTabs(interfaces, [this, 'onTabSelected'], (iface) => {
+				return E('div', {'id': 'usbmodem-sms-' + iface}, []);
+			})
 		]);
 		
 		ui.tabs.initTabGroup(view.lastElementChild.childNodes);

@@ -3,12 +3,18 @@
 		"description": "Grant access to LuCI app usbmodem",
 		"read": {
 			"ubus": {
-				"usbmodem.*": [ "info", "send_ussd", "cancel_ussd", "send_command", "read_sms", "delete_sms", "search_operators", "set_operator", "search_operators_result" ]
+				"usbmodem.*": [
+					"info", "send_ussd", "cancel_ussd", "send_command", "read_sms", "delete_sms", "search_operators",
+					"set_operator", "search_operators_result", "get_deferred_result"
+				]
 			}
 		},
 		"write": {
 			"ubus": {
-				"usbmodem.*": [ "info", "send_ussd", "cancel_ussd", "send_command", "read_sms", "delete_sms", "search_operators", "set_operator", "search_operators_result" ]
+				"usbmodem.*": [
+					"info", "send_ussd", "cancel_ussd", "send_command", "read_sms", "delete_sms", "search_operators",
+					"set_operator", "search_operators_result", "get_deferred_result"
+				]
 			}
 		}
 	}
