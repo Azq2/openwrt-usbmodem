@@ -248,65 +248,76 @@ int ModemService::apiDeleteSms(std::shared_ptr<UbusRequest> req) {
 	return UBUS_STATUS_INVALID_ARGUMENT;
 }
 
-int ModemService::apiSearchOperatorsResult(std::shared_ptr<UbusRequest> req) {
-	json response = {
-		{"list", json::array()},
-		{"searching", m_operators_search}
-	};
-	for (auto &op: m_operators_list) {
-		json op_json = json::object();
-		op_json["id"] = op.id;
-		op_json["name"] = op.name;
-		op_json["status"] = OPERATOR_STATUS_NAMES[op.status];
-		op_json["tech"] = {
-			{"id", op.tech},
-			{"name", Modem::getTechName(op.tech)}
-		};
-		response["list"].push_back(op_json);
-	}
-	req->reply(response);
-	return 0;
-}
-
 int ModemService::apiSearchOperators(std::shared_ptr<UbusRequest> req) {
-	json response = {};
+	auto &params = req->data();
 	
-	if (m_operators_search) {
-		response["error"] = "Network search already in progress...";
-		req->reply(response);
-		return 0;
-	}
-	
-	m_operators_search = true;
+	bool async = getBoolArg(params, "async", false);
+	std::string deferred_id = enableDefferedResult(req, async);
 	
 	Loop::setTimeout([=]() {
 		m_modem->searchOperators([=](bool status, std::vector<Modem::Operator> list) {
-			m_operators_search = false;
-			m_operators_list = list;
+			json response = {
+				{"list", json::array()}
+			};
+			for (auto &op: list) {
+				json op_json = json::object();
+				op_json["id"] = op.id;
+				op_json["name"] = op.name;
+				op_json["status"] = OPERATOR_STATUS_NAMES[op.status];
+				op_json["tech"] = {
+					{"id", op.tech},
+					{"name", Modem::getTechName(op.tech)}
+				};
+				response["list"].push_back(op_json);
+			}
+			
+			if (async) {
+				setDeferredResult(deferred_id, response);
+			} else {
+				req->reply(response);
+			}
 		});
 	}, 0);
-	
-	req->reply(response);
 	
 	return 0;
 }
 
 int ModemService::apiSetOperator(std::shared_ptr<UbusRequest> req) {
 	auto &params = req->data();
-	Modem::NetworkTech tech = Modem::TECH_UNKNOWN;
-	std::string id = "auto";
 	
-	if (params["tech"].is_number())
-		tech = static_cast<Modem::NetworkTech>(params["tech"]);
+	Modem::NetworkTech tech = static_cast<Modem::NetworkTech>(getIntArg(params, "tech", Modem::TECH_UNKNOWN));
+	std::string id = getStrArg(params, "id", "");
+	bool async = getBoolArg(params, "async", false);
 	
-	if (params["id"].is_string())
-		id = params["id"];
+	std::string deferred_id = enableDefferedResult(req, async);
 	
+	Loop::setTimeout([=]() {
+		json response = {};
+		response["success"] = m_modem->setOperator(id, tech);
+		
+		if (async) {
+			setDeferredResult(deferred_id, response);
+		} else {
+			req->reply(response);
+		}
+	}, 0);
+	
+	return 0;
+}
+
+int ModemService::apiGetDeferredResult(std::shared_ptr<UbusRequest> req) {
 	json response = {};
-	if (m_modem->setOperator(id, tech)) {
-		response["success"] = true;
+	auto &params = req->data();
+	std::string id = params["id"].is_string() ? params["id"] : "";
+	
+	auto it = m_deferred_results.find(id);
+	if (it != m_deferred_results.end()) {
+		response["result"] = it->second.result;
+		response["ready"] = it->second.time > 0;
+		response["exists"] = true;
+		m_deferred_results.erase(id);
 	} else {
-		response["success"] = false;
+		response["exists"] = false;
 	}
 	
 	req->reply(response);
@@ -338,9 +349,6 @@ bool ModemService::runApi() {
 		.method("search_operators", [=](auto req) {
 			return apiSearchOperators(req);
 		})
-		.method("search_operators_result", [=](auto req) {
-			return apiSearchOperatorsResult(req);
-		})
 		.method("set_operator", [=](auto req) {
 			return apiSetOperator(req);
 		}, {
@@ -356,6 +364,9 @@ bool ModemService::runApi() {
 			return apiDeleteSms(req);
 		}, {
 			{"ids", UbusObject::ARRAY}
+		})
+		.method("get_deferred_result", [=](auto req) {
+			return apiGetDeferredResult(req);
 		})
 		.attach();
 }

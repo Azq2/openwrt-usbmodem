@@ -17,19 +17,13 @@ return view.extend({
 		let result_body = form.querySelector('.js-atcmd-result');
 		let command = form.querySelector('.js-atcmd').value;
 		
-		result_body.innerHTML = '';
-		result_body.appendChild(E('p', { 'class': 'spinning' }, _('Waiting for response...')));
+		usbmodem.renderSpinner(result_body, _('Waiting for response...'));
 		
-		usbmodem.call(this.active_tab, 'send_command', { "command": command }).then((result) => {
+		usbmodem.call(this.active_tab, 'send_command', { command, async: true }).then((result) => {
 			result_body.innerHTML = '';
 			result_body.appendChild(E('pre', { }, result.response));
 		}).catch((err) => {
-			result_body.innerHTML = '';
-			if (err.message.indexOf('Object not found') >= 0) {
-				result_body.appendChild(E('p', {}, _('Modem not found. Please insert your modem to USB.')));
-			} else {
-				result_body.appendChild(E('p', {}, err.message));
-			}
+			usbmodem.renderApiError(result_body, err);
 		});
 	},
 	renderForm(iface) {
@@ -52,7 +46,7 @@ return view.extend({
 	},
 	render(interfaces) {
 		let view = E('div', {}, [
-			usbmodem.createModemTabs(interfaces, [this, 'onTabSelected'], (iface) => {
+			usbmodem.renderModemTabs(interfaces, [this, 'onTabSelected'], (iface) => {
 				return this.renderForm(iface);
 			})
 		]);

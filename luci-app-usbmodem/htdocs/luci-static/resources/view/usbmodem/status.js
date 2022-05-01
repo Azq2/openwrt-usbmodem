@@ -135,18 +135,12 @@ return view.extend({
 			if (ipv6_section.length > 0)
 				status_body.appendChild(this.createInfoTable(_('IPv6'), ipv6_section));
 		}).catch((err) => {
-			status_body.innerHTML = '';
-			if (err.message.indexOf('Object not found') >= 0) {
-				status_body.appendChild(E('p', {}, _('Modem not found. Please insert your modem to USB.')));
-				status_body.appendChild(E('p', { 'class': 'spinning' }, _('Waiting for modem...')));
-			} else {
-				status_body.appendChild(E('p', { "class": "alert-message error" }, err.message));
-			}
+			usbmodem.renderApiError(status_body, err);
 		});
 	},
 	render(interfaces) {
 		let view = E('div', {}, [
-			usbmodem.createModemTabs(interfaces, [this, 'onTabSelected'], (iface) => {
+			usbmodem.renderModemTabs(interfaces, [this, 'onTabSelected'], (iface) => {
 				return E('div', {'id': 'usbmodem-status-' + iface}, []);
 			})
 		]);

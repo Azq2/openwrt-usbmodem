@@ -346,15 +346,7 @@ return view.extend({
 			
 			console.log(result);
 		}).catch((err) => {
-			console.error(err);
-			
-			sms_list.innerHTML = '';
-			if (err.message.indexOf('Object not found') >= 0) {
-				sms_list.appendChild(E('p', {}, _('Modem not found. Please insert your modem to USB.')));
-				sms_list.appendChild(E('p', { 'class': 'spinning' }, _('Waiting for modem...')));
-			} else {
-				sms_list.appendChild(E('p', { "class": "alert-message error" }, err.message));
-			}
+			usbmodem.renderApiError(sms_list, err);
 			
 			setTimeout(() => {
 				this.refresh();
@@ -363,7 +355,7 @@ return view.extend({
 	},
 	render(interfaces) {
 		let view = E('div', {}, [
-			usbmodem.createModemTabs(interfaces, [this, 'onTabSelected'], (iface) => {
+			usbmodem.renderModemTabs(interfaces, [this, 'onTabSelected'], (iface) => {
 				return E('div', {'id': 'usbmodem-sms-' + iface}, []);
 			})
 		]);

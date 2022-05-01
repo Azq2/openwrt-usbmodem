@@ -9,34 +9,33 @@ return view.extend({
 		return usbmodem.getInterfaces();
 	},
 	onTabSelected(iface) {
-		this.active_tab = iface;
+		this.iface = iface;
 	},
 	cancelUssd() {
-		let form = document.querySelector('#ussd-form-' + this.active_tab);
+		let form = document.querySelector('#ussd-form-' + this.iface);
 		form.querySelector('.js-ussd-result').innerHTML = '';
-		usbmodem.call(this.active_tab, 'cancel_ussd', {});
+		usbmodem.call(this.iface, 'cancel_ussd', {});
 	},
 	sendUssd(is_answer) {
-		let form = document.querySelector('#ussd-form-' + this.active_tab);
+		let form = document.querySelector('#ussd-form-' + this.iface);
 		let result_body = form.querySelector('.js-ussd-result');
 		
-		let params = {};
+		let params = {async: true};
 		if (is_answer) {
 			params.answer = form.querySelector('.js-ussd-answer').value;
 		} else {
 			params.query = form.querySelector('.js-ussd-query').value;
 		}
 		
-		result_body.innerHTML = '';
-		result_body.appendChild(E('p', { 'class': 'spinning' }, _('Waiting for response...')));
+		usbmodem.renderSpinner(result_body, _('Waiting for response...'));
 		
-		usbmodem.call(this.active_tab, 'send_ussd', params).then((result) => {
+		usbmodem.call(this.iface, 'send_ussd', params).then((result) => {
 			result_body.innerHTML = '';
 			if (result.error) {
-				result_body.appendChild(E('p', { "class": "alert-message error" }, result.error));
+				usbmodem.renderError(result_body, result.error);
 			} else {
 				if (!result.response && result.code == 2) {
-					result_body.appendChild(E('p', { "class": "alert-message error" }, _('Discard by network.')));
+					usbmodem.renderError(result_body, _('Discard by network.'));
 				} else {
 					result_body.appendChild(E('pre', { }, result.response));
 				}
@@ -64,12 +63,7 @@ return view.extend({
 				]));
 			}
 		}).catch((err) => {
-			result_body.innerHTML = '';
-			if (err.message.indexOf('Object not found') >= 0) {
-				result_body.appendChild(E('p', {}, _('Modem not found. Please insert your modem to USB.')));
-			} else {
-				result_body.appendChild(E('p', {}, err.message));
-			}
+			usbmodem.renderApiError(result_body, err);
 		});
 	},
 	renderForm(iface) {
@@ -92,7 +86,7 @@ return view.extend({
 	},
 	render(interfaces) {
 		let view = E('div', {}, [
-			usbmodem.createModemTabs(interfaces, [this, 'onTabSelected'], (iface) => {
+			usbmodem.renderModemTabs(interfaces, [this, 'onTabSelected'], (iface) => {
 				return this.renderForm(iface);
 			})
 		]);

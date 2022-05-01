@@ -10,22 +10,22 @@ return view.extend({
 		return usbmodem.getInterfaces();
 	},
 	onTabSelected(iface) {
-		this.active_tab = iface;
+		this.iface = iface;
 		this.updateStatus();
 	},
 	joinNetwork(id, tech) {
-		return usbmodem.call(this.active_tab, 'set_operator', {id: id, tech: tech}).then((result) => {
+		return usbmodem.call(this.iface, 'set_operator', {id: id, tech: tech}).then((result) => {
 			console.log(result);
 		});
 	},
-	changeNetworkSelection(e) {
+	searchNetworks(e) {
 		let network_list = document.getElementById('network-list');
 		network_list.innerHTML = '';
 		
-		return usbmodem.call(this.active_tab, 'search_operators').then(() => {
-			return new Promise((resolve, reject) => {
-				this.search_operators_resolve = resolve;
-			});
+		return usbmodem.call(this.iface, 'search_operators', {async: true}).then((result) => {
+			let network_list = document.getElementById('network-list');
+			network_list.innerHTML = '';
+			network_list.appendChild(this.renderNetworkList(result.list));
 		});
 	},
 	renderNetworkList(list) {
@@ -62,29 +62,16 @@ return view.extend({
 		return table;
 	},
 	updateStatus() {
-		let promises = [];
-		promises.push(usbmodem.call(this.active_tab, 'info').then((result) => {
+		if (!this.iface)
+			return Promise.resolve();
+		
+		return usbmodem.call(this.iface, 'info').then((result) => {
 			let current_network = document.getElementById('current-network');
 			current_network.innerHTML = '%s - %s %s%s'.format(
 				result.operator.id, result.operator.name, result.tech.name, 
 				(result.operator.registration == 'manual' ? _(' (manual)') : '')
 			);
-		}));
-		if (this.search_operators_resolve) {
-			promises.push(usbmodem.call(this.active_tab, 'search_operators_result').then((result) => {
-				if (!result.searching) {
-					if (this.search_operators_resolve) {
-						this.search_operators_resolve();
-						this.search_operators_resolve = false;
-					}
-					
-					let network_list = document.getElementById('network-list');
-					network_list.innerHTML = '';
-					network_list.appendChild(this.renderNetworkList(result.list));
-				}
-			}));
-		}
-		return Promise.all(promises);
+		});
 	},
 	renderForm(iface) {
 		return E('div', { }, [
@@ -107,7 +94,7 @@ return view.extend({
 					E('button', {
 						'class': 'btn cbi-button js-network-reg',
 						'data-type': 'manual',
-						'click': ui.createHandlerFn(this, 'changeNetworkSelection')
+						'click': ui.createHandlerFn(this, 'searchNetworks')
 					}, [ _('Search networks') ]),
 				]),
 				E('div', { 'id': 'network-list', 'style': 'padding-top: 1em' }, [ ])
@@ -116,18 +103,14 @@ return view.extend({
 	},
 	render(interfaces) {
 		let view = E('div', {}, [
-			usbmodem.createModemTabs(interfaces, [this, 'onTabSelected'], (iface) => {
+			usbmodem.renderModemTabs(interfaces, [this, 'onTabSelected'], (iface) => {
 				return this.renderForm(iface);
 			})
 		]);
 		
 		ui.tabs.initTabGroup(view.lastElementChild.childNodes);
 		
-		poll.add(() => {
-			if (this.active_tab)
-				this.updateStatus(this.active_tab, false);
-			return Promise.resolve();
-		});
+		poll.add(() => this.updateStatus());
 		poll.start();
 		
 		return view;
