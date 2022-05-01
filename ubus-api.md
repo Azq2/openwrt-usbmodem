@@ -1,9 +1,9 @@
 Usbmodem daemon provides ubus API for each own interface.
 
-All methods must to be called on this path:
+All methods is calling on this path:
 `usbmodem.<interface_name>`
 
-Where `<interface_name>` is name of modem interface in openwrt.
+Where `<interface_name>` is name of interface in openwrt.
 
 **List all available modems:**
 ```
@@ -11,15 +11,56 @@ $ ubus list usbmodem.*
 usbmodem.LTE
 ```
 
+# search_operators
+
+Searching of available cell operators
+
+**Example:**
+```js
+$ ubus call usbmodem.LTE search_operators
+{
+	"list": [
+		{
+			"id": "25503",
+			"name": "UA-KYIVSTAR",
+			"status": "registered",
+			"tech": {
+				"id": 9,
+				"name": "4G (LTE)"
+			}
+		}
+	]
+}
+```
+
+**Arguments:**
+| Name | Type | Description |
+|---|---|---|
+| async | bool | Enable async execution, see ["Deffered result"](#deffered-result) (optional) |
+
+**Response:**
+| Name | Type | Description |
+|---|---|---|
+| list | array | Array of cell operator objects. |
+
+**Each of operator object**
+| Name | Type | Description |
+|---|---|---|
+| id | string | Operator code, MCC + MNC |
+| name | string | Name of operator |
+| status | string | unknown - Unknown state<br>available - Available for registration<br>registered - Already registered to this operator<br>forbidden - Registration to this operator is forbidden |
+| tech | object | **id** - Network technology id (int)<br>**name** - Network technology name (string)<br>See for details: ["Network technologies"](#Network-technologies) |
+
 # send_command
 
-Sending custom AT command to modem.
+Sending custom AT command to the modem.
 
 **Arguments:**
 | Name | Type | Description |
 |---|---|---|
 | command | string | AT command |
-| timeout | int | Timeout for command response. Used default timeout, when omitted. |
+| timeout | int | Timeout for command response (optional) |
+| async | bool | Enable async execution, see ["Deffered result"](#deffered-result) (optional) |
 
 **Response:**
 | Name | Type | Description |
@@ -28,25 +69,26 @@ Sending custom AT command to modem.
 | response | string | Response of AT command. Can be empty, when timeout occured. |
 
 **Example:**
-```
+```js
 $ ubus call usbmodem.LTE send_command '{"command": "AT+CGMI"}'
 {
-	"response": "+CGMI: \"Huawei\"\nOK",
+	"response": "+CGMI: \"ASR\"\nOK",
 	"success": true
 }
 ```
 
 # send_ussd
 
-Sending USSD query to network.
+Sending USSD query to the network.
 
 **Arguments:**
 | Name | Type | Description |
 |---|---|---|
 | query | string | USSD query, for example: `*777#` |
-| answer | string | Answer for ussd, when previous USSD respond with code=1. |
+| answer | string | Answer for ussd, when previous USSD response with code=1. |
+| async | bool | Enable async execution, see ["Deffered result"](#deffered-result) (optional) |
 
-You can pass **query** for new ussd query and **answer** for answer to previous query. But not at the same time.
+You can pass **query** for new ussd query or **answer** for answer to previous. But not both at one time.
 
 **Response:**
 | Name | Type | Description |
@@ -56,7 +98,7 @@ You can pass **query** for new ussd query and **answer** for answer to previous 
 | error | string | Error description, when request failed. |
 
 **Example:**
-```
+```js
 $ ubus call usbmodem.LTE send_ussd '{"query": "*777#"}'
 {
 	"code": 0,
@@ -80,7 +122,7 @@ $ ubus call usbmodem.LTE send_ussd '{"answer": "1"}'
 
 # cancel_ussd
 
-Canceling current USSD session (when previous query respond with code=1 and waiting for reply)
+Canceling current USSD session (when previous response with code=1 and waiting for reply)
 
 **Example:**
 ```
@@ -89,7 +131,7 @@ $ ubus call usbmodem.LTE cancel_ussd
 
 # read_sms
 
-Reading sms from modem.
+Reading all sms from modem.
 
 **Arguments:**
 | Name | Type | Description |
@@ -120,7 +162,7 @@ Reading sms from modem.
 | text | string | Text content |
 
 **Example:**
-```
+```js
 $ ubus call usbmodem.LTE read_sms
 {
 	"messages": [
@@ -168,7 +210,7 @@ $ ubus call usbmodem.LTE read_sms
 
 # delete_sms
 
-Delete sms from modem.
+Deleting sms from modem.
 
 **Arguments:**
 | Name | Type | Description |
@@ -182,7 +224,7 @@ Delete sms from modem.
 | result | object | Status of deletion for each **id** |
 
 **Example:**
-```
+```js
 $ ubus call usbmodem.LTE delete_sms '{"ids": [2]}'
 {
 	"errors": false,
