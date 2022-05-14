@@ -1,10 +1,10 @@
 #include "ModemService.h"
 
-#include "Modem/Asr1802.h"
-#include "Uci.h"
-
 #include <vector>
 #include <signal.h>
+#include <Core/Uci.h>
+
+#include "Modem/Asr1802.h"
 
 ModemService::ModemService(const std::string &iface): m_iface(iface) {
 	m_start_time = getCurrentTimestamp();

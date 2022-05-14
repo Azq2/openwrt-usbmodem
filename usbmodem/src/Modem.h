@@ -4,8 +4,8 @@
 #include <string>
 #include <functional>
 
-#include "Log.h"
-#include "Events.h"
+#include <Core/Log.h>
+#include <Core/Events.h>
 
 /*
  * Generic modem interface

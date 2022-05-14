@@ -4,12 +4,14 @@
 #include <string>
 #include <tuple>
 #include <map>
+#include "zlib.h"
+
+#include <Core/Serial.h>
+#include <Core/AtChannel.h>
+#include <Core/AtParser.h>
+#include <Core/GsmUtils.h>
 
 #include "../Modem.h"
-#include "../Serial.h"
-#include "../AtChannel.h"
-#include "../AtParser.h"
-#include "../GsmUtils.h"
 
 /*
  * Base driver for any AT modem

@@ -8,27 +8,30 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -s -Os -Wl,--gc-sections
 
 add_executable(usbmodem
 	main.cpp
-	Serial.cpp
-	AtChannel.cpp
-	Utils.cpp
-	Events.cpp
-	GsmUtils.cpp
-	AtParser.cpp
-	BinaryParser.cpp
+	
 	Modem.cpp
 	Modem/BaseAt.cpp
 	Modem/Asr1802.cpp
-	UsbDiscover.cpp
 	ModemService.cpp
 	ModemServiceApi.cpp
-	Ubus.cpp
-	Blobmsg.cpp
-	UbusObject.cpp
-	UbusRequest.cpp
-	Netifd.cpp
-	Loop.cpp
-	Uci.cpp
+	
+	Core/Serial.cpp
+	Core/AtChannel.cpp
+	Core/Utils.cpp
+	Core/Events.cpp
+	Core/GsmUtils.cpp
+	Core/AtParser.cpp
+	Core/BinaryParser.cpp
+	Core/UsbDiscover.cpp
+	Core/Ubus.cpp
+	Core/Blobmsg.cpp
+	Core/UbusObject.cpp
+	Core/UbusRequest.cpp
+	Core/Netifd.cpp
+	Core/Loop.cpp
+	Core/Uci.cpp
 )
+target_include_directories(usbmodem PUBLIC .)
 target_link_libraries(usbmodem -lubox -lubus -luci -lstdc++ -lstdc++fs -lz)
 install(TARGETS usbmodem DESTINATION sbin/)
 

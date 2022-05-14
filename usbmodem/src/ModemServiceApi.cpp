@@ -1,6 +1,7 @@
 #include "ModemService.h"
-#include "AtChannel.h"
-#include "GsmUtils.h"
+
+#include <Core/AtChannel.h>
+#include <Core/GsmUtils.h>
 
 static std::map<Modem::OperatorRegStatus, std::string> REG_STATUS_NAMES = {
 	{Modem::OPERATOR_REG_NONE, "none"},

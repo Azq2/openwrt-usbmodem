@@ -1,8 +1,7 @@
 #include "BaseAt.h"
-#include "../Loop.h"
-#include "../GsmUtils.h"
 
-#include "zlib.h"
+#include <Core/Loop.h>
+#include <Core/GsmUtils.h>
 
 bool ModemBaseAt::Creg::isRegistered() const {
 	switch (status) {
