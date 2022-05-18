@@ -1,7 +1,7 @@
 #include "../BaseAt.h"
 
 std::tuple<bool, BaseAtModem::ModemInfo> BaseAtModem::getModemInfo() {
-	auto value = cached<ModemInfo>(__func__, [this]() {
+	return cached<ModemInfo>(__func__, [this]() {
 		AtChannel::Response response;
 		ModemInfo info;
 		
@@ -29,15 +29,4 @@ std::tuple<bool, BaseAtModem::ModemInfo> BaseAtModem::getModemInfo() {
 		
 		return info;
 	});
-	return {true, value};
-}
-
-std::tuple<bool, BaseAtModem::NetworkInfo> BaseAtModem::getNetworkInfo() {
-	return {true, {
-		.ipv4	= m_ipv4,
-		.ipv6	= m_ipv6,
-		.reg	= m_net_reg,
-		.tech	= m_tech,
-		.signal	= m_signal
-	}};
 }

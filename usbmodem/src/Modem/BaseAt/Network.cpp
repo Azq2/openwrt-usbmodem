@@ -1,6 +1,19 @@
 #include "../BaseAt.h"
 #include <Core/Loop.h>
 
+std::tuple<bool, BaseAtModem::NetworkInfo> BaseAtModem::getNetworkInfo() {
+	auto [success, oper] = getCurrentOperator();
+	
+	return {true, {
+		.ipv4	= m_ipv4,
+		.ipv6	= m_ipv6,
+		.reg	= m_net_reg,
+		.tech	= m_tech,
+		.signal	= m_signal,
+		.oper	= oper
+	}};
+}
+
 bool BaseAtModem::Creg::isRegistered() const {
 	switch (status) {
 		case CREG_REGISTERED_HOME:				return true;
@@ -210,7 +223,108 @@ void BaseAtModem::handleCreg(const std::string &event) {
 	reg->loc_id = loc_id & 0xFFFF;
 	reg->cell_id = cell_id & 0xFFFF;
 	
-	// handleNetworkChange();
+	handleNetworkChange();
+}
+
+void BaseAtModem::handleNetworkChange() {
+	NetworkTech new_tech;
+	NetworkReg new_net_reg;
+	
+	bool is_registered = false;
+	if (m_cereg.isRegistered()) {
+		new_tech = m_cereg.toNetworkTech();
+		new_net_reg = m_cereg.toNetworkReg();
+		is_registered = true;
+	} else if (m_cgreg.isRegistered()) {
+		new_tech = m_cgreg.toNetworkTech();
+		new_net_reg = m_cgreg.toNetworkReg();
+		is_registered = true;
+	} else if (m_creg.isRegistered()) {
+		new_tech = m_creg.toNetworkTech();
+		new_net_reg = m_creg.toNetworkReg();
+		is_registered = true;
+	} else {
+		new_tech = TECH_NO_SERVICE;
+		new_net_reg = m_creg.toNetworkReg();
+	}
+	
+	if (m_net_reg != new_net_reg) {
+		m_net_reg = new_net_reg;
+		m_net_cache_version++;
+		emit<EvNetworkChanged>({.status = m_net_reg});
+	}
+	
+	if (m_tech != new_tech) {
+		m_tech = new_tech;
+		m_net_cache_version++;
+		emit<EvTechChanged>({.tech = m_tech});
+	}
+}
+
+std::tuple<bool, BaseAtModem::Operator> BaseAtModem::getCurrentOperator() {
+	if (m_net_reg == NET_NOT_REGISTERED || m_net_reg == NET_SEARCHING)
+		return {true, {}};
+	
+	return cached<Operator>(__func__, [this]() {
+		bool success;
+		std::string id;
+		std::string name;
+		int format;
+		int mode;
+		int creg;
+		
+		Operator op;
+		AtChannel::Response response;
+		
+		// Parse long name
+		if (m_at.sendCommandNoResponse("AT+COPS=3,0") != 0)
+			return std::any();
+		
+		response = m_at.sendCommand("AT+COPS?", "+COPS");
+		if (response.error)
+			return std::any();
+		
+		success = AtParser(response.data())
+			.parseSkip()
+			.parseSkip()
+			.parseString(&name)
+			.success();
+		
+		if (!success)
+			return std::any();
+		
+		// Parse numeric name
+		if (m_at.sendCommandNoResponse("AT+COPS=3,2") != 0)
+			return std::any();
+		
+		response = m_at.sendCommand("AT+COPS?", "+COPS");
+		if (response.error)
+			return std::any();
+		
+		success = AtParser(response.data())
+			.parseInt(&mode)
+			.parseInt(&format)
+			.parseString(&id)
+			.parseInt(&creg)
+			.success();
+		
+		if (!success)
+			return std::any();
+		
+		if (id.size() != 5) {
+			LOGE("Invalid MCC/MNC: %s\n", id.c_str());
+			return std::any();
+		}
+		
+		Operator value;
+		value.mcc = std::stoi(id.substr(0, 3));
+		value.mnc = std::stoi(id.substr(3, 2));
+		value.name = name;
+		value.tech = cregToTech(static_cast<CregTech>(creg));
+		value.status = OPERATOR_STATUS_REGISTERED;
+		value.reg = (mode == 0 ? OPERATOR_REG_AUTO : OPERATOR_REG_MANUAL);
+		return std::any(value);
+	}, m_net_cache_version);
 }
 
 void BaseAtModem::stopNetWatchdog() {

@@ -73,9 +73,15 @@ return view.extend({
 		
 		let net_section = [
 			_('Network registration'), NET_REG_NAMES[network.registration],
-			//_('Network operator'), '%s - %s%s'.format(operator.id, operator.name, (operator.registration == 'manual' ? _(' (manual)') : '')),
 			_('Network type'), TECH_NAMES[network.tech]
 		];
+		
+		if (network.operator.registration != "NONE") {
+			let code = '%03d%02d'.format(network.operator.mcc, network.operator.mnc);
+			net_section.push(_('Operator code'), code);
+			net_section.push(_('Operator name'), network.operator.name + (network.operator.registration == 'MANUAL' ? _(' (manual)') : ''));
+		}
+		
 		if (network.signal.rssi_dbm !== null) {
 			let title = _('%s dBm (%d%%)').format(network.signal.rssi_dbm, network.signal.quality);
 			net_section.push(_("RSSI"), usbmodem.createNetIndicator(network.signal.quality, title));

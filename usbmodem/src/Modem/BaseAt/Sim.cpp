@@ -2,10 +2,8 @@
 #include <Core/Loop.h>
 
 std::tuple<bool, BaseAtModem::SimInfo> BaseAtModem::getSimInfo() {
-	SimInfo info;
-	
 	if (m_sim_state == SIM_READY) {
-		info = cached<SimInfo>(__func__, [this]() {
+		return cached<SimInfo>(__func__, [this]() {
 			SimInfo info;
 			AtChannel::Response response;
 			
@@ -21,11 +19,8 @@ std::tuple<bool, BaseAtModem::SimInfo> BaseAtModem::getSimInfo() {
 			
 			return info;
 		});
-	} else {
-		info.state = m_sim_state;
 	}
-	
-	return {true, info};
+	return {true, {.state = m_sim_state}};
 }
 
 void BaseAtModem::startSimPolling() {

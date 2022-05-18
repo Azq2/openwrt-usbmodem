@@ -3,6 +3,7 @@
 #include <any>
 #include <string>
 #include <functional>
+#include <cmath>
 
 #include <Core/Log.h>
 #include <Core/Events.h>
@@ -37,12 +38,12 @@ class Modem {
 		};
 		
 		struct NetworkSignal {
-			float rssi_dbm;
-			float bit_err_pct;
-			float rscp_dbm;
-			float ecio_db;
-			float rsrq_db;
-			float rsrp_dbm;
+			float rssi_dbm = NAN;
+			float bit_err_pct = NAN;
+			float rscp_dbm = NAN;
+			float ecio_db = NAN;
+			float rsrq_db = NAN;
+			float rsrp_dbm = NAN;
 		};
 		
 		struct NetworkModeItem {
@@ -96,8 +97,8 @@ class Modem {
 		};
 		
 		struct SmsStorageCapacity {
-			int used;
-			int total;
+			int used = 0;
+			int total = 0;
 		};
 		
 		enum SmsDir: uint8_t {
@@ -120,7 +121,7 @@ class Modem {
 		
 		struct Sms {
 			uint32_t hash = 0;
-			SmsDir dir;
+			SmsDir dir = SMS_DIR_ALL;
 			SmsType type = SMS_INCOMING;
 			bool invalid = false;
 			bool unread = false;
@@ -130,7 +131,7 @@ class Modem {
 		};
 		
 		/*
-		 * Operators
+		 * Network operators
 		 * */
 		enum OperatorStatus {
 			OPERATOR_STATUS_UNKNOWN		= 0,
@@ -139,17 +140,18 @@ class Modem {
 			OPERATOR_STATUS_FORBIDDEN	= 3,
 		};
 		
-		enum OperatorRegStatus {
+		enum OperatorRegMode {
 			OPERATOR_REG_NONE		= 0,
 			OPERATOR_REG_AUTO		= 1,
 			OPERATOR_REG_MANUAL		= 2,
 		};
 		
 		struct Operator {
-			NetworkTech tech;
-			OperatorStatus status;
-			OperatorRegStatus reg;
-			std::string id;
+			NetworkTech tech = TECH_NO_SERVICE;
+			OperatorStatus status = OPERATOR_STATUS_UNKNOWN;
+			OperatorRegMode reg = OPERATOR_REG_NONE;
+			int mcc = 0;
+			int mnc = 0;
 			std::string name;
 		};
 		
@@ -167,16 +169,16 @@ class Modem {
 		struct SimInfo {
 			std::string number;
 			std::string imsi;
-			SimState state;
+			SimState state = SIM_NOT_INITIALIZED;
 		};
 		
 		struct NetworkInfo {
 			IpInfo ipv4;
 			IpInfo ipv6;
-			Operator oper;
-			NetworkReg reg;
-			NetworkTech tech;
+			NetworkReg reg = NET_NOT_REGISTERED;
+			NetworkTech tech = TECH_NO_SERVICE;
 			NetworkSignal signal;
+			Operator oper;
 		};
 		
 		struct ModemInfo {
@@ -247,11 +249,12 @@ class Modem {
 		
 		std::map<std::string, CacheItem> m_cache;
 		
-		std::any cached(const std::string &key, std::function<std::any()> callback, int version = 0);
+		std::tuple<bool, std::any> cached(const std::string &key, std::function<std::any()> callback, int version = 0);
 		
 		template <typename T>
-		T cached(const std::string &key, std::function<std::any()> callback, int version = 0) {
-			return std::any_cast<T>(cached(key, callback, version));
+		std::tuple<bool, T> cached(const std::string &key, std::function<std::any()> callback, int version = 0) {
+			auto [status, value] = cached(key, callback, version);
+			return {status, std::any_cast<T>(value)};
 		}
 	public:
 		/*
@@ -278,6 +281,8 @@ class Modem {
 		
 		virtual bool isRoamingEnabled() = 0;
 		virtual bool setDataRoaming(bool enable) = 0;
+		
+		virtual std::tuple<bool, Operator> getCurrentOperator() = 0;
 		
 		/*
 		 * USSD
@@ -308,6 +313,8 @@ class Modem {
 		static const char *getEnumName(NetworkTech tech, bool is_human_readable = false);
 		static const char *getEnumName(NetworkReg reg, bool is_human_readable = false);
 		static const char *getEnumName(SimState state, bool is_human_readable = false);
+		static const char *getEnumName(OperatorRegMode state, bool is_human_readable = false);
+		static const char *getEnumName(OperatorStatus state, bool is_human_readable = false);
 		
 		/*
 		 * Event interface

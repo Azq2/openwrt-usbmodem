@@ -77,7 +77,6 @@ class BaseAtModem: public Modem {
 		std::string m_pdp_password;
 		
 		std::string m_pincode;
-	
 	protected:
 		BaseAtModem();
 		
@@ -117,6 +116,7 @@ class BaseAtModem: public Modem {
 		
 		int m_connect_timeout = 0;
 		int m_connect_timeout_id = -1;
+		int m_net_cache_version = 0;
 		
 		void stopNetWatchdog();
 		void startNetWatchdog();
@@ -127,6 +127,7 @@ class BaseAtModem: public Modem {
 		virtual void handleCesq(const std::string &event);
 		virtual void handleCsq(const std::string &event);
 		virtual void handleCreg(const std::string &event);
+		virtual void handleNetworkChange();
 		
 		/*
 		 * USSD internals
@@ -187,6 +188,8 @@ class BaseAtModem: public Modem {
 		
 		virtual bool isRoamingEnabled() override;
 		virtual bool setDataRoaming(bool enable) override;
+		
+		virtual std::tuple<bool, Operator> getCurrentOperator() override;
 		
 		/*
 		 * USSD

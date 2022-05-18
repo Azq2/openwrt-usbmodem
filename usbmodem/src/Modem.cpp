@@ -88,10 +88,50 @@ const char *Modem::getEnumName(SimState state, bool is_human_readable) {
 	}
 }
 
-std::any Modem::cached(const std::string &key, std::function<std::any()> callback, int version) {
-	if (m_cache.find(key) == m_cache.end() || m_cache[key].version != version) {
-		// Get value without cache
-		m_cache[key] = {callback(), version};
+const char *Modem::getEnumName(OperatorRegMode state, bool is_human_readable) {
+	if (is_human_readable) {
+		switch (state) {
+			case OPERATOR_REG_NONE:		return "none";
+			case OPERATOR_REG_AUTO:		return "auto";
+			case OPERATOR_REG_MANUAL:	return "manual";
+		}
+		return "unknown";
+	} else {
+		switch (state) {
+			case OPERATOR_REG_NONE:		return "NONE";
+			case OPERATOR_REG_AUTO:		return "AUTO";
+			case OPERATOR_REG_MANUAL:	return "MANUAL";
+		}
+		return "UNKNOWN";
 	}
-	return m_cache[key].value;
+}
+
+const char *Modem::getEnumName(OperatorStatus state, bool is_human_readable) {
+	if (is_human_readable) {
+		switch (state) {
+			case OPERATOR_STATUS_UNKNOWN:		return "unknown";
+			case OPERATOR_STATUS_AVAILABLE:		return "available";
+			case OPERATOR_STATUS_REGISTERED:	return "registered";
+			case OPERATOR_STATUS_FORBIDDEN:		return "forbidden";
+		}
+		return "unknown";
+	} else {
+		switch (state) {
+			case OPERATOR_STATUS_UNKNOWN:		return "UNKNOWN";
+			case OPERATOR_STATUS_AVAILABLE:		return "AVAILABLE";
+			case OPERATOR_STATUS_REGISTERED:	return "REGISTERED";
+			case OPERATOR_STATUS_FORBIDDEN:		return "FORBIDDEN";
+		}
+		return "UNKNOWN";
+	}
+}
+
+std::tuple<bool, std::any> Modem::cached(const std::string &key, std::function<std::any()> callback, int version) {
+	if (m_cache.find(key) == m_cache.end() || m_cache[key].version != version) {
+		auto value = callback();
+		if (value.type() == typeid(nullptr) || value.type() == typeid(void))
+			return {false, {}};
+		m_cache[key] = {value, version};
+	}
+	return {true, m_cache[key].value};
 }

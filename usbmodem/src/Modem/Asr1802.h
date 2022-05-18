@@ -45,7 +45,6 @@ class Asr1802Modem: public BaseAtModem {
 		
 		void handleCgev(const std::string &event);
 		void handleCesq(const std::string &event) override;
-		void handleNetworkChange();
 		
 		void handleConnect();
 		void handleDisconnect();

@@ -86,6 +86,14 @@ void ModemServiceApi::apiGetNetworkInfo(std::shared_ptr<UbusRequest> req) {
 				{"rsrp_dbm", net_info.signal.rsrp_dbm},
 				{"quality", quality}
 			}},
+			{"operator", {
+				{"registration", Modem::getEnumName(net_info.oper.reg)},
+				{"mcc", net_info.oper.mcc},
+				{"mnc", net_info.oper.mnc},
+				{"name", net_info.oper.name},
+				{"tech", Modem::getEnumName(net_info.oper.tech)},
+				{"status", Modem::getEnumName(net_info.oper.status)},
+			}},
 			{"tech", Modem::getEnumName(net_info.tech)},
 			{"registration", Modem::getEnumName(net_info.reg)},
 		});
