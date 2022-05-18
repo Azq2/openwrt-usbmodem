@@ -1,7 +1,10 @@
 #include "UbusRequest.h"
 
+size_t UbusRequest::m_global_req_id = 0;
+
 UbusRequest::UbusRequest(Ubus *ubus, ubus_request_data *req, blob_attr *data): m_ubus(ubus), m_req(req), m_data(data) {
-	
+	m_req_id = m_global_req_id++;
+	m_time = getCurrentTimestamp();
 }
 
 UbusRequest::~UbusRequest() {

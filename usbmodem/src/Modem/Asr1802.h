@@ -6,7 +6,7 @@
 
 #include "BaseAt.h"
 
-class ModemAsr1802: public ModemBaseAt {
+class Asr1802Modem: public BaseAtModem {
 	protected:
 		static constexpr int DEFAULT_PDP_CONTEXT = 5;
 		
@@ -15,55 +15,56 @@ class ModemAsr1802: public ModemBaseAt {
 			CONNECTING			= 1,
 			CONNECTED			= 2
 		};
+	
+	protected:
+		/*
+		 * Internals
+		 * */
+		bool init() override;
+		bool setOption(const std::string &name, const std::any &value) override;
+		int getCommandTimeout(const std::string &cmd) override;
 		
+		/*
+		 * Network
+		 * */
 		DataConnectState m_data_state = DISCONNECTED;
 		int m_manual_connect_timeout = -1;
 		int m_connect_errors = 0;
 		bool m_prefer_dhcp = false;
 		bool m_force_restart_network = false;
-		
 		int m_pdp_context = DEFAULT_PDP_CONTEXT;
 		
-		bool init() override;
-		bool initDefaults();
+		bool dial();
 		bool syncApn();
+		void startDataConnection();
+		int getCurrentPdpCid();
+		void restartNetwork();
+		
+		IfaceProto getIfaceProto() override;
+		int getDelayAfterDhcpRelease() override;
+		
+		void handleCgev(const std::string &event);
+		void handleCesq(const std::string &event) override;
+		void handleNetworkChange();
 		
 		void handleConnect();
 		void handleDisconnect();
 		void handleConnectError();
-		void handleOperatorChange();
 		
-		// Modem events handlers
-		void handleCgev(const std::string &event);
-		void handleCreg(const std::string &event);
-		void handleCesq(const std::string &event);
-		void handleNetworkChange();
-		
-		void handleUssdResponse(int code, const std::string &data, int dcs) override;
-		
-		// Manual connection
-		bool dial();
-		void startDataConnection();
-		
-		int getCurrentPdpCid();
-		
+		/*
+		 * Maintenance
+		 * */
 		bool setRadioOn(bool state);
 		bool isRadioOn();
 		
-		void restartNetwork();
-		
-		int getCommandTimeout(const std::string &cmd) override;
+		/*
+		 * USSD
+		 * */
+		void handleUssdResponse(int code, const std::string &data, int dcs) override;
 	public:
-		IfaceProto getIfaceProto() override;
-		int getDelayAfterDhcpRelease() override;
-		std::vector<NetworkTechMode> getAvailableNetworkModes() override;
-		int getCurrentModeId() override;
-		bool isRoamingEnabled() override;
-		bool setNetworkMode(int mode_id) override;
-		bool setDataRoaming(bool enable) override;
-		void finish() override;
-		bool setCustomOption(const std::string &name, const std::any &value) override;
+		Asr1802Modem() : BaseAtModem() { }
 		
-		ModemAsr1802();
-		~ModemAsr1802();
+		bool close() override;
+		
+		~Asr1802Modem() { }
 };

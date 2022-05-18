@@ -23,12 +23,15 @@ return baseclass.extend({
 		return callback.apply(undefined, values);
 	},
 	call(iface, method, params) {
+		params = params || {};
+		params.async = true;
+		
 		return new Promise((resolve, reject) => {
 			this._call(iface, method, params).then((response) => {
 				if (response.deferred) {
 					let deferred_id = response.deferred;
 					let poll_result_fn = () => {
-						return this._call(iface, 'get_deferred_result', {id: deferred_id}).then((response) => {
+						return this._call(iface, 'getDeferredResult', {id: deferred_id}).then((response) => {
 							if (response.ready) {
 								poll.remove(poll_result_fn);
 								
@@ -101,5 +104,50 @@ return baseclass.extend({
 				render(modem.interface)
 			]);
 		}));
-	}
+	},
+	renderTable(title, fields) {
+		let table = E('table', { 'class': 'table' });
+		for (let i = 0; i < fields.length; i += 2) {
+			table.appendChild(E('tr', { 'class': 'tr' }, [
+				E('td', { 'class': 'td left', 'width': '33%' }, [ fields[i] ]),
+				E('td', { 'class': 'td left' }, [ fields[i + 1] ])
+			]));
+		}
+		return E('div', {}, [
+			E('h3', {}, [ title ]),
+			table
+		]);
+	},
+	isSimError(state) {
+		switch (state) {
+			case "PIN1_LOCK":	return true;
+			case "PIN2_LOCK":	return true;
+			case "PUK1_LOCK":	return true;
+			case "PUK2_LOCK":	return true;
+			case "MEP_LOCK":	return true;
+			case "OTHER_LOCK":	return true;
+			case "ERROR":		return true;
+		}
+		return false;
+	},
+	createNetIndicator(quality, title) {
+		let icon;
+		if (quality < 0)
+			icon = L.resource('icons/signal-none.png');
+		else if (quality <= 0)
+			icon = L.resource('icons/signal-0.png');
+		else if (quality < 25)
+			icon = L.resource('icons/signal-0-25.png');
+		else if (quality < 50)
+			icon = L.resource('icons/signal-25-50.png');
+		else if (quality < 75)
+			icon = L.resource('icons/signal-50-75.png');
+		else
+			icon = L.resource('icons/signal-75-100.png');
+		
+		return E('span', { class: 'ifacebadge' }, [
+			E('img', { src: icon, title: title || '' }),
+			E('span', { }, [ title ])
+		]);
+	},
 });

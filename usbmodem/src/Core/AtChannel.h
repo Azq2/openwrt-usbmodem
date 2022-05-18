@@ -1,14 +1,13 @@
 #pragma once
 
-#include <semaphore.h>
-
 #include <cstdio>
 #include <string>
 #include <vector>
 #include <functional>
 #include <mutex>
-#include <sys/types.h>
+#include <thread>
 
+#include "Semaphore.h"
 #include "Serial.h"
 #include "Log.h"
 
@@ -79,7 +78,7 @@ class AtChannel {
 		Response *m_curr_response = nullptr;
 		std::string m_curr_prefix = "";
 		ResultType m_curr_type = DEFAULT;
-		sem_t at_cmd_sem = {};
+		Semaphore m_cmd_sem;
 		std::mutex at_cmd_mutex;
 		TimeoutSetCallback m_timeout_callback;
 		int m_default_at_timeout = 10 * 1000;
@@ -88,18 +87,14 @@ class AtChannel {
 		std::function<void(Errors error, int64_t start)> m_global_error_handler;
 		
 		// thread
-		pthread_t m_at_thread = 0;
-		bool m_at_thread_created = false;
-		
-		static void *readerThread(void *arg);
+		std::thread m_thread;
+		bool m_started = false;
 		
 		static bool isErrorResponse(const std::string &line, bool dial = false);
 		static bool isSuccessResponse(const std::string &line, bool dial = false);
 		
 		void handleLine();
 		void handleUnsolicitedLine();
-		
-		void postAtCmdSem();
 	public:
 		AtChannel();
 		~AtChannel();

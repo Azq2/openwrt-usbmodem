@@ -9,6 +9,8 @@
 ModemService::ModemService(const std::string &iface): m_iface(iface) {
 	m_start_time = getCurrentTimestamp();
 	
+	m_api = new ModemServiceApi(this);
+	
 	// Default options
 	m_uci_options["proto"] = "";
 	m_uci_options["modem_device"] = "";
@@ -165,47 +167,48 @@ bool ModemService::init() {
 bool ModemService::runModem() {
 	// Get modem driver
 	if (m_uci_options["modem_type"] == "asr1802") {
-		m_modem = new ModemAsr1802();
+		m_modem = new Asr1802Modem();
 	} else {
 		LOGE("Unsupported modem type: %s\n", m_uci_options["modem_type"].c_str());
 		return setError("INVALID_CONFIG", true);
 	}
 	
-	// Setup main options to driver
-	m_modem->setPdpConfig(m_uci_options["pdp_type"], m_uci_options["apn"], m_uci_options["auth_type"], m_uci_options["username"], m_uci_options["password"]);
-	m_modem->setPinCode(m_uci_options["pincode"]);
-	m_modem->setSerial(m_tty_path, m_tty_speed);
+	// Device config
+	m_modem->setOption<std::string>("tty_device", m_tty_path);
+	m_modem->setOption<int>("tty_speed", m_tty_speed);
 	
-	// Setup custom options to driver
-	m_modem->setCustomOption<bool>("prefer_dhcp", m_uci_options["prefer_dhcp"] == "1");
-	m_modem->setCustomOption<bool>("prefer_sms_to_sim", m_uci_options["prefer_sms_to_sim"] == "1");
-	m_modem->setCustomOption<int>("connect_timeout", strToInt(m_uci_options["connect_timeout"]) * 1000);
+	// PDP config
+	m_modem->setOption<std::string>("pdp_type", m_uci_options["pdp_type"]);
+	m_modem->setOption<std::string>("pdp_apn", m_uci_options["apn"]);
+	m_modem->setOption<std::string>("pdp_auth_mode", m_uci_options["auth_type"]);
+	m_modem->setOption<std::string>("pdp_user", m_uci_options["username"]);
+	m_modem->setOption<std::string>("pdp_password", m_uci_options["password"]);
 	
-	m_modem->on<Modem::EvOperatorChanged>([=](const auto &event) {
+	// Security codes
+	m_modem->setOption<std::string>("pincode", m_uci_options["pincode"]);
+	
+	// Other settings
+	m_modem->setOption<bool>("prefer_dhcp", m_uci_options["prefer_dhcp"] == "1");
+	m_modem->setOption<bool>("prefer_sms_to_sim", m_uci_options["prefer_sms_to_sim"] == "1");
+	m_modem->setOption<int>("connect_timeout", strToInt(m_uci_options["connect_timeout"]) * 1000);
+	
+	/*
+	m_modem->on<Modem::EvOperatorChanged>([this](const auto &event) {
 		Modem::Operator op = m_modem->getOperator();
 		if (op.reg != Modem::OPERATOR_REG_NONE)
 			LOGD("Operator: %s - %s %s\n", op.id.c_str(), op.name.c_str(), Modem::getTechName(op.tech));
 	});
+	*/
 	
-	m_modem->on<Modem::EvNetworkChanged>([=](const auto &event) {
-		if (event.status == Modem::NET_NOT_REGISTERED) {
-			LOGD("Unregistered from network\n");
-		} else if (event.status == Modem::NET_SEARCHING) {
-			LOGD("Searching network...\n");
-		} else {
-			LOGD("Registered to %s network\n", Modem::getNetRegStatusName(event.status));
-		}
+	m_modem->on<Modem::EvNetworkChanged>([this](const auto &event) {
+		LOGD("[network] %s\n", Modem::getEnumName(event.status, true));
 	});
 	
-	m_modem->on<Modem::EvTechChanged>([=](const auto &event) {
-		if (event.tech == Modem::TECH_NO_SERVICE || event.tech == Modem::TECH_UNKNOWN) {
-			LOGD("Network mode: none\n");
-		} else {
-			LOGD("Network mode: %s\n", Modem::getTechName(event.tech));
-		}
+	m_modem->on<Modem::EvTechChanged>([this](const auto &event) {
+		LOGD("[network] Tech: %s\n", Modem::getEnumName(event.tech, true));
 	});
 	
-	m_modem->on<Modem::EvDataConnected>([=](const auto &event) {
+	m_modem->on<Modem::EvDataConnected>([this](const auto &event) {
 		int dhcp_delay = 0;
 		if (event.is_update) {
 			int diff = getCurrentTimestamp() - m_last_connected;
@@ -224,18 +227,15 @@ bool ModemService::runModem() {
 			}
 		}
 		
-		Modem::IpInfo ipv4 = m_modem->getIpInfo(4);
-		Modem::IpInfo ipv6 = m_modem->getIpInfo(6);
-		
 		if (m_modem->getIfaceProto() == Modem::IFACE_STATIC) {
-			if (!m_netifd.updateIface(m_iface, m_net_iface, &ipv4, &ipv6)) {
+			if (!m_netifd.updateIface(m_iface, m_net_iface, &event.ipv4, &event.ipv6)) {
 				LOGE("Can't set IP to interface '%s'\n", m_iface.c_str());
 				setError("INTERNAL_ERROR");
 			}
 		} else if (m_modem->getIfaceProto() == Modem::IFACE_DHCP) {
 			if (dhcp_delay > 0) {
 				LOGD("Wait %d ms for DHCP recovery...\n", dhcp_delay);
-				Loop::setTimeout([=]() {
+				Loop::setTimeout([this]() {
 					if (!startDhcp())
 						setError("INTERNAL_ERROR");
 				}, dhcp_delay);
@@ -245,26 +245,28 @@ bool ModemService::runModem() {
 			}
 		}
 		
-		if (ipv4.ip.size() > 0) {
+		if (event.ipv4.ip.size() > 0) {
 			LOGD(
 				"-> IPv4: ip=%s, gw=%s, mask=%s, dns1=%s, dns2=%s\n",
-				ipv4.ip.c_str(), ipv4.gw.c_str(), ipv4.mask.c_str(), ipv4.dns1.c_str(), ipv4.dns2.c_str()
+				event.ipv4.ip.c_str(), event.ipv4.gw.c_str(), event.ipv4.mask.c_str(),
+				event.ipv4.dns1.c_str(), event.ipv4.dns2.c_str()
 			);
 		}
 		
-		if (ipv6.ip.size() > 0) {
+		if (event.ipv6.ip.size() > 0) {
 			LOGD(
 				"-> IPv6: ip=%s, gw=%s, mask=%s, dns1=%s, dns2=%s\n",
-				ipv6.ip.c_str(), ipv6.gw.c_str(), ipv6.mask.c_str(), ipv6.dns1.c_str(), ipv6.dns2.c_str()
+				event.ipv6.ip.c_str(), event.ipv6.gw.c_str(), event.ipv6.mask.c_str(),
+				event.ipv6.dns1.c_str(), event.ipv6.dns2.c_str()
 			);
 		}
 	});
 	
-	m_modem->on<Modem::EvDataConnecting>([=](const auto &event) {
+	m_modem->on<Modem::EvDataConnecting>([this](const auto &event) {
 		LOGD("Connecting to internet...\n");
 	});
 	
-	m_modem->on<Modem::EvDataDisconnected>([=](const auto &event) {
+	m_modem->on<Modem::EvDataDisconnected>([this](const auto &event) {
 		m_last_disconnected = getCurrentTimestamp();
 		int diff = m_last_disconnected - m_last_connected;
 		LOGD("Internet disconnected, last session %d ms\n", diff);
@@ -281,53 +283,43 @@ bool ModemService::runModem() {
 		}
 	});
 	
-	m_modem->on<Modem::EvSignalLevels>([=](const auto &event) {
-		Modem::SignalLevels levels = m_modem->getSignalLevels();
-		
+	m_modem->on<Modem::EvNetworkSignalChanged>([this](const auto &event) {
 		std::vector<std::string> info;
 		
-		if (!std::isnan(levels.rssi_dbm))
-			info.push_back("RSSI: " + numberFormat(levels.rssi_dbm, 1) + " dBm");
+		if (!std::isnan(event.signal.rssi_dbm))
+			info.push_back("RSSI: " + numberFormat(event.signal.rssi_dbm, 1) + " dBm");
 		
-		if (!std::isnan(levels.bit_err_pct))
-			info.push_back("Bit errors: " + numberFormat(levels.bit_err_pct, 1) + "%");
+		if (!std::isnan(event.signal.bit_err_pct))
+			info.push_back("Bit errors: " + numberFormat(event.signal.bit_err_pct, 1) + "%");
 		
-		if (!std::isnan(levels.rscp_dbm))
-			info.push_back("RSCP: " + numberFormat(levels.rscp_dbm, 1) + " dBm");
+		if (!std::isnan(event.signal.rscp_dbm))
+			info.push_back("RSCP: " + numberFormat(event.signal.rscp_dbm, 1) + " dBm");
 		
-		if (!std::isnan(levels.ecio_db))
-			info.push_back("Ec/lo: " + numberFormat(levels.ecio_db, 1) + " dB");
+		if (!std::isnan(event.signal.ecio_db))
+			info.push_back("Ec/lo: " + numberFormat(event.signal.ecio_db, 1) + " dB");
 		
-		if (!std::isnan(levels.rsrq_db))
-			info.push_back("RSRQ: " + numberFormat(levels.rsrq_db, 1) + " dB");
+		if (!std::isnan(event.signal.rsrq_db))
+			info.push_back("RSRQ: " + numberFormat(event.signal.rsrq_db, 1) + " dB");
 		
-		if (!std::isnan(levels.rsrp_dbm))
-			info.push_back("RSRP: " + numberFormat(levels.rsrp_dbm, 1) + " dBm");
+		if (!std::isnan(event.signal.rsrp_dbm))
+			info.push_back("RSRP: " + numberFormat(event.signal.rsrp_dbm, 1) + " dBm");
 		
 		if (info.size() > 0) {
 			std::string str = strJoin(info, ", ");
-			LOGD("%s\n", str.c_str());
+			LOGD("[network] %s\n", str.c_str());
 		}
 	});
 	
-	m_modem->on<Modem::EvPinStateChaned>([=](const auto &event) {
-		if (event.state == Modem::PIN_ERROR) {
-			LOGD("PIN: invalid code, or required PIN2, PUK, PUK2 or other.\n");
-		} else if (event.state == Modem::PIN_READY) {
-			LOGD("PIN: success\n");
-		} else if (event.state == Modem::PIN_REQUIRED) {
-			LOGD("PIN: need unlock\n");
-		} else if (event.state == Modem::PIN_NOT_SUPPORTED) {
-			LOGD("PIN: not supported\n");
-		}
+	m_modem->on<Modem::EvSimStateChaned>([this](const auto &event) {
+		LOGD("[sim] %s\n", Modem::getEnumName(event.state, true));
 	});
 	
-	m_modem->on<Modem::EvIoBroken>([=](const auto &event) {
+	m_modem->on<Modem::EvIoBroken>([this](const auto &event) {
 		LOGE("TTY device is lost...\n");
 		setError("IO_ERROR");
 	});
 	
-	m_modem->on<Modem::EvDataConnectTimeout>([=](const auto &event) {
+	m_modem->on<Modem::EvDataConnectTimeout>([this](const auto &event) {
 		LOGE("Internet connection timeout...\n");
 		setError("CONNECT_TIMEOUT");
 	});
@@ -337,15 +329,11 @@ bool ModemService::runModem() {
 		return setError("INIT_ERROR");
 	}
 	
-	LOGD("Modem: %s %s\n", m_modem->getVendor().c_str(), m_modem->getModel().c_str());
-	LOGD("IMEI: %s\n", m_modem->getImei().c_str());
-	
 	return true;
 }
 
 void ModemService::finishModem() {
 	if (m_modem) {
-		m_modem->finish();
 		m_modem->close();
 		m_modem = nullptr;
 		delete m_modem;
@@ -408,8 +396,11 @@ int ModemService::checkError() {
 int ModemService::run() {
 	if (init()) {
 		if (runModem()) {
-			Loop::setTimeout([=]() {
-				if (!runApi())
+			Loop::setTimeout([this]() {
+				m_api->setUbus(&m_ubus);
+				m_api->setModem(m_modem);
+				
+				if (!m_api->start())
 					LOGE("Can't start API server, but continuing running...\n");
 			}, 0);
 			Loop::run();

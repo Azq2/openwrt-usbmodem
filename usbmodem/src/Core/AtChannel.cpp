@@ -26,46 +26,36 @@ const int AtChannel::Response::getCmsError() const {
 }
 
 AtChannel::AtChannel() {
-	if (sem_init(&at_cmd_sem, 0, 0) != 0) {
-		LOGE("sem_init() failed, errno = %d\n", errno);
-		throw std::runtime_error("sem_init fatal error");
-	}
+	
 }
 
 AtChannel::~AtChannel() {
 	
 }
 
-void *AtChannel::readerThread(void *arg) {
-	AtChannel *self = static_cast<AtChannel *>(arg);
-	self->readerLoop();
-	return nullptr;
-}
-
 bool AtChannel::start() {
-	if (!m_at_thread_created) {
-		// Run AT channel
-		if (pthread_create(&m_at_thread, nullptr, readerThread, this) != 0) {
-			LOGD("Can't create readerloop thread, errno=%d\n", errno);
-			return false;
-		}
+	if (!m_started) {
 		m_stop = false;
-		m_at_thread_created = true;
+		m_started = true;
+		
+		m_thread = std::thread([this]() {
+			readerLoop();
+		});
 	}
 	return true;
 }
 
 void AtChannel::stop() {
-	if (m_at_thread_created) {
+	if (m_started) {
 		m_stop = true;
 		
 		// Break current serial transfer
 		m_serial->breakTransfer();
 		
 		// Wait for reader loop done
-		pthread_join(m_at_thread, nullptr);
+		m_thread.join();
 		
-		m_at_thread_created = false;
+		m_started = false;
 	}
 }
 
@@ -93,7 +83,8 @@ void AtChannel::readerLoop() {
 			
 			if (m_curr_response) {
 				m_curr_response->error = AT_IO_BROKEN;
-				postAtCmdSem();
+				m_curr_response = nullptr;
+				m_cmd_sem.post();
 			}
 			
 			if (m_broken_io_handler)
@@ -156,32 +147,21 @@ void AtChannel::handleUnsolicitedLine() {
 	}
 }
 
-void AtChannel::postAtCmdSem() {
-	int ret;
-	do {
-		ret = sem_post(&at_cmd_sem);
-	} while (ret < 0 && errno == EINTR);
-	
-	if (ret != 0) {
-		LOGE("sem_post() failed, errno = %d\n", errno);
-		
-		if (errno != EINTR)
-			throw std::runtime_error("sem_post fatal error");
-	}
-}
-
 void AtChannel::handleLine() {
 	if (m_curr_response) {
 		if (isSuccessResponse(m_buffer, m_curr_type == DIAL)) {
 			m_curr_response->error = AT_SUCCESS;
 			m_curr_response->status = m_buffer;
 			
-			postAtCmdSem();
+			m_curr_response = nullptr;
+			m_cmd_sem.post();
 		} else if (isErrorResponse(m_buffer, m_curr_type == DIAL)) {
 			m_curr_response->error = AT_ERROR;
 			m_curr_response->status = m_buffer;
 			
-			postAtCmdSem();
+			m_curr_response = nullptr;
+			m_cmd_sem.post();
+			m_curr_response = nullptr;
 		} else if (m_curr_type == DEFAULT) {
 			if (strStartsWith(m_buffer, m_curr_prefix)) {
 				m_curr_response->lines.push_back(m_buffer);
@@ -271,24 +251,10 @@ int AtChannel::sendCommand(ResultType type, const std::string &cmd, const std::s
 		LOGE("[ %s ] serial io error\n", cmd.c_str());
 	} else {
 		// Wait for command finish
-		struct timespec tm;
-		do {
-			setTimespecTimeout(&tm, getNewTimeout(start, timeout));
-			ret = sem_timedwait(&at_cmd_sem, &tm);
-		} while (ret == -1 && errno == EINTR && !m_stop);
-		
-		// Command timeout
-		if (ret == -1) {
-			if (errno == ETIMEDOUT) {
-				response->error = AT_TIMEOUT;
-				uint32_t elapsed = getCurrentTimestamp() - start;
-				LOGE("[ %s ] command timeout, elapsed = %u\n", cmd.c_str(), elapsed);
-			} else {
-				LOGE("[ %s ] sem_timedwait = %d\n", cmd.c_str(), errno);
-				
-				if (errno != EINTR)
-					throw std::runtime_error("sem_timedwait fatal error");
-			}
+		if (!m_cmd_sem.wait(getNewTimeout(start, timeout))) {
+			response->error = AT_TIMEOUT;
+			uint32_t elapsed = getCurrentTimestamp() - start;
+			LOGE("[ %s ] command timeout, elapsed = %u\n", cmd.c_str(), elapsed);
 		}
 	}
 	

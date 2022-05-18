@@ -3,7 +3,7 @@
 # Example usage:
 # TEST_ROUTER=root@192.168.1.1 TOPDIR=~/build/openwrt ./test.sh
 
-VERSION=7
+VERSION=10
 DIR=$(readlink -f $0)
 DIR=$(dirname $0)
 MODE=$1
@@ -25,6 +25,23 @@ echo "MODE=$MODE"
 # Build package
 echo "Build..."
 make -C "$DIR/usbmodem" -j9 compile || exit 1
+
+if [[ $MODE == "install" ]]; then
+	echo "Build done."
+	exit 0
+fi
+
+if [[ $MODE == "test" ]]; then
+	ssh $TEST_ROUTER killall -9 /tmp/usbmodem-test
+	ssh $TEST_ROUTER killall -9 /tmp/usbmodem-test
+	ssh $TEST_ROUTER killall -9 /tmp/usbmodem-test
+	scp -r $TOPDIR/build_dir/*/usbmodem/ipkg-install/usr/sbin/usbmodem "$TEST_ROUTER:/tmp/usbmodem-test"
+	echo ""
+	echo ""
+	echo ""
+	ssh $TEST_ROUTER /tmp/usbmodem-test test
+	exit 0
+fi
 
 function install_file {
 	src="$1"

@@ -12,7 +12,9 @@
  * */
 class Modem {
 	public:
-		// Network technology
+		/*
+		 * Network
+		 * */
 		enum NetworkTech: int {
 			TECH_UNKNOWN	= -1,
 			TECH_NO_SERVICE	= 0,
@@ -27,63 +29,14 @@ class Modem {
 			TECH_LTE		= 9
 		};
 		
-		// Network registration state
 		enum NetworkReg {
-			NET_NOT_REGISTERED		= 0,
-			NET_SEARCHING			= 1,
-			NET_REGISTERED_HOME		= 2,
-			NET_REGISTERED_ROAMING	= 3,
+			NET_NOT_REGISTERED,
+			NET_SEARCHING,
+			NET_REGISTERED_HOME,
+			NET_REGISTERED_ROAMING
 		};
 		
-		// Network interface protocol
-		enum IfaceProto {
-			IFACE_DHCP		= 0,
-			IFACE_STATIC	= 1,
-			IFACE_PPP		= 2
-		};
-		
-		// SIM PIN lock state
-		enum PinState {
-			PIN_UNKNOWN			= 0,
-			PIN_REQUIRED		= 1,
-			PIN_ERROR			= 2,
-			PIN_READY			= 3,
-			PIN_NOT_SUPPORTED	= 4
-		};
-		
-		// Cell operator status
-		enum OperatorStatus {
-			OPERATOR_STATUS_UNKNOWN		= 0,
-			OPERATOR_STATUS_AVAILABLE	= 1,
-			OPERATOR_STATUS_REGISTERED	= 2,
-			OPERATOR_STATUS_FORBIDDEN	= 3,
-		};
-		
-		// Cell operator registration status
-		enum OperatorRegStatus {
-			OPERATOR_REG_NONE		= 0,
-			OPERATOR_REG_AUTO		= 1,
-			OPERATOR_REG_MANUAL		= 2,
-		};
-		
-		// Cell operator
-		struct Operator {
-			NetworkTech tech;
-			OperatorStatus status;
-			OperatorRegStatus reg;
-			std::string id;
-			std::string name;
-		};
-		
-		typedef std::function<void(bool, std::vector<Operator>)> OperatorSearchCallback;
-		
-		struct NetworkTechMode {
-			int id;
-			std::string name;
-		};
-		
-		// Network signal levels
-		struct SignalLevels {
+		struct NetworkSignal {
 			float rssi_dbm;
 			float bit_err_pct;
 			float rscp_dbm;
@@ -92,16 +45,20 @@ class Modem {
 			float rsrp_dbm;
 		};
 		
-		// Interface IP info
-		struct IpInfo {
-			std::string ip;
-			std::string mask;
-			std::string gw;
-			std::string dns1;
-			std::string dns2;
+		struct NetworkModeItem {
+			int id;
+			std::string name;
 		};
 		
-		// USSD response types
+		enum IfaceProto {
+			IFACE_DHCP,
+			IFACE_STATIC,
+			IFACE_PPP
+		};
+		
+		/*
+		 * USSD
+		 * */
 		enum UssdCode: int {
 			USSD_ERROR			= -1,
 			USSD_OK				= 0,
@@ -111,7 +68,26 @@ class Modem {
 		
 		typedef std::function<void(UssdCode, const std::string &)> UssdCallback;
 		
-		// SMS
+		/*
+		 * SIM
+		 * */
+		enum SimState {
+			SIM_NOT_INITIALIZED,
+			SIM_NOT_SUPPORTED,
+			SIM_READY,
+			SIM_PIN1_LOCK,
+			SIM_PIN2_LOCK,
+			SIM_PUK1_LOCK,
+			SIM_PUK2_LOCK,
+			SIM_MEP_LOCK,
+			SIM_OTHER_LOCK,
+			SIM_WAIT_UNLOCK,
+			SIM_ERROR
+		};
+		
+		/*
+		 * SMS
+		 * */
 		enum SmsStorage: uint8_t {
 			SMS_STORAGE_MT			= 0,	// Sim + Phone
 			SMS_STORAGE_ME			= 1,	// Phone
@@ -153,13 +129,61 @@ class Modem {
 			std::vector<SmsPart> parts;
 		};
 		
-		typedef std::function<void(bool success, std::vector<Sms>)> SmsReadCallback;
+		/*
+		 * Operators
+		 * */
+		enum OperatorStatus {
+			OPERATOR_STATUS_UNKNOWN		= 0,
+			OPERATOR_STATUS_AVAILABLE	= 1,
+			OPERATOR_STATUS_REGISTERED	= 2,
+			OPERATOR_STATUS_FORBIDDEN	= 3,
+		};
 		
-		enum Features: uint32_t {
-			FEATURE_USSD				= 1 << 0,
-			FEATURE_SMS					= 1 << 1,
-			FEATURE_PIN_STATUS			= 1 << 2,
-			FEATURE_NETWORK_LEVELS		= 1 << 3,
+		enum OperatorRegStatus {
+			OPERATOR_REG_NONE		= 0,
+			OPERATOR_REG_AUTO		= 1,
+			OPERATOR_REG_MANUAL		= 2,
+		};
+		
+		struct Operator {
+			NetworkTech tech;
+			OperatorStatus status;
+			OperatorRegStatus reg;
+			std::string id;
+			std::string name;
+		};
+		
+		/*
+		 * Info
+		 * */
+		struct IpInfo {
+			std::string ip;
+			std::string mask;
+			std::string gw;
+			std::string dns1;
+			std::string dns2;
+		};
+		
+		struct SimInfo {
+			std::string number;
+			std::string imsi;
+			SimState state;
+		};
+		
+		struct NetworkInfo {
+			IpInfo ipv4;
+			IpInfo ipv6;
+			Operator oper;
+			NetworkReg reg;
+			NetworkTech tech;
+			NetworkSignal signal;
+		};
+		
+		struct ModemInfo {
+			std::string imei;
+			std::string vendor;
+			std::string model;
+			std::string version;
 		};
 		
 		/*
@@ -170,6 +194,8 @@ class Modem {
 		struct EvDataConnected {
 			// True, when connection changed without disconnection
 			bool is_update;
+			IpInfo ipv4;
+			IpInfo ipv6;
 		};
 		
 		// Event when disconnected from internet
@@ -192,11 +218,13 @@ class Modem {
 		struct EvOperatorChanged { };
 		
 		// Event when signal levels changed
-		struct EvSignalLevels { };
+		struct EvNetworkSignalChanged {
+			NetworkSignal signal;
+		};
 		
-		// Event when PIN status changed
-		struct EvPinStateChaned {
-			PinState state;
+		// Event when SIM status changed
+		struct EvSimStateChaned {
+			SimState state;
 		};
 		
 		// Event when tty device is unrecoverable broken
@@ -204,153 +232,82 @@ class Modem {
 		
 		// Event when connection timeout reached
 		struct EvDataConnectTimeout { };
-	protected:
-		// Serial config
-		int m_speed = 115200;
-		std::string m_tty;
-		std::string m_iface;
 		
-		// PDP config
-		std::string m_pdp_type;
-		std::string m_pdp_apn;
-		std::string m_pdp_auth_mode;
-		std::string m_pdp_user;
-		std::string m_pdp_password;
-		
-		// Pin
-		std::string m_pincode;
-		
-		// SIM
-		std::string m_sim_number;
-		std::string m_sim_imsi;
-		
-		// Current operator
-		Operator m_operator = {};
-		
-		// Current connection
-		IpInfo m_ipv4 = {};
-		IpInfo m_ipv6 = {};
-		
-		// Current signal info
-		SignalLevels m_levels = {};
-		
-		// Current PIN state
-		PinState m_pin_state = PIN_UNKNOWN;
-		
-		// Current network tech
-		NetworkTech m_tech = TECH_NO_SERVICE;
-		
-		// Network registration status
-		NetworkReg m_net_reg = NET_NOT_REGISTERED;
-		
-		// Modem identification
-		std::string m_hw_vendor;
-		std::string m_hw_model;
-		std::string m_sw_ver;
-		std::string m_imei;
-		
-		// Events interface
 		Events m_ev;
-	public:
-		static const char *getTechName(NetworkTech tech);
-		static const char *getNetRegStatusName(NetworkReg reg);
 		
-		Modem();
-		virtual ~Modem();
-		
-		virtual bool open() = 0;
-		virtual void close() = 0;
-		virtual void finish() = 0;
+		virtual bool setOption(const std::string &name, const std::any &value) = 0;
 		
 		/*
-		 * Current modem state
+		 * Cache
 		 * */
-		inline IpInfo getIpInfo(int ipv) const {
-			return ipv == 6 ? m_ipv6 : m_ipv4;
-		}
+		struct CacheItem {
+			std::any value;
+			int version;
+		};
 		
-		inline SignalLevels getSignalLevels() const {
-			return m_levels;
-		}
+		std::map<std::string, CacheItem> m_cache;
 		
-		inline NetworkReg getNetRegStatus() const {
-			return m_net_reg;
-		}
+		std::any cached(const std::string &key, std::function<std::any()> callback, int version = 0);
 		
-		inline NetworkTech getTech() const {
-			return m_tech;
+		template <typename T>
+		T cached(const std::string &key, std::function<std::any()> callback, int version = 0) {
+			return std::any_cast<T>(cached(key, callback, version));
 		}
+	public:
+		/*
+		 * Main Operations
+		 * */
+		virtual bool open() = 0;
+		virtual bool close() = 0;
 		
-		inline PinState getPinState() const {
-			return m_pin_state;
-		}
-		
-		inline Operator getOperator() const {
-			return m_operator;
-		}
+		/*
+		 * Info
+		 * */
+		virtual std::tuple<bool, ModemInfo> getModemInfo() = 0;
+		virtual std::tuple<bool, SimInfo> getSimInfo() = 0;
+		virtual std::tuple<bool, NetworkInfo> getNetworkInfo() = 0;
 		
 		/*
 		 * Network
 		 * */
-		virtual bool searchOperators(OperatorSearchCallback callback) = 0;
-		virtual bool setOperator(std::string id, NetworkTech tech = TECH_UNKNOWN) = 0;
-		virtual std::vector<NetworkTechMode> getAvailableNetworkModes() = 0;
-		virtual int getCurrentModeId() = 0;
-		virtual bool isRoamingEnabled() = 0;
+		virtual std::vector<Operator> searchOperators() = 0;
+		virtual bool setOperator(int mcc, int mnc, NetworkTech tech) = 0;
+		
+		virtual std::vector<NetworkModeItem> getNetworkModes() = 0;
 		virtual bool setNetworkMode(int mode_id) = 0;
+		
+		virtual bool isRoamingEnabled() = 0;
 		virtual bool setDataRoaming(bool enable) = 0;
 		
 		/*
-		 * Modem configuration
+		 * USSD
 		 * */
-		virtual bool setCustomOption(const std::string &name, const std::any &value) = 0;
+		virtual bool sendUssd(const std::string &cmd, UssdCallback callback, int timeout) = 0;
+		virtual bool cancelUssd() = 0;
+		virtual bool isUssdBusy() = 0;
+		virtual bool isUssdWaitReply() = 0;
 		
-		template <typename T>
-		inline bool setCustomOption(const std::string &name, const T &value) {
-			auto any_value = std::make_any<T>(value);
-			return setCustomOption(name, any_value);
-		}
+		/*
+		 * SMS
+		 * */
+		virtual std::tuple<bool, std::vector<Sms>> getSmsList(SmsDir from_dir) = 0;
+		virtual bool deleteSms(int id) = 0;
+		virtual SmsStorageCapacity getSmsCapacity() = 0;
+		virtual SmsStorage getSmsStorage() = 0;
 		
-		inline void setPdpConfig(const std::string &pdp_type, const std::string &apn, const std::string &auth_mode, const std::string &user, const std::string &password) {
-			m_pdp_type = pdp_type;
-			m_pdp_apn = apn;
-			m_pdp_auth_mode = auth_mode;
-			m_pdp_user = user;
-			m_pdp_password = password;
-		}
+		/*
+		 * Internals
+		 * */
+		virtual IfaceProto getIfaceProto() = 0;
+		virtual int getDelayAfterDhcpRelease() = 0;
+		virtual std::pair<bool, std::string> sendAtCommand(const std::string &cmd, int timeout) = 0;
 		
-		inline void setPinCode(const std::string &pincode) {
-			m_pincode = pincode;
-		}
-		
-		inline void setSerial(const std::string &tty, int speed) {
-			m_tty = tty;
-			m_speed = speed;
-		}
-		
-		const inline std::string &getModel() const {
-			return m_hw_model;
-		}
-		
-		const inline std::string &getVendor() const {
-			return m_hw_vendor;
-		}
-		
-		const inline std::string &getSwVersion() const {
-			return m_sw_ver;
-		}
-		
-		const inline std::string &getImei() const {
-			return m_imei;
-		}
-		
-		const inline std::string &getSimImsi() const {
-			return m_sim_imsi;
-		}
-		
-		const inline std::string &getSimNumber() const {
-			return m_sim_number;
-		}
+		/*
+		 * Enums
+		 * */
+		static const char *getEnumName(NetworkTech tech, bool is_human_readable = false);
+		static const char *getEnumName(NetworkReg reg, bool is_human_readable = false);
+		static const char *getEnumName(SimState state, bool is_human_readable = false);
 		
 		/*
 		 * Event interface
@@ -366,29 +323,11 @@ class Modem {
 		}
 		
 		/*
-		 * Modem customizations
+		 * Modem configuration
 		 * */
-		virtual IfaceProto getIfaceProto() = 0;
-		virtual int getDelayAfterDhcpRelease();
-		
-		/*
-		 * AT command API
-		 * */
-		virtual std::pair<bool, std::string> sendAtCommand(const std::string &cmd, int timeout = 0) = 0;
-		
-		/*
-		 * USSD API
-		 * */
-		virtual bool sendUssd(const std::string &cmd, UssdCallback callback, int timeout = 0) = 0;
-		virtual bool cancelUssd() = 0;
-		virtual bool isUssdBusy() = 0;
-		virtual bool isUssdWaitReply() = 0;
-		
-		/*
-		 * SMS API
-		 * */
-		virtual void getSmsList(SmsDir dir, SmsReadCallback callback) = 0;
-		virtual bool deleteSms(int id) = 0;
-		virtual SmsStorageCapacity getSmsCapacity() = 0;
-		virtual SmsStorage getSmsStorage() = 0;
+		template <typename T>
+		inline bool setOption(const std::string &name, const T &value) {
+			auto any_value = std::make_any<T>(value);
+			return setOption(name, any_value);
+		}
 };

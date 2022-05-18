@@ -11,7 +11,12 @@
 #include <Core/Utils.h>
 #include <Core/GsmUtils.h>
 #include <Core/AtParser.h>
+#include <Core/AtChannel.h>
+#include <Core/Serial.h>
 
+#include "Modem.h"
+#include "Modem/BaseAt.h"
+#include "Modem/Asr1802.h"
 #include "ModemService.h"
 
 static int modemDaemon(int argc, char *argv[]) {
@@ -19,45 +24,26 @@ static int modemDaemon(int argc, char *argv[]) {
 		ModemService s(argv[2]);
 		return s.run();
 	}
-	
 	fprintf(stderr, "usage: %s daemon <iface>\n", argv[0]);
 	return -1;
 }
 
 static int test(int argc, char *argv[]) {
-	// std::string line = "+CPMS: (\"SM\"),(\"ME\"),(\"SM\")";
-	std::string line = "+CPMS: (\"ME\",\"MT\",\"SM\",\"SR\"),(\"ME\",\"MT\",\"SM\",\"SR\"),(\"ME\",\"MT\",\"SM\",\"SR\")";
+	Loop::init();
 	
-	std::vector<std::string> mem1;
-	std::vector<std::string> mem2;
-	std::vector<std::string> mem3;
+	Modem *modem = new Asr1802Modem();
+	modem->setOption<std::string>("tty_device", "/dev/ttyACM1");
+	modem->setOption<int>("tty_speed", 115200);
 	
-	int arg_cnt = AtParser::getArgCnt(line);
+	LOGD("Opening modem...\n");
+	if (!modem->open())
+		return -1;
 	
-	bool success = AtParser(line)
-		.parseArray(&mem1)
-		.parseArray(&mem2)
-		.parseArray(&mem3)
-		.success();
+	LOGD("Modem opened!\n");
 	
-	LOGD("arg_cnt=%d\n", arg_cnt);
+	Loop::run();
+	LOGD("exit???\n");
 	
-	LOGD("mem1:");
-	for (auto &m: mem1)
-		LOGD(" %s", m.c_str());
-	LOGD("\n");
-	
-	LOGD("mem2:");
-	for (auto &m: mem2)
-		LOGD(" %s", m.c_str());
-	LOGD("\n");
-	
-	LOGD("mem3:");
-	for (auto &m: mem3)
-		LOGD(" %s", m.c_str());
-	LOGD("\n");
-	
-	LOGD("success = %d\n", success);
 	return 0;
 }
 

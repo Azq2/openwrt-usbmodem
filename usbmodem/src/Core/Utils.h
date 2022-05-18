@@ -71,7 +71,7 @@ inline std::string hex2bin(const std::string &hex) {
 std::string numberFormat(float num, int max_decimals = 0);
 std::string numberFormat(double num, int max_decimals = 0);
 std::string strJoin(const std::vector<std::string> &lines, const std::string &delim);
-std::string strprintf(const char *format, ...);
+std::string strprintf(const char *format, ...)  __attribute__((format(printf, 1, 2)));
 std::string trim(std::string s);
 std::string readFile(std::string path);
 std::string findUsbIface(std::string dev_path, int iface);
