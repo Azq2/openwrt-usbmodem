@@ -40,6 +40,8 @@ return baseclass.extend({
 								
 								resolve(response.result);
 							} else if (!response.exists) {
+								poll.remove(poll_result_fn);
+								
 								throw new Error('Deferred result expired');
 							}
 						}).catch(reject);

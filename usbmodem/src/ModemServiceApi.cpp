@@ -325,7 +325,9 @@ int ModemServiceApi::apiGetDeferredResult(std::shared_ptr<UbusRequest> req) {
 		response["result"] = it->second.result;
 		response["ready"] = it->second.time > 0;
 		response["exists"] = true;
-		m_deferred_results.erase(id);
+		
+		if (it->second.time > 0)
+			m_deferred_results.erase(id);
 	} else {
 		response["exists"] = false;
 	}
