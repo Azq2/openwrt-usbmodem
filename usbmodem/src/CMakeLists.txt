@@ -39,6 +39,8 @@ add_executable(usbmodem
 	Core/UbusRequest.cpp
 	Core/Netifd.cpp
 	Core/Loop.cpp
+	Core/LoopBase.cpp
+	Core/UbusLoop.cpp
 	Core/Uci.cpp
 	Core/Semaphore.cpp
 )

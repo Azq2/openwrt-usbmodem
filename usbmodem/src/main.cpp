@@ -8,6 +8,7 @@
 #include <Core/UsbDiscover.h>
 #include <Core/Log.h>
 #include <Core/Loop.h>
+#include <Core/UbusLoop.h>
 #include <Core/Utils.h>
 #include <Core/GsmUtils.h>
 #include <Core/AtParser.h>
@@ -29,21 +30,19 @@ static int modemDaemon(int argc, char *argv[]) {
 }
 
 static int test(int argc, char *argv[]) {
-	Loop::init();
+	UbusLoop::instance()->init();
 	
-	Modem *modem = new Asr1802Modem();
-	modem->setOption<std::string>("tty_device", "/dev/ttyACM1");
-	modem->setOption<int>("tty_speed", 115200);
+	UbusLoop::setTimeout([]() {
+		LOGD("test??? 2222\n");
+	}, 1000);
 	
-	LOGD("Opening modem...\n");
-	if (!modem->open())
-		return -1;
+	UbusLoop::setInterval([]() {
+		LOGD("OLOLO\n");
+	}, 500);
 	
-	LOGD("Modem opened!\n");
+	UbusLoop::instance()->run();
 	
-	Loop::run();
-	LOGD("exit???\n");
-	
+	LOGD("test???\n");
 	return 0;
 }
 

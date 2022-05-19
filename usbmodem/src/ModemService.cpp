@@ -3,6 +3,7 @@
 #include <vector>
 #include <signal.h>
 #include <Core/Uci.h>
+#include <Core/UbusLoop.h>
 
 #include "Modem/Asr1802.h"
 
@@ -114,10 +115,8 @@ bool ModemService::stopDhcp() {
 }
 
 bool ModemService::init() {
-	if (!Loop::init()) {
-		LOGE("Can't init eventloop...\n");
-		return setError("INTERNAL_ERROR", true);
-	}
+	UbusLoop::instance()->init();
+	Loop::instance()->init();
 	
 	if (!m_ubus.open()) {
 		LOGE("Can't init ubus...\n");
@@ -344,7 +343,8 @@ bool ModemService::setError(const std::string &code, bool fatal) {
 	m_error_code = code;
 	m_error_fatal = fatal;
 	
-	Loop::stop();
+	Loop::instance()->stop();
+	UbusLoop::instance()->stop();
 	
 	return false;
 }
@@ -393,18 +393,28 @@ int ModemService::checkError() {
 	return 1;
 }
 
+void ModemService::intiUbusApi() {
+	UbusLoop::setTimeout([this]() {
+		LOGD("API RUN\n");
+		m_api->setUbus(&m_ubus);
+		m_api->setModem(m_modem);
+		
+		if (!m_api->start())
+			LOGE("Can't start API server, but continuing running...\n");
+	}, 0);
+}
+
 int ModemService::run() {
-	if (init()) {
-		if (runModem()) {
-			Loop::setTimeout([this]() {
-				m_api->setUbus(&m_ubus);
-				m_api->setModem(m_modem);
-				
-				if (!m_api->start())
-					LOGE("Can't start API server, but continuing running...\n");
-			}, 0);
-			Loop::run();
-		}
+	if (init() && runModem()) {
+		intiUbusApi();
+		
+		std::thread modem_thread([this]() {
+			Loop::instance()->run();
+		});
+		
+		UbusLoop::instance()->run();
+		modem_thread.join();
+		
 		finishModem();
 	}
 	

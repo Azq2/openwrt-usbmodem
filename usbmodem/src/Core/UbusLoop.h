@@ -4,10 +4,17 @@
 #include "Utils.h"
 #include "LoopBase.h"
 
-class Loop: public LoopBase {
+extern "C" {
+#include <libubox/list.h>
+#include <libubox/uloop.h>
+#include <libubus.h>
+};
+
+class UbusLoop: public LoopBase {
 	protected:
-		static Loop *m_instance;
-		int64_t m_next_run = 0;
+		static UbusLoop *m_instance;
+		uloop_timeout m_main_timeout = {};
+		struct uloop_fd m_waker = {};
 		
 		void implInit() override;
 		void implSetNextTimeout(int64_t time) override;
@@ -16,7 +23,7 @@ class Loop: public LoopBase {
 		void implDestroy() override;
 	
 	public:
-		static Loop *instance();
+		static UbusLoop *instance();
 		
 		static inline int setTimeout(const std::function<void()> &callback, int timeout_ms) {
 			return instance()->addTimer(callback, timeout_ms, false);

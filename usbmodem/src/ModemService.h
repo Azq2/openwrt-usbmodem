@@ -51,6 +51,7 @@ class ModemService {
 		bool setError(const std::string &code, bool fatal = false);
 		
 		int checkError();
+		void intiUbusApi();
 	public:
 		explicit ModemService(const std::string &iface);
 		
