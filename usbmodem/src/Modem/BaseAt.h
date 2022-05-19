@@ -156,7 +156,7 @@ class BaseAtModem: public Modem {
 		bool isSmsStorageSupported(int mem_id, SmsStorage check_storage);
 		
 		static std::string getSmsStorageName(SmsStorage storage);
-		static Modem::SmsStorage getSmsStorageId(const std::string &name);
+		static SmsStorage getSmsStorageId(const std::string &name);
 		static bool decodeSmsToPdu(const std::string &data, SmsDir *dir, Pdu *pdu, int *id, uint32_t *hash);
 		
 		bool discoverSmsStorages();
@@ -180,8 +180,8 @@ class BaseAtModem: public Modem {
 		/*
 		 * Network
 		 * */
-		virtual std::vector<Operator> searchOperators() override;
-		virtual bool setOperator(int mcc, int mnc, NetworkTech tech) override;
+		virtual std::tuple<bool, std::vector<Operator>> searchOperators() override;
+		virtual bool setOperator(OperatorRegMode mode, int mcc = -1, int mnc = -1, NetworkTech tech = TECH_UNKNOWN) override;
 		
 		virtual std::vector<NetworkModeItem> getNetworkModes() override;
 		virtual bool setNetworkMode(int mode_id) override;

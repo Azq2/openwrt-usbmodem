@@ -38,7 +38,7 @@ class ModemServiceApi {
 		
 		inline int getIntArg(const json &params, std::string key, int default_value = 0) {
 			if (params[key].is_string())
-				return std::stoi(params[key].get<std::string>());
+				return strToInt(params[key].get<std::string>(), 10, 0);
 			return params[key].is_number() ? params[key].get<int>() : default_value;
 		}
 		

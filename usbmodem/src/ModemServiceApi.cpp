@@ -4,11 +4,19 @@
 #include <Core/GsmUtils.h>
 #include <Core/UbusLoop.h>
 
-static std::map<Modem::OperatorStatus, std::string> OPERATOR_STATUS_NAMES = {
-	{Modem::OPERATOR_STATUS_UNKNOWN, "unknown"},
-	{Modem::OPERATOR_STATUS_AVAILABLE, "available"},
-	{Modem::OPERATOR_STATUS_REGISTERED, "registered"},
-	{Modem::OPERATOR_STATUS_FORBIDDEN, "forbidden"},
+static std::vector<Modem::NetworkTech> ALL_NETWORK_TECH_LIST = {
+	Modem::TECH_UNKNOWN,
+	Modem::TECH_NO_SERVICE,
+	Modem::TECH_GSM,
+	Modem::TECH_GSM_COMPACT,
+	Modem::TECH_GPRS,
+	Modem::TECH_EDGE,
+	Modem::TECH_UMTS,
+	Modem::TECH_HSDPA,
+	Modem::TECH_HSUPA,
+	Modem::TECH_HSPA,
+	Modem::TECH_HSPAP,
+	Modem::TECH_LTE
 };
 
 void ModemServiceApi::apiGetModemInfo(std::shared_ptr<UbusRequest> req) {
@@ -257,62 +265,61 @@ void ModemServiceApi::apiDeleteSms(std::shared_ptr<UbusRequest> req) {
 }
 
 void ModemServiceApi::apiSearchOperators(std::shared_ptr<UbusRequest> req) {
-	/*
-	const auto &params = req->data();
-	
-	bool async = getBoolArg(params, "async", false);
-	std::string deferred_id = enableDefferedResult(req, async);
-	
 	Loop::setTimeout([=, this]() {
-		m_modem->searchOperators([=, this](bool status, std::vector<Modem::Operator> list) {
-			json response = {
-				{"list", json::array()}
-			};
-			for (auto &op: list) {
-				json op_json = json::object();
-				op_json["id"] = op.id;
-				op_json["name"] = op.name;
-				op_json["status"] = OPERATOR_STATUS_NAMES[op.status];
-				op_json["tech"] = {
-					{"id", op.tech},
-					{"name", Modem::getTechName(op.tech)}
-				};
-				response["list"].push_back(op_json);
-			}
-			
-			if (async) {
-				setDeferredResult(deferred_id, response);
-			} else {
-				req->reply(response);
-			}
-		});
+		auto [success, list] = m_modem->searchOperators();
+		if (!success) {
+			reply(req, {
+				{"error", "Can't get modem info"}
+			});
+			return;
+		}
+		
+		json response = {
+			{"list", json::array()}
+		};
+		for (auto &op: list) {
+			response["list"].push_back({
+				{"mcc", op.mcc},
+				{"mnc", op.mnc},
+				{"name", op.name},
+				{"status", Modem::getEnumName(op.status)},
+				{"tech", Modem::getEnumName(op.tech)},
+			});
+		}
+		reply(req, response);
 	}, 0);
-	*/
-	reply(req, {}, UBUS_STATUS_INVALID_ARGUMENT);
 }
 
 void ModemServiceApi::apiSetOperator(std::shared_ptr<UbusRequest> req) {
-	/*
 	const auto &params = req->data();
+	std::string mode = getStrArg(params, "mode", "auto");
+	std::string tech_name = getStrArg(params, "tech", "");
+	int mcc = getIntArg(params, "mcc", 0);
+	int mnc = getIntArg(params, "mnc", 0);
 	
-	Modem::NetworkTech tech = static_cast<Modem::NetworkTech>(getIntArg(params, "tech", Modem::TECH_UNKNOWN));
-	std::string id = getStrArg(params, "id", "");
-	bool async = getBoolArg(params, "async", false);
+	Modem::NetworkTech tech = Modem::TECH_UNKNOWN;
+	for (auto v: ALL_NETWORK_TECH_LIST) {
+		if (strcasecmp(Modem::getEnumName(v), tech_name.c_str()) == 0) {
+			tech = v;
+			break;
+		}
+	}
 	
-	std::string deferred_id = enableDefferedResult(req, async);
+	LOGD("apiSetOperator!!!!!!!!!!\n");
 	
 	Loop::setTimeout([=, this]() {
-		json response = {};
-		response["success"] = m_modem->setOperator(id, tech);
-		
-		if (async) {
-			setDeferredResult(deferred_id, response);
+		json response = {{"success", false}};
+		if (mode == "manual") {
+			response["success"] = m_modem->setOperator(Modem::OPERATOR_REG_MANUAL, mcc, mnc, tech);
+		} else if (mode == "auto") {
+			response["success"] = m_modem->setOperator(Modem::OPERATOR_REG_AUTO);
+		} else if (mode == "none") {
+			response["success"] = m_modem->setOperator(Modem::OPERATOR_REG_NONE);
 		} else {
-			req->reply(response);
+			response["error"] = "Invalid mode.";
 		}
+		reply(req, response);
 	}, 0);
-	*/
-	reply(req, {}, UBUS_STATUS_INVALID_ARGUMENT);
 }
 
 int ModemServiceApi::apiGetDeferredResult(std::shared_ptr<UbusRequest> req) {
@@ -449,6 +456,21 @@ bool ModemServiceApi::start() {
 			return 0;
 		})
 		
+		.method("searchOperators", [this](auto req) {
+			initApiRequest(req);
+			apiSearchOperators(req);
+			return 0;
+		})
+		
+		.method("setOperator", [this](auto req) {
+			initApiRequest(req);
+			apiSetOperator(req);
+			return 0;
+		}, {
+			{"id", UbusObject::STRING},
+			{"tech", UbusObject::INT32}
+		})
+		
 		.method("get_settings", [this](auto req) {
 			initApiRequest(req);
 			apiGetSettings(req);
@@ -475,19 +497,6 @@ bool ModemServiceApi::start() {
 			initApiRequest(req);
 			apiCancelUssd(req);
 			return 0;
-		})
-		.method("search_operators", [this](auto req) {
-			initApiRequest(req);
-			apiSearchOperators(req);
-			return 0;
-		})
-		.method("set_operator", [this](auto req) {
-			initApiRequest(req);
-			apiSetOperator(req);
-			return 0;
-		}, {
-			{"id", UbusObject::STRING},
-			{"tech", UbusObject::INT32}
 		})
 		.method("read_sms", [this](auto req) {
 			initApiRequest(req);

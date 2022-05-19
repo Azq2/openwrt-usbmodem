@@ -6,28 +6,28 @@
 
 return view.extend({
 	load() {
-		return usbmodem.getInterfaces();
+		return usbmodem.api.getInterfaces();
 	},
 	onTabSelected(iface) {
-		this.active_tab = iface;
+		this.iface = iface;
 	},
 	sendCommand() {
 		let self = this;
-		let form = document.querySelector('#atcmd-form-' + this.active_tab);
+		let form = document.querySelector(`#atcmd-form-${this.iface}`);
 		let result_body = form.querySelector('.js-atcmd-result');
 		let command = form.querySelector('.js-atcmd').value;
 		
-		usbmodem.renderSpinner(result_body, _('Waiting for response...'));
+		usbmodem.view.renderSpinner(result_body, _('Waiting for response...'));
 		
-		usbmodem.call(this.active_tab, 'send_command', { command, async: true }).then((result) => {
+		usbmodem.api.call(this.iface, 'send_command', { command }).then((result) => {
 			result_body.innerHTML = '';
 			result_body.appendChild(E('pre', { }, result.response));
 		}).catch((err) => {
-			usbmodem.renderApiError(result_body, err);
+			usbmodem.view.renderApiError(result_body, err);
 		});
 	},
 	renderForm(iface) {
-		return E('div', { "id": "atcmd-form-" + iface }, [
+		return E('div', { "id": `atcmd-form-${iface}` }, [
 			E('div', {}, [
 				E('input', {
 					"type": "text",
@@ -45,15 +45,9 @@ return view.extend({
 		]);
 	},
 	render(interfaces) {
-		let view = E('div', {}, [
-			usbmodem.renderModemTabs(interfaces, [this, 'onTabSelected'], (iface) => {
-				return this.renderForm(iface);
-			})
-		]);
-		
-		ui.tabs.initTabGroup(view.lastElementChild.childNodes);
-		
-		return view;
+		return usbmodem.view.renderModemTabs(interfaces, [this, 'onTabSelected'], (iface) => {
+			return this.renderForm(iface);
+		});
 	},
 
 	handleSaveApply: null,

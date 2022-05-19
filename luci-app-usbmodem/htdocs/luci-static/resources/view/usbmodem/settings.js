@@ -36,49 +36,49 @@ let NETWORK_MODES = {
 
 return view.extend({
 	load() {
-		return usbmodem.getInterfaces();
+		return usbmodem.api.getInterfaces();
 	},
 	onTabSelected(iface) {
 		this.iface = iface;
 		this.updateStatus();
 		this.updateSettings();
 	},
-	joinNetwork(id, tech) {
-		usbmodem.clearError();
-		return usbmodem.call(this.iface, 'set_operator', {id: id, tech: tech}).then(() => {
-			usbmodem.showMessage(_('New operator selected'));
+	joinNetwork(mode, mcc, mnc, tech) {
+		return usbmodem.api.call(this.iface, 'setOperator', {mode, mcc, mnc, tech}).then((result) => {
+			if (result.success) {
+				usbmodem.view.showMessage(_('New operator selected.'));
+			} else {
+				usbmodem.view.showMessage(_('Failed to select new operator.'), 'error');
+			}
 		}).catch((err) => {
-			usbmodem.showApiError(err);
+			usbmodem.view.showApiError(err);
 		});
 	},
 	saveNetworkMode(e) {
-		usbmodem.clearError();
-		
 		let params = {
-			async:		true,
 			roaming:	document.querySelector('#network-roaming').checked,
 			mode:		document.querySelector('#network-mode').value
 		};
 		
-		return usbmodem.call(this.iface, 'set_network_mode', params).then((result) => {
-			usbmodem.showMessage(_('Network mode saved'));
+		return usbmodem.api.call(this.iface, 'set_network_mode', params).then((result) => {
+			usbmodem.view.showMessage(_('Network mode saved'));
 			this.updateSettings();
 		}).catch((err) => {
-			usbmodem.showApiError(err);
+			usbmodem.view.showApiError(err);
 		});
 	},
 	searchNetworks(e) {
-		usbmodem.clearError();
+		usbmodem.view.clearError();
 		
 		let network_list = document.getElementById('network-list');
 		network_list.innerHTML = '';
 		
-		return usbmodem.call(this.iface, 'search_operators', {async: true}).then((result) => {
+		return usbmodem.api.call(this.iface, 'searchOperators', {}).then((result) => {
 			let network_list = document.getElementById('network-list');
 			network_list.innerHTML = '';
 			network_list.appendChild(this.renderNetworkList(result.list));
 		}).catch((err) => {
-			usbmodem.showApiError(err);
+			usbmodem.view.showApiError(err);
 		});
 	},
 	renderNetworkList(list) {
@@ -91,21 +91,16 @@ return view.extend({
 			])
 		]);
 		
-		let STATUS_NAMES = {
-			available:	_('Available'),
-			registered:	_('Registered'),
-			forbidden:	_('Forbidden'),
-		};
-		
 		for (let row of list) {
+			let code = '%03d%02d'.format(row.mcc, row.mnc);
 			table.appendChild(E('tr', { 'class': 'tr cbi-section-table-row' }, [
-				E('td', { 'class': 'td cbi-value-field left top' }, [ row.id ]),
-				E('td', { 'class': 'td cbi-value-field left top' }, [ row.name + ' ' + row.tech.name ]),
-				E('td', { 'class': 'td cbi-value-field left top' }, [ STATUS_NAMES[row.status] || row.status ]),
+				E('td', { 'class': 'td cbi-value-field left top' }, [ code ]),
+				E('td', { 'class': 'td cbi-value-field left top' }, [ row.name + ' ' + usbmodem.TECH[row.tech] ]),
+				E('td', { 'class': 'td cbi-value-field left top' }, [ usbmodem.OPERATOR_STATUS[row.status] ]),
 				E('td', { 'class': 'td cbi-value-field left top' }, [
 					E('button', {
 						"class": "btn cbi-button cbi-button-apply",
-						"click": ui.createHandlerFn(this, 'joinNetwork', row.id, row.tech.id)
+						"click": ui.createHandlerFn(this, 'joinNetwork', row.mcc, row.mnc, row.tech)
 					}, [_("Join")]),
 				]),
 			]));
@@ -114,7 +109,7 @@ return view.extend({
 		return table;
 	},
 	updateSettings() {
-		return usbmodem.call(this.iface, 'get_settings').then((result) => {
+		return usbmodem.api.call(this.iface, 'get_settings').then((result) => {
 			document.querySelector('#network-roaming').checked = result.roaming_enabled;
 			
 			let network_mode_select = document.querySelector('#network-mode');
@@ -134,12 +129,18 @@ return view.extend({
 		if (!this.iface)
 			return Promise.resolve();
 		
-		return usbmodem.call(this.iface, 'info').then((result) => {
-			let current_network = document.getElementById('current-network');
-			current_network.innerHTML = '%s - %s %s%s'.format(
-				result.operator.id, result.operator.name, result.tech.name, 
-				(result.operator.registration == 'manual' ? _(' (manual)') : '')
-			);
+		return usbmodem.api.call(this.iface, 'getNetworkInfo').then((network) => {
+			let current_operator = document.getElementById('current-operator');
+			let network_reg = document.getElementById('network-reg');
+			
+			if (network.registration == "NOT_REGISTERED" || network.registration == "SEARCHING") {
+				current_operator.innerHTML = _('Not selected');
+				network_reg.innerHTML = usbmodem.NET_REG[network.registration];
+			} else {
+				let code = '%03d%02d'.format(network.operator.mcc, network.operator.mnc);
+				current_operator.innerHTML = network.operator.name + ' ' + usbmodem.TECH[network.tech] + ' / ' + code;
+				network_reg.innerHTML = usbmodem.NET_REG[network.registration] + ' ' + (network.operator.registration == 'MANUAL' ? _(' (manual)') : ' (auto)');
+			}
 		});
 	},
 	renderForm(iface) {
@@ -151,28 +152,29 @@ return view.extend({
 				E('h4', { }, [ _('Network searching') ]),
 				
 				E('div', { 'style': 'padding-bottom: 10px' }, [
-					E('b', { }, [ _('Current network:') ]),
-					' ',
-					E('span', { 'id': 'current-network' }, [ '?' ]),
+					E('div', {}, [
+						E('b', { }, [ _('Current operator:') ]), ' ', E('span', { 'id': 'current-operator' }, [ '?' ]),
+					]),
+					E('div', {}, [
+						E('b', { }, [ _('Network registration:') ]), ' ', E('span', { 'id': 'network-reg' }, [ '?' ]),
+					]),
 				]),
 				
 				E('div', { }, [
 					E('button', {
 						'class': 'btn cbi-button js-network-reg',
-						'data-type': 'auto',
-						"click": ui.createHandlerFn(this, 'joinNetwork', 'auto', 0)
+						"click": ui.createHandlerFn(this, 'joinNetwork', 'auto')
 					}, [ _('Auto') ]),
 					' ',
 					E('button', {
 						'class': 'btn cbi-button js-network-reg',
-						'data-type': 'manual',
 						'click': ui.createHandlerFn(this, 'searchNetworks')
 					}, [ _('Search networks') ]),
 					' ',
 					E('button', {
 						'class': 'btn cbi-button js-network-reg',
 						'data-type': 'none',
-						"click": ui.createHandlerFn(this, 'joinNetwork', 'none', 0)
+						"click": ui.createHandlerFn(this, 'joinNetwork', 'none')
 					}, [ _('Deregister') ])
 				]),
 				E('div', { 'id': 'network-list', 'style': 'padding-top: 1em' }, [ ]),
@@ -194,7 +196,6 @@ return view.extend({
 				E('div', { }, [
 					E('button', {
 						'class': 'btn cbi-button cbi-button-save',
-						'data-type': 'auto',
 						"click": ui.createHandlerFn(this, 'saveNetworkMode')
 					}, [ _('Save') ])
 				]),
@@ -202,18 +203,12 @@ return view.extend({
 		]);
 	},
 	render(interfaces) {
-		let view = E('div', {}, [
-			usbmodem.renderModemTabs(interfaces, [this, 'onTabSelected'], (iface) => {
-				return this.renderForm(iface);
-			})
-		]);
-		
-		ui.tabs.initTabGroup(view.lastElementChild.childNodes);
-		
 		poll.add(() => this.updateStatus());
 		poll.start();
 		
-		return view;
+		return usbmodem.view.renderModemTabs(interfaces, [this, 'onTabSelected'], (iface) => {
+			return this.renderForm(iface);
+		});
 	},
 
 	handleSaveApply: null,

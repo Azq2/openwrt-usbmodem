@@ -17,17 +17,18 @@ class Modem {
 		 * Network
 		 * */
 		enum NetworkTech: int {
-			TECH_UNKNOWN	= -1,
-			TECH_NO_SERVICE	= 0,
-			TECH_GSM		= 1,
-			TECH_GPRS		= 2,
-			TECH_EDGE		= 3,
-			TECH_UMTS		= 4,
-			TECH_HSDPA		= 5,
-			TECH_HSUPA		= 6,
-			TECH_HSPA		= 7,
-			TECH_HSPAP		= 8,
-			TECH_LTE		= 9
+			TECH_UNKNOWN = -1,
+			TECH_NO_SERVICE,
+			TECH_GSM,
+			TECH_GSM_COMPACT,
+			TECH_GPRS,
+			TECH_EDGE,
+			TECH_UMTS,
+			TECH_HSDPA,
+			TECH_HSUPA,
+			TECH_HSPA,
+			TECH_HSPAP,
+			TECH_LTE
 		};
 		
 		enum NetworkReg {
@@ -273,8 +274,8 @@ class Modem {
 		/*
 		 * Network
 		 * */
-		virtual std::vector<Operator> searchOperators() = 0;
-		virtual bool setOperator(int mcc, int mnc, NetworkTech tech) = 0;
+		virtual std::tuple<bool, std::vector<Operator>> searchOperators() = 0;
+		virtual bool setOperator(OperatorRegMode mode, int mcc = -1, int mnc = -1, NetworkTech tech = TECH_UNKNOWN) = 0;
 		
 		virtual std::vector<NetworkModeItem> getNetworkModes() = 0;
 		virtual bool setNetworkMode(int mode_id) = 0;

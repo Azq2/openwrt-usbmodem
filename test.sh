@@ -3,7 +3,7 @@
 # Example usage:
 # TEST_ROUTER=root@192.168.1.1 TOPDIR=~/build/openwrt ./test.sh
 
-VERSION=10
+VERSION=15
 DIR=$(readlink -f $0)
 DIR=$(dirname $0)
 MODE=$1
@@ -68,6 +68,8 @@ NEED_SETUP=$(ssh $TEST_ROUTER ls /tmp/usbmodem_ok.$VERSION 2>&1 > /dev/null; ech
 
 echo "Send..."
 install_file $DIR/luci-app-usbmodem/htdocs/luci-static/resources/usbmodem.js				/www/luci-static/resources/usbmodem.js
+install_file $DIR/luci-app-usbmodem/htdocs/luci-static/resources/usbmodem-view.js			/www/luci-static/resources/usbmodem-view.js
+install_file $DIR/luci-app-usbmodem/htdocs/luci-static/resources/usbmodem-api.js			/www/luci-static/resources/usbmodem-api.js
 install_file $DIR/luci-app-usbmodem/htdocs/luci-static/resources/view/usbmodem				/www/luci-static/resources/view/usbmodem
 install_file $DIR/luci-proto-usbmodem/htdocs/luci-static/resources/protocol/usbmodem.js		/www/luci-static/resources/protocol/usbmodem.js
 

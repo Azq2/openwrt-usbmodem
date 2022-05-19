@@ -2,154 +2,50 @@
 'require ui';
 'require poll';
 'require baseclass';
+'require usbmodem-view';
+'require usbmodem-api';
 
 return baseclass.extend({
-	_call(iface, method, params) {
-		let keys = [];
-		let values = [];
-		
-		if (params) {
-			for (let k in params) {
-				keys.push(k);
-				values.push(params[k]);
-			}
-		}
-		
-		let callback = rpc.declare({
-			object: 'usbmodem.%s'.format(iface),
-			method: method,
-			params: keys,
-		});
-		return callback.apply(undefined, values);
+	NET_REG: {
+		NOT_REGISTERED:			_("Unregistered"),
+		SEARCHING:				_("Searching network..."),
+		REGISTERED_HOME:		_("Home network"),
+		REGISTERED_ROAMING:		_("Roaming network"),
 	},
-	call(iface, method, params) {
-		params = params || {};
-		params.async = true;
-		
-		return new Promise((resolve, reject) => {
-			this._call(iface, method, params).then((response) => {
-				if (response.deferred) {
-					let deferred_id = response.deferred;
-					let poll_result_fn = () => {
-						return this._call(iface, 'getDeferredResult', {id: deferred_id}).then((response) => {
-							if (response.ready) {
-								poll.remove(poll_result_fn);
-								
-								if (response.result.error)
-									throw new Error(response.result.error);
-								
-								resolve(response.result);
-							} else if (!response.exists) {
-								poll.remove(poll_result_fn);
-								
-								throw new Error('Deferred result expired');
-							}
-						}).catch(reject);
-					};
-					poll.add(poll_result_fn);
-					poll.start();
-				} else {
-					if (response.error)
-						throw new Error(response.error);
-					resolve(response);
-				}
-			}).catch(reject);
-		});
+	TECH: {
+		UNKNOWN:		_("Unknown"),
+		NO_SERVICE:		_("No service"),
+		GSM:			_("GSM"),
+		GSM_COMPACT:	_("GSM Compact"),
+		GPRS:			_("2G (GPRS)"),
+		EDGE:			_("2G (EDGE)"),
+		UMTS:			_("3G (UMTS)"),
+		HSDPA:			_("3G (HSDPA)"),
+		HSUPA:			_("3G (HSUPA)"),
+		HSPA:			_("3G (HSPA)"),
+		HSPAP:			_("3G (HSPA+)"),
+		LTE:			_("4G (LTE)"),
 	},
-	getInterfaces() {
-		let callback = rpc.declare({
-			object: 'network.interface',
-			method: 'dump',
-			expect: { interface: [] }
-		});
-		return callback().then((result) => {
-			return result.filter((v) => v.proto == "usbmodem");
-		});
+	SIM_STATE: {
+		NOT_INITIALIZED:	_("Not initialized"),
+		NOT_SUPPORTED:		_("Not supported by Modem"),
+		READY:				_("Ready"),
+		PIN1_LOCK:			_("Locked - Need PIN1 code for unlock"),
+		PIN2_LOCK:			_("Locked - Need PIN2 code for unlock"),
+		PUK1_LOCK:			_("Locked - Need PUK1 code for unlock"),
+		PUK2_LOCK:			_("Locked - Need PUK2 code for unlock"),
+		MEP_LOCK:			_("Locked - Need MEP/NCK code for unlock"),
+		OTHER_LOCK:			_("Locked - Meed UNKNOWN code for unlock"),
+		WAIT_UNLOCK:		_("Unlocking..."),
+		ERROR:				_("Error"),
 	},
-	clearError() {
-		let div = document.querySelector('#global-error');
-		div.innerHTML = '';
+	OPERATOR_STATUS: {
+		UNKNOWN:	_('Unknown'),
+		AVAILABLE:	_('Available'),
+		REGISTERED:	_('Registered'),
+		FORBIDDEN:	_('Forbidden'),
 	},
-	showMessage(text, type) {
-		let div = document.querySelector('#global-error');
-		div.innerHTML = '';
-		div.appendChild(E('p', { "class": "alert-message " + (type || 'success') }, text));
-	},
-	showApiError(err) {
-		let div = document.querySelector('#global-error');
-		return this.renderApiError(div, err);
-	},
-	renderApiError(div, err) {
-		div.innerHTML = '';
-		if (err.message.indexOf('Object not found') >= 0) {
-			div.appendChild(E('p', {}, _('Modem not found. Please insert your modem to USB.')));
-			div.appendChild(E('p', { 'class': 'spinning' }, _('Waiting for modem...')));
-		} else {
-			this.renderError(div, err.message);
-		}
-	},
-	renderError(div, error) {
-		div.innerHTML = '';
-		div.appendChild(E('p', { "class": "alert-message error" }, error));
-	},
-	renderSpinner(div, message) {
-		div.innerHTML = '';
-		div.appendChild(E('p', { 'class': 'spinning' }, message));
-	},
-	renderModemTabs(interfaces, callback, render) {
-		return E('div', {}, interfaces.map((modem) => {
-			return E('div', {
-				'data-tab': modem.interface,
-				'data-tab-title': modem.interface,
-				'cbi-tab-active': ui.createHandlerFn(callback[0], callback[1], modem.interface)
-			}, [
-				render(modem.interface)
-			]);
-		}));
-	},
-	renderTable(title, fields) {
-		let table = E('table', { 'class': 'table' });
-		for (let i = 0; i < fields.length; i += 2) {
-			table.appendChild(E('tr', { 'class': 'tr' }, [
-				E('td', { 'class': 'td left', 'width': '33%' }, [ fields[i] ]),
-				E('td', { 'class': 'td left' }, [ fields[i + 1] ])
-			]));
-		}
-		return E('div', {}, [
-			E('h3', {}, [ title ]),
-			table
-		]);
-	},
-	isSimError(state) {
-		switch (state) {
-			case "PIN1_LOCK":	return true;
-			case "PIN2_LOCK":	return true;
-			case "PUK1_LOCK":	return true;
-			case "PUK2_LOCK":	return true;
-			case "MEP_LOCK":	return true;
-			case "OTHER_LOCK":	return true;
-			case "ERROR":		return true;
-		}
-		return false;
-	},
-	createNetIndicator(quality, title) {
-		let icon;
-		if (quality < 0)
-			icon = L.resource('icons/signal-none.png');
-		else if (quality <= 0)
-			icon = L.resource('icons/signal-0.png');
-		else if (quality < 25)
-			icon = L.resource('icons/signal-0-25.png');
-		else if (quality < 50)
-			icon = L.resource('icons/signal-25-50.png');
-		else if (quality < 75)
-			icon = L.resource('icons/signal-50-75.png');
-		else
-			icon = L.resource('icons/signal-75-100.png');
-		
-		return E('span', { class: 'ifacebadge' }, [
-			E('img', { src: icon, title: title || '' }),
-			E('span', { }, [ title ])
-		]);
-	},
+	
+	view:	usbmodem_view,
+	api:	usbmodem_api
 });

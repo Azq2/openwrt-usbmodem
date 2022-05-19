@@ -8,9 +8,13 @@
 					"getNetworkInfo",
 					"getSimInfo",
 					"getDeferredResult",
-					
-					"send_ussd", "cancel_ussd", "send_command", "read_sms", "delete_sms", "search_operators",
-					"set_operator", "get_settings", "set_network_mode"
+					"searchOperators",
+					"setOperator",
+					"sendUssd",
+					"cancelUssd",
+					"sendCommand",
+					"readSms",
+					"deleteSms"
 				]
 			}
 		},
@@ -21,9 +25,13 @@
 					"getNetworkInfo",
 					"getSimInfo",
 					"getDeferredResult",
-					
-					"info", "send_ussd", "cancel_ussd", "send_command", "read_sms", "delete_sms", "search_operators",
-					"set_operator", "get_settings", "set_network_mode"
+					"searchOperators",
+					"setOperator",
+					"sendUssd",
+					"cancelUssd",
+					"sendCommand",
+					"readSms",
+					"deleteSms"
 				]
 			}
 		}

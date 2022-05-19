@@ -6,6 +6,7 @@ const char *Modem::getEnumName(NetworkTech tech, bool is_human_readable) {
 			case TECH_UNKNOWN:		return "Unknown";
 			case TECH_NO_SERVICE:	return "No service";
 			case TECH_GSM:			return "GSM";
+			case TECH_GSM_COMPACT:			return "GSM Compact";
 			case TECH_GPRS:			return "2G (GPRS)";
 			case TECH_EDGE:			return "2G (EDGE)";
 			case TECH_UMTS:			return "3G (UMTS)";
@@ -21,6 +22,7 @@ const char *Modem::getEnumName(NetworkTech tech, bool is_human_readable) {
 			case TECH_UNKNOWN:		return "UNKNOWN";
 			case TECH_NO_SERVICE:	return "NO_SERVICE";
 			case TECH_GSM:			return "GSM";
+			case TECH_GSM_COMPACT:			return "GSM_COMPACT";
 			case TECH_GPRS:			return "GPRS";
 			case TECH_EDGE:			return "EDGE";
 			case TECH_UMTS:			return "UMTS";

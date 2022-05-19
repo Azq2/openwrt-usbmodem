@@ -51,7 +51,7 @@ BaseAtModem::NetworkReg BaseAtModem::Creg::toNetworkReg() const {
 BaseAtModem::NetworkTech BaseAtModem::cregToTech(CregTech creg_tech) {
 	switch (creg_tech) {
 		case CREG_TECH_GSM:				return TECH_GSM;
-		case CREG_TECH_GSM_COMPACT:		return TECH_GSM;
+		case CREG_TECH_GSM_COMPACT:		return TECH_GSM_COMPACT;
 		case CREG_TECH_UMTS:			return TECH_UMTS;
 		case CREG_TECH_EDGE:			return TECH_EDGE;
 		case CREG_TECH_HSDPA:			return TECH_HSDPA;
@@ -65,14 +65,15 @@ BaseAtModem::NetworkTech BaseAtModem::cregToTech(CregTech creg_tech) {
 
 BaseAtModem::CregTech BaseAtModem::techToCreg(NetworkTech tech) {
 	switch (tech) {
-		case TECH_GSM:		return CREG_TECH_GSM;
-		case TECH_UMTS:		return CREG_TECH_UMTS;
-		case TECH_EDGE:		return CREG_TECH_EDGE;
-		case TECH_HSDPA:	return CREG_TECH_HSDPA;
-		case TECH_HSUPA:	return CREG_TECH_HSUPA;
-		case TECH_HSPA:		return CREG_TECH_HSPA;
-		case TECH_HSPAP:	return CREG_TECH_HSPAP;
-		case TECH_LTE:		return CREG_TECH_LTE;
+		case TECH_GSM:			return CREG_TECH_GSM;
+		case TECH_GSM_COMPACT:	return CREG_TECH_GSM_COMPACT;
+		case TECH_UMTS:			return CREG_TECH_UMTS;
+		case TECH_EDGE:			return CREG_TECH_EDGE;
+		case TECH_HSDPA:		return CREG_TECH_HSDPA;
+		case TECH_HSUPA:		return CREG_TECH_HSUPA;
+		case TECH_HSPA:			return CREG_TECH_HSPA;
+		case TECH_HSPAP:		return CREG_TECH_HSPAP;
+		case TECH_LTE:			return CREG_TECH_LTE;
 	}
 	return CREG_TECH_UNKNOWN;
 }
@@ -317,8 +318,8 @@ std::tuple<bool, BaseAtModem::Operator> BaseAtModem::getCurrentOperator() {
 		}
 		
 		Operator value;
-		value.mcc = std::stoi(id.substr(0, 3));
-		value.mnc = std::stoi(id.substr(3, 2));
+		value.mcc = strToInt(id.substr(0, 3), 10, -1);
+		value.mnc = strToInt(id.substr(3, 2), 10, -1);
 		value.name = name;
 		value.tech = cregToTech(static_cast<CregTech>(creg));
 		value.status = OPERATOR_STATUS_REGISTERED;
@@ -344,12 +345,78 @@ void BaseAtModem::startNetWatchdog() {
 	}, m_connect_timeout);
 }
 
-std::vector<BaseAtModem::Operator> BaseAtModem::searchOperators() {
-	return {};
+std::tuple<bool, std::vector<BaseAtModem::Operator>> BaseAtModem::searchOperators() {
+	std::vector<Operator> operators;
+	std::vector<std::string> operators_raw;
+	
+	auto response = m_at.sendCommand("AT+COPS=?", "+COPS");
+	if (response.error)
+		return {false, {}};
+	
+	if (!AtParser(response.data()).parseNextList(&operators_raw))
+		return {false, {}};
+	
+	for (auto opearator_info: operators_raw) {
+		int status = 0;
+		int tech = 0;
+		std::string name_short;
+		std::string name_long;
+		std::string name_numeric;
+		
+		if (!opearator_info.size())
+			break;
+		
+		bool success = AtParser(opearator_info)
+			.reset()
+			.parseInt(&status, 10)
+			.parseString(&name_long)
+			.parseString(&name_short)
+			.parseString(&name_numeric)
+			.parseInt(&tech, 10)
+			.success();
+		
+		if (name_numeric.size() != 5)
+			success = false;
+		
+		if (success) {
+			operators.resize(operators.size() + 1);
+			
+			Operator &op = operators.back();
+			op.mcc = strToInt(name_numeric.substr(0, 3), 10, -1);
+			op.mnc = strToInt(name_numeric.substr(3, 2), 10, -1);
+			op.name = name_long;
+			op.tech = cregToTech(static_cast<CregTech>(tech));
+			op.status = OPERATOR_STATUS_UNKNOWN;
+			op.reg = OPERATOR_REG_NONE;
+			
+			if ((status >= 0 && status < 4))
+				op.status = static_cast<OperatorStatus>(status);
+		} else {
+			LOGE("Invalid operator entry: %s", opearator_info.c_str());
+		}
+	}
+	
+	return {true, operators};
 }
 
-bool BaseAtModem::setOperator(int mcc, int mnc, NetworkTech tech) {
-	return false;
+bool BaseAtModem::setOperator(OperatorRegMode mode, int mcc, int mnc, NetworkTech tech) {
+	CregTech act = techToCreg(tech);
+	
+	if (mode == OPERATOR_REG_NONE) {
+		return m_at.sendCommandNoResponse("AT+COPS=2") == 0;
+	} else if (mode == OPERATOR_REG_AUTO) {
+		if (m_at.sendCommandNoResponse("AT+COPS=2") != 0)
+			return false;
+		return m_at.sendCommandNoResponse("AT+COPS=0") == 0;
+	} else {
+		std::string at_cmd;
+		if (act != CREG_TECH_UNKNOWN) {
+			at_cmd = strprintf("AT+COPS=1,2,%03d%02d,%d", mcc, mnc, static_cast<int>(act));
+		} else {
+			at_cmd = strprintf("AT+COPS=1,2,%03d%02d", mcc, mnc);
+		}
+		return m_at.sendCommandNoResponse(at_cmd) == 0;
+	}
 }
 
 std::vector<BaseAtModem::NetworkModeItem> BaseAtModem::getNetworkModes() {

@@ -6,7 +6,7 @@
 
 return view.extend({
 	load() {
-		return usbmodem.getInterfaces();
+		return usbmodem.api.getInterfaces();
 	},
 	onTabSelected(iface) {
 		this.iface = iface;
@@ -14,7 +14,7 @@ return view.extend({
 	cancelUssd() {
 		let form = document.querySelector('#ussd-form-' + this.iface);
 		form.querySelector('.js-ussd-result').innerHTML = '';
-		usbmodem.call(this.iface, 'cancel_ussd', {});
+		usbmodem.api.call(this.iface, 'cancel_ussd', {});
 	},
 	sendUssd(is_answer) {
 		let form = document.querySelector('#ussd-form-' + this.iface);
@@ -27,15 +27,15 @@ return view.extend({
 			params.query = form.querySelector('.js-ussd-query').value;
 		}
 		
-		usbmodem.renderSpinner(result_body, _('Waiting for response...'));
+		usbmodem.view.renderSpinner(result_body, _('Waiting for response...'));
 		
-		usbmodem.call(this.iface, 'send_ussd', params).then((result) => {
+		usbmodem.api.call(this.iface, 'send_ussd', params).then((result) => {
 			result_body.innerHTML = '';
 			if (result.error) {
 				usbmodem.renderError(result_body, result.error);
 			} else {
 				if (!result.response && result.code == 2) {
-					usbmodem.renderError(result_body, _('Discard by network.'));
+					usbmodem.view.renderError(result_body, _('Discard by network.'));
 				} else {
 					result_body.appendChild(E('pre', { }, result.response));
 				}
@@ -63,7 +63,7 @@ return view.extend({
 				]));
 			}
 		}).catch((err) => {
-			usbmodem.renderApiError(result_body, err);
+			usbmodem.view.renderApiError(result_body, err);
 		});
 	},
 	renderForm(iface) {
@@ -85,15 +85,9 @@ return view.extend({
 		]);
 	},
 	render(interfaces) {
-		let view = E('div', {}, [
-			usbmodem.renderModemTabs(interfaces, [this, 'onTabSelected'], (iface) => {
-				return this.renderForm(iface);
-			})
-		]);
-		
-		ui.tabs.initTabGroup(view.lastElementChild.childNodes);
-		
-		return view;
+		return usbmodem.view.renderModemTabs(interfaces, [this, 'onTabSelected'], (iface) => {
+			return this.renderForm(iface);
+		});
 	},
 
 	handleSaveApply: null,

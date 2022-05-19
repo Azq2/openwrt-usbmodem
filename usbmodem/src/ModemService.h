@@ -42,10 +42,7 @@ class ModemService {
 		bool startDhcp();
 		bool stopDhcp();
 		inline bool hasNetDev() {
-			return (
-				m_uci_options["modem_type"] == "asr1802" ||
-				m_uci_options["modem_type"] == "ncm"
-			);
+			return (m_uci_options["modem_type"] == "asr1802" || m_uci_options["modem_type"] == "ncm");
 		}
 		
 		bool setError(const std::string &code, bool fatal = false);
