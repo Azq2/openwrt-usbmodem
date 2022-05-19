@@ -115,9 +115,6 @@ bool ModemService::stopDhcp() {
 }
 
 bool ModemService::init() {
-	UbusLoop::instance()->init();
-	Loop::instance()->init();
-	
 	if (!m_ubus.open()) {
 		LOGE("Can't init ubus...\n");
 		return setError("INTERNAL_ERROR", true);
@@ -395,7 +392,6 @@ int ModemService::checkError() {
 
 void ModemService::intiUbusApi() {
 	UbusLoop::setTimeout([this]() {
-		LOGD("API RUN\n");
 		m_api->setUbus(&m_ubus);
 		m_api->setModem(m_modem);
 		
@@ -405,6 +401,9 @@ void ModemService::intiUbusApi() {
 }
 
 int ModemService::run() {
+	UbusLoop::instance()->init();
+	Loop::instance()->init();
+	
 	if (init() && runModem()) {
 		intiUbusApi();
 		

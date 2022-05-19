@@ -2,6 +2,7 @@
 
 #include <Core/AtChannel.h>
 #include <Core/GsmUtils.h>
+#include <Core/UbusLoop.h>
 
 static std::map<Modem::OperatorStatus, std::string> OPERATOR_STATUS_NAMES = {
 	{Modem::OPERATOR_STATUS_UNKNOWN, "unknown"},
@@ -317,7 +318,7 @@ void ModemServiceApi::apiSetOperator(std::shared_ptr<UbusRequest> req) {
 int ModemServiceApi::apiGetDeferredResult(std::shared_ptr<UbusRequest> req) {
 	json response = {};
 	const auto &params = req->data();
-	std::string id = params["id"].is_string() ? params["id"] : "";
+	std::string id = getStrArg(params, "id", "");
 	
 	auto it = m_deferred_results.find(id);
 	if (it != m_deferred_results.end()) {
@@ -402,14 +403,16 @@ void ModemServiceApi::reply(std::shared_ptr<UbusRequest> req, json result, int s
 		m_deferred_results[req->uniqKey()].result = result;
 		m_deferred_results[req->uniqKey()].status = status;
 	} else {
-		req->reply(result, status);
+		UbusLoop::setTimeout([=, this]() {
+			req->reply(result, status);
+		}, 0);
 	}
 }
 
 void ModemServiceApi::initApiRequest(std::shared_ptr<UbusRequest> req) {
 	req->defer();
 	if (getBoolArg(req->data(), "async", false)) {
-		Loop::setTimeout([this, req]() {
+		UbusLoop::setTimeout([this, req]() {
 			if (!req->done()) {
 				req->reply({
 					{"deferred", req->uniqKey()}

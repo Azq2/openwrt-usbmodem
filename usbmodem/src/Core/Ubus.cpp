@@ -1,5 +1,6 @@
 #include "Ubus.h"
 #include "Utils.h"
+#include "UbusLoop.h"
 
 extern "C" {
 #include <libubox/blobmsg_json.h>
@@ -14,6 +15,8 @@ Ubus::~Ubus() {
 }
 
 void Ubus::close() {
+	UbusLoop::assertThread();
+	
 	if (m_ctx) {
 		ubus_free(m_ctx);
 		m_ctx = nullptr;
@@ -21,6 +24,8 @@ void Ubus::close() {
 }
 
 bool Ubus::open() {
+	UbusLoop::assertThread();
+	
 	m_ctx = ubus_connect(nullptr);
 	if (!m_ctx)
 		return false;
@@ -58,14 +63,22 @@ UbusObject &Ubus::object(const std::string &name) {
 }
 
 bool Ubus::registerObject(ubus_object *obj) {
+	UbusLoop::assertThread();
 	return ubus_add_object(m_ctx, obj) == 0;
 }
 
 bool Ubus::unregisterObject(ubus_object *obj) {
+	UbusLoop::assertThread();
 	return ubus_remove_object(m_ctx, obj) == 0;
 }
 
 bool Ubus::callAsync(const std::string &path, const std::string &method, const json &params, const UbusResponseCallback &callback) {
+	if (!UbusLoop::isOwnThread()) {
+		return UbusLoop::exec<bool>([=, this]() {
+			return callAsync(path, method, params, callback);
+		});
+	}
+	
 	uint32_t id;
 	if (ubus_lookup_id(m_ctx, path.c_str(), &id) != 0) {
 		if (callback)
@@ -99,6 +112,12 @@ bool Ubus::callAsync(const std::string &path, const std::string &method, const j
 }
 
 bool Ubus::call(const std::string &path, const std::string &method, const json &params, const UbusResponseCallback &callback, int timeout) {
+	if (!UbusLoop::isOwnThread()) {
+		return UbusLoop::exec<bool>([=, this]() {
+			return call(path, method, params, callback, timeout);
+		});
+	}
+	
 	uint32_t id;
 	if (ubus_lookup_id(m_ctx, path.c_str(), &id) != 0) {
 		if (callback)
@@ -130,6 +149,8 @@ bool Ubus::call(const std::string &path, const std::string &method, const json &
 }
 
 bool Ubus::reply(ubus_request_data *req, const json &params) {
+	UbusLoop::assertThread();
+	
 	blob_buf b = {};
 	blob_buf_init(&b, 0);
 	blobmsgFromJson(&b, params);
@@ -141,6 +162,8 @@ bool Ubus::reply(ubus_request_data *req, const json &params) {
 }
 
 bool Ubus::deferFinish(UbusDeferRequest *req, int status, const json &params, bool cleanup) {
+	UbusLoop::assertThread();
+	
 	if (status == UBUS_STATUS_OK) {
 		blobmsgFromJson(&req->b, params);
 		ubus_send_reply(m_ctx, &req->r, req->b.head);
@@ -153,6 +176,8 @@ bool Ubus::deferFinish(UbusDeferRequest *req, int status, const json &params, bo
 }
 
 UbusDeferRequest *Ubus::defer(ubus_request_data *original_req) {
+	UbusLoop::assertThread();
+	
 	UbusDeferRequest *req = new UbusDeferRequest;
 	blob_buf_init(&req->b, 0);
 	ubus_defer_request(m_ctx, original_req, &req->r);

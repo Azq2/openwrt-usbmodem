@@ -2,8 +2,12 @@
 
 #include <mutex>
 #include <map>
+#include <any>
 #include <list>
 #include <memory>
+#include <thread>
+#include <future>
+#include <stdexcept>
 #include <functional>
 
 #include "Log.h"
@@ -35,8 +39,10 @@ class LoopBase {
 		
 		bool m_inited = false;
 		bool m_need_stop = false;
+		bool m_run = false;
 		int m_global_timer_id = 0;
-	
+		
+		std::thread::id m_thread_id;
 	protected:
 		void addTimerToQueue(std::shared_ptr<Timer> new_timer);
 		void removeTimerFromQueue(std::shared_ptr<Timer> timer);
@@ -53,15 +59,16 @@ class LoopBase {
 		void done();
 		void wake();
 	public:
-		~LoopBase() {
-			destroy();
-		}
-		
 		void init();
 		void run();
 		void stop();
 		void destroy();
 		
+		inline bool checkThreadId() {
+			return !m_run || m_thread_id == std::this_thread::get_id();
+		}
+		
+		std::any execOnThisThread(const std::function<std::any()> &callback);
 		int addTimer(const std::function<void()> &callback, int timeout_ms, bool loop);
 		void removeTimer(int id);
 };

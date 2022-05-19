@@ -18,11 +18,16 @@ void LoopBase::init() {
 }
 
 void LoopBase::run() {
+	m_thread_id = std::this_thread::get_id();
+	
 	if (!m_inited)
 		return;
 	
-	if (!m_need_stop)
+	if (!m_need_stop) {
+		m_run = true;
 		implRun();
+		m_run = false;
+	}
 	
 	implStop();
 }
@@ -138,6 +143,22 @@ int LoopBase::addTimer(const std::function<void()> &callback, int timeout_ms, bo
 	wake();
 	
 	return id;
+}
+
+std::any LoopBase::execOnThisThread(const std::function<std::any()> &callback) {
+	if (!checkThreadId()) {
+		std::promise<std::any> promise;
+		
+		addTimer([&promise, &callback]() {
+			promise.set_value(callback());
+		}, 0, false);
+		
+		auto future = promise.get_future();
+		future.wait();
+		return future.get();
+	} else {
+		return callback();
+	}
 }
 
 void LoopBase::removeTimer(int id) {

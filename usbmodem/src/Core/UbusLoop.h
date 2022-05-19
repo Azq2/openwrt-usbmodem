@@ -25,6 +25,21 @@ class UbusLoop: public LoopBase {
 	public:
 		static UbusLoop *instance();
 		
+		static inline void assertThread() {
+			if (!instance()->checkThreadId())
+				throw std::runtime_error("Invalid thread id (UbusLoop)");
+		}
+		
+		static inline bool isOwnThread() {
+			return instance()->checkThreadId();
+		}
+		
+		template <typename T>
+		static inline T exec(const std::function<T()> &callback) {
+			auto value = instance()->execOnThisThread(callback);
+			return std::any_cast<T>(value);
+		}
+		
 		static inline int setTimeout(const std::function<void()> &callback, int timeout_ms) {
 			return instance()->addTimer(callback, timeout_ms, false);
 		}
