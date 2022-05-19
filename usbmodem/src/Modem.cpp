@@ -128,6 +128,60 @@ const char *Modem::getEnumName(OperatorStatus state, bool is_human_readable) {
 	}
 }
 
+const char *Modem::getEnumName(NetworkMode state, bool is_human_readable) {
+	if (is_human_readable) {
+		switch (state) {
+			case NET_MODE_AUTO:				return "Auto";
+			
+			case NET_MODE_ONLY_2G:			return "Only 2G";
+			case NET_MODE_ONLY_3G:			return "Only 3G";
+			case NET_MODE_ONLY_4G:			return "Only 4G";
+			
+			case NET_MODE_PREFER_2G:		return "Prefer 2G";
+			case NET_MODE_PREFER_3G:		return "Prefer 3G";
+			case NET_MODE_PREFER_4G:		return "Prefer 4G";
+			
+			case NET_MODE_2G_3G_AUTO:		return "2G/3G (auto)";
+			case NET_MODE_2G_3G_PREFER_2G:	return "2G/3G (prefer 2G)";
+			case NET_MODE_2G_3G_PREFER_3G:	return "2G/3G (prefer 2G)";
+			
+			case NET_MODE_2G_4G_AUTO:		return "2G/4G (auto)";
+			case NET_MODE_2G_4G_PREFER_2G:	return "2G/4G (prefer 2G)";
+			case NET_MODE_2G_4G_PREFER_4G:	return "2G/4G (prefer 3G)";
+			
+			case NET_MODE_3G_4G_AUTO:		return "3G/4G (auto)";
+			case NET_MODE_3G_4G_PREFER_3G:	return "3G/4G (prefer 3G)";
+			case NET_MODE_3G_4G_PREFER_4G:	return "3G/4G (prefer 4G)";
+		}
+		return "Unknown";
+	} else {
+		switch (state) {
+			case NET_MODE_AUTO:				return "AUTO";
+			
+			case NET_MODE_ONLY_2G:			return "ONLY_2G";
+			case NET_MODE_ONLY_3G:			return "ONLY_3G";
+			case NET_MODE_ONLY_4G:			return "ONLY_4G";
+			
+			case NET_MODE_PREFER_2G:		return "PREFER_2G";
+			case NET_MODE_PREFER_3G:		return "PREFER_3G";
+			case NET_MODE_PREFER_4G:		return "PREFER_4G";
+			
+			case NET_MODE_2G_3G_AUTO:		return "2G_3G_AUTO";
+			case NET_MODE_2G_3G_PREFER_2G:	return "2G_3G_PREFER_2G";
+			case NET_MODE_2G_3G_PREFER_3G:	return "2G_3G_PREFER_3G";
+			
+			case NET_MODE_2G_4G_AUTO:		return "2G_4G_AUTO";
+			case NET_MODE_2G_4G_PREFER_2G:	return "2G_4G_PREFER_2G";
+			case NET_MODE_2G_4G_PREFER_4G:	return "2G_4G_PREFER_4G";
+			
+			case NET_MODE_3G_4G_AUTO:		return "3G_4G_AUTO";
+			case NET_MODE_3G_4G_PREFER_3G:	return "3G_4G_PREFER_3G";
+			case NET_MODE_3G_4G_PREFER_4G:	return "3G_4G_PREFER_4G";
+		}
+		return "UNKNOWN";
+	}
+}
+
 std::tuple<bool, std::any> Modem::cached(const std::string &key, std::function<std::any()> callback, int version) {
 	if (m_cache.find(key) == m_cache.end() || m_cache[key].version != version) {
 		auto value = callback();

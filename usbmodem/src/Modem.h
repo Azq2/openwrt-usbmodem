@@ -38,6 +38,30 @@ class Modem {
 			NET_REGISTERED_ROAMING
 		};
 		
+		enum NetworkMode {
+			NET_MODE_AUTO,
+			
+			NET_MODE_ONLY_2G,
+			NET_MODE_ONLY_3G,
+			NET_MODE_ONLY_4G,
+			
+			NET_MODE_PREFER_2G,
+			NET_MODE_PREFER_3G,
+			NET_MODE_PREFER_4G,
+			
+			NET_MODE_2G_3G_AUTO,
+			NET_MODE_2G_3G_PREFER_2G,
+			NET_MODE_2G_3G_PREFER_3G,
+			
+			NET_MODE_2G_4G_AUTO,
+			NET_MODE_2G_4G_PREFER_2G,
+			NET_MODE_2G_4G_PREFER_4G,
+			
+			NET_MODE_3G_4G_AUTO,
+			NET_MODE_3G_4G_PREFER_3G,
+			NET_MODE_3G_4G_PREFER_4G,
+		};
+		
 		struct NetworkSignal {
 			float rssi_dbm = NAN;
 			float bit_err_pct = NAN;
@@ -45,11 +69,6 @@ class Modem {
 			float ecio_db = NAN;
 			float rsrq_db = NAN;
 			float rsrp_dbm = NAN;
-		};
-		
-		struct NetworkModeItem {
-			int id;
-			std::string name;
 		};
 		
 		enum IfaceProto {
@@ -277,8 +296,8 @@ class Modem {
 		virtual std::tuple<bool, std::vector<Operator>> searchOperators() = 0;
 		virtual bool setOperator(OperatorRegMode mode, int mcc = -1, int mnc = -1, NetworkTech tech = TECH_UNKNOWN) = 0;
 		
-		virtual std::vector<NetworkModeItem> getNetworkModes() = 0;
-		virtual bool setNetworkMode(int mode_id) = 0;
+		virtual std::tuple<bool, std::vector<NetworkMode>> getNetworkModes() = 0;
+		virtual bool setNetworkMode(NetworkMode new_mode) = 0;
 		
 		virtual bool isRoamingEnabled() = 0;
 		virtual bool setDataRoaming(bool enable) = 0;
@@ -316,6 +335,7 @@ class Modem {
 		static const char *getEnumName(SimState state, bool is_human_readable = false);
 		static const char *getEnumName(OperatorRegMode state, bool is_human_readable = false);
 		static const char *getEnumName(OperatorStatus state, bool is_human_readable = false);
+		static const char *getEnumName(NetworkMode state, bool is_human_readable = false);
 		
 		/*
 		 * Event interface

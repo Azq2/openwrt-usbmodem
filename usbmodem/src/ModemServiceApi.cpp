@@ -125,7 +125,7 @@ void ModemServiceApi::apiSendUssd(std::shared_ptr<UbusRequest> req) {
 		if (!is_answer && m_modem->isUssdWaitReply())
 			m_modem->cancelUssd();
 		
-		m_modem->sendUssd(query, [=, this](Modem::UssdCode code, const std::string &response) {
+		bool success = m_modem->sendUssd(query, [=, this](Modem::UssdCode code, const std::string &response) {
 			if (code == Modem::USSD_ERROR) {
 				reply(req, {{"error", response}});
 			} else {
@@ -135,6 +135,9 @@ void ModemServiceApi::apiSendUssd(std::shared_ptr<UbusRequest> req) {
 				});
 			}
 		}, timeout);
+		
+		if (!success)
+			reply(req, {{"error", "Can't send USSD."}});
 	}, 0);
 }
 
@@ -471,12 +474,7 @@ bool ModemServiceApi::start() {
 			{"tech", UbusObject::INT32}
 		})
 		
-		.method("get_settings", [this](auto req) {
-			initApiRequest(req);
-			apiGetSettings(req);
-			return 0;
-		})
-		.method("send_command", [this](auto req) {
+		.method("sendCommand", [this](auto req) {
 			initApiRequest(req);
 			apiSendCommand(req);
 			return 0;
@@ -484,7 +482,8 @@ bool ModemServiceApi::start() {
 			{"command", UbusObject::STRING},
 			{"timeout", UbusObject::INT32}
 		})
-		.method("send_ussd", [this](auto req) {
+		
+		.method("sendUssd", [this](auto req) {
 			initApiRequest(req);
 			apiSendUssd(req);
 			return 0;
@@ -493,9 +492,16 @@ bool ModemServiceApi::start() {
 			{"answer", UbusObject::STRING},
 			{"timeout", UbusObject::INT32}
 		})
-		.method("cancel_ussd", [this](auto req) {
+		
+		.method("cancelUssd", [this](auto req) {
 			initApiRequest(req);
 			apiCancelUssd(req);
+			return 0;
+		})
+		
+		.method("get_settings", [this](auto req) {
+			initApiRequest(req);
+			apiGetSettings(req);
 			return 0;
 		})
 		.method("read_sms", [this](auto req) {

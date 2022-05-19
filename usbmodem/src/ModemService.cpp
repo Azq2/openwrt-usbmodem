@@ -317,7 +317,6 @@ bool ModemService::runModem() {
 	
 	m_modem->on<Modem::EvDataConnectTimeout>([this](const auto &event) {
 		LOGE("Internet connection timeout...\n");
-		setError("CONNECT_TIMEOUT");
 	});
 	
 	if (!m_modem->open()) {

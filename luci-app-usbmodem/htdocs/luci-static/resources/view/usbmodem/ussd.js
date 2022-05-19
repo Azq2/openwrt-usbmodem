@@ -14,7 +14,7 @@ return view.extend({
 	cancelUssd() {
 		let form = document.querySelector('#ussd-form-' + this.iface);
 		form.querySelector('.js-ussd-result').innerHTML = '';
-		usbmodem.api.call(this.iface, 'cancel_ussd', {});
+		return usbmodem.api.call(this.iface, 'cancelUssd', {});
 	},
 	sendUssd(is_answer) {
 		let form = document.querySelector('#ussd-form-' + this.iface);
@@ -29,7 +29,7 @@ return view.extend({
 		
 		usbmodem.view.renderSpinner(result_body, _('Waiting for response...'));
 		
-		usbmodem.api.call(this.iface, 'send_ussd', params).then((result) => {
+		usbmodem.api.call(this.iface, 'sendUssd', params).then((result) => {
 			result_body.innerHTML = '';
 			if (result.error) {
 				usbmodem.renderError(result_body, result.error);

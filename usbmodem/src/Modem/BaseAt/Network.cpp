@@ -419,11 +419,11 @@ bool BaseAtModem::setOperator(OperatorRegMode mode, int mcc, int mnc, NetworkTec
 	}
 }
 
-std::vector<BaseAtModem::NetworkModeItem> BaseAtModem::getNetworkModes() {
-	return {};
+std::tuple<bool, std::vector<BaseAtModem::NetworkMode>> BaseAtModem::getNetworkModes() {
+	return {false, {}};
 }
 
-bool BaseAtModem::setNetworkMode(int mode_id) {
+bool BaseAtModem::setNetworkMode(NetworkMode new_mode) {
 	return false;
 }
 

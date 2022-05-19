@@ -19,9 +19,11 @@ return view.extend({
 		
 		usbmodem.view.renderSpinner(result_body, _('Waiting for response...'));
 		
-		usbmodem.api.call(this.iface, 'send_command', { command }).then((result) => {
+		usbmodem.api.call(this.iface, 'sendCommand', { command }).then((result) => {
 			result_body.innerHTML = '';
-			result_body.appendChild(E('pre', { }, result.response));
+			result_body.appendChild(E('pre', { }, [
+				result.response
+			]));
 		}).catch((err) => {
 			usbmodem.view.renderApiError(result_body, err);
 		});
