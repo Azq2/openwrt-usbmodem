@@ -178,50 +178,49 @@ void ModemServiceApi::apiReadSms(std::shared_ptr<UbusRequest> req) {
 		{Modem::SMS_STORAGE_SM, "SM"},
 	};
 	
+	static std::map<std::string, SmsDb::SmsType> sms_types = {
+		{"incoming", SmsDb::SMS_INCOMING},
+		{"outgoing", SmsDb::SMS_OUTGOING},
+		{"draft", SmsDb::SMS_DRAFT},
+	};
+	
 	const auto &params = req->data();
-	auto dir = static_cast<Modem::SmsDir>(getIntArg(params, "dir", Modem::SMS_DIR_ALL));
+	int offset = getIntArg(params, "offset", 0);
+	int limit = getIntArg(params, "limit", 100);
+	std::string type_name = getStrArg(params, "type", "incoming");
+	SmsDb::SmsType type = sms_types.find(type_name) != sms_types.end() ? sms_types[type_name] : SmsDb::SMS_INCOMING;
 	
 	Loop::setTimeout([=, this]() {
-		auto [status, list] = m_modem->getSmsList(dir);
-		if (!status) {
-			reply(req, {{"error", "Can't get SMS from modem."}});
-			return;
-		}
-		
-		Modem::SmsStorageCapacity capacity = m_modem->getSmsCapacity();
-		Modem::SmsStorage storage = m_modem->getSmsStorage();
-		
-		std::string storage_id = "UNKNOWN";
-		if (storage_names.find(storage) != storage_names.cend())
-			storage_id = storage_names[storage];
+		auto list = m_sms->getSmsList(type, offset, limit);
 		
 		json response = {
 			{"capacity", {
-				{"used", capacity.used},
-				{"total", capacity.total}
+				{"used", m_sms->getUsedCapacity()},
+				{"total", m_sms->getMaxCapacity()}
 			}},
-			{"storage", storage_id},
+			{"counters", {
+				{"incoming", m_sms->getSmsCount(SmsDb::SMS_INCOMING)},
+				{"outgoing", m_sms->getSmsCount(SmsDb::SMS_OUTGOING)},
+				{"draft", m_sms->getSmsCount(SmsDb::SMS_DRAFT)}
+			}},
+			{"storage", "SM"},
 			{"messages", json::array()}
 		};
 		
 		for (auto &sms: list) {
 			json message = {
-				{"hash", sms.hash},
+				{"id", sms.id},
 				{"addr", sms.addr},
+				{"smsc", sms.smsc},
 				{"time", sms.time},
 				{"type", sms.type},
-				{"unread", sms.unread},
-				{"invalid", sms.invalid},
-				{"dir", sms.dir},
-				{"parts", json::array()}
+				{"unread", (sms.flags & SmsDb::SMS_IS_UNREAD) != 0},
+				{"invalid", (sms.flags & SmsDb::SMS_IS_INVALID) != 0},
+				{"text", json::array()}
 			};
 			
-			for (auto &part: sms.parts) {
-				message["parts"].push_back({
-					{"id", part.id},
-					{"text", part.text}
-				});
-			}
+			for (auto &part: sms.parts)
+				message["parts"].push_back(part.text.size() > 0 ? part.text : nullptr);
 			
 			response["messages"].push_back(message);
 		}
@@ -493,6 +492,22 @@ bool ModemServiceApi::start() {
 			{"timeout", UbusObject::INT32}
 		})
 		
+		.method("readSms", [this](auto req) {
+			initApiRequest(req);
+			apiReadSms(req);
+			return 0;
+		}, {
+			{"dir", UbusObject::STRING}
+		})
+		
+		.method("deleteSms", [this](auto req) {
+			initApiRequest(req);
+			apiDeleteSms(req);
+			return 0;
+		}, {
+			{"ids", UbusObject::ARRAY}
+		})
+		
 		.method("cancelUssd", [this](auto req) {
 			initApiRequest(req);
 			apiCancelUssd(req);
@@ -503,20 +518,6 @@ bool ModemServiceApi::start() {
 			initApiRequest(req);
 			apiGetSettings(req);
 			return 0;
-		})
-		.method("read_sms", [this](auto req) {
-			initApiRequest(req);
-			apiReadSms(req);
-			return 0;
-		}, {
-			{"dir", UbusObject::STRING}
-		})
-		.method("delete_sms", [this](auto req) {
-			initApiRequest(req);
-			apiDeleteSms(req);
-			return 0;
-		}, {
-			{"ids", UbusObject::ARRAY}
 		})
 		.method("set_network_mode", [this](auto req) {
 			initApiRequest(req);

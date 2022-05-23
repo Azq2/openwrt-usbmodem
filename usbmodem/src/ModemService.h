@@ -9,6 +9,7 @@
 #include <Core/Loop.h>
 #include <Core/Ubus.h>
 #include <Core/Netifd.h>
+#include <Core/SmsDb.h>
 
 #include "Modem.h"
 #include "ModemServiceApi.h"
@@ -21,6 +22,7 @@ class ModemService {
 		Netifd m_netifd;
 		Modem *m_modem = nullptr;
 		ModemServiceApi *m_api = nullptr;
+		SmsDb m_sms;
 		
 		std::map<std::string, std::string> m_uci_options;
 		bool m_dhcp_inited = false;

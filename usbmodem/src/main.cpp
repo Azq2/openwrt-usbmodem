@@ -14,6 +14,7 @@
 #include <Core/AtParser.h>
 #include <Core/AtChannel.h>
 #include <Core/Serial.h>
+#include <Core/SmsDb.h>
 
 #include "Modem.h"
 #include "Modem/BaseAt.h"
@@ -29,18 +30,21 @@ static int modemDaemon(int argc, char *argv[]) {
 	return -1;
 }
 
+struct RawPdu {
+	SmsDb::SmsType type;
+	int id;
+	std::string hex;
+};
+
 static int test(int argc, char *argv[]) {
-	UbusLoop::instance()->init();
+	std::vector<RawPdu> sms_list = {
+
+	};
 	
-	UbusLoop::setTimeout([]() {
-		LOGD("test??? 2222\n");
-	}, 1000);
-	
-	UbusLoop::setInterval([]() {
-		LOGD("OLOLO\n");
-	}, 500);
-	
-	UbusLoop::instance()->run();
+	SmsDb db;
+	for (auto r: sms_list)
+		db.loadRawPdu(r.type, r.id, r.hex);
+	db.save();
 	
 	LOGD("test???\n");
 	return 0;

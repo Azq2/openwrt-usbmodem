@@ -1,5 +1,7 @@
 #pragma once
 
+#include "BitEnums.h"
+
 #include <time.h>
 
 #include <cmath>

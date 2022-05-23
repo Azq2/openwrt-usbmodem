@@ -42,6 +42,7 @@ add_executable(usbmodem
 	Core/LoopBase.cpp
 	Core/UbusLoop.cpp
 	Core/Uci.cpp
+	Core/SmsDb.cpp
 	Core/Semaphore.cpp
 )
 target_include_directories(usbmodem PUBLIC .)

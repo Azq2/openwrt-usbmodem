@@ -81,6 +81,12 @@ struct PduAddr {
 	std::string number;
 	PduAddrType type = PDU_ADDR_UNKNOWN;
 	PduAddrNumberingPlan plan = PDU_ADDR_PLAN_UNKNOWN;
+	
+	inline std::string toString() {
+		if (type == PDU_ADDR_INTERNATIONAL)
+			return "+" + number;
+		return number;
+	}
 };
 
 enum PduType: uint8_t {

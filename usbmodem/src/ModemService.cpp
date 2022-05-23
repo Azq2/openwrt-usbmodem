@@ -27,6 +27,7 @@ ModemService::ModemService(const std::string &iface): m_iface(iface) {
 	m_uci_options["prefer_sms_to_sim"] = "0";
 	m_uci_options["force_network_restart"] = "0";
 	m_uci_options["connect_timeout"] = "300";
+	m_uci_options["preferred_sms_storage"] = "modem";
 }
 
 bool ModemService::validateOptions() {
@@ -319,6 +320,18 @@ bool ModemService::runModem() {
 		LOGE("Internet connection timeout...\n");
 	});
 	
+	m_modem->on<Modem::EvSmsReady>([this](const auto &event) {
+		LOGD("[sms] SMS subsystem ready!\n");
+		
+		Loop::setTimeout([this]() {
+			auto capacity = m_modem->getSmsCapacity();
+			m_sms.setMaxCapacity(capacity.total);
+			
+			if (!m_modem->loadSmsToDb(&m_sms, false))
+				LOGE("[sms] Failed to preload exists messages from sim/modem.\n");
+		}, 0);
+	});
+	
 	if (!m_modem->open()) {
 		LOGE("Can't initialize modem.\n");
 		return setError("INIT_ERROR");
@@ -393,6 +406,7 @@ void ModemService::intiUbusApi() {
 	UbusLoop::setTimeout([this]() {
 		m_api->setUbus(&m_ubus);
 		m_api->setModem(m_modem);
+		m_api->setSmsDb(&m_sms);
 		
 		if (!m_api->start())
 			LOGE("Can't start API server, but continuing running...\n");

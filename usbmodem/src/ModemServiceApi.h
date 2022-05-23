@@ -9,6 +9,7 @@
 #include <Core/Loop.h>
 #include <Core/Ubus.h>
 #include <Core/Netifd.h>
+#include <Core/SmsDb.h>
 
 #include "Modem.h"
 #include "ModemService.h"
@@ -20,6 +21,7 @@ class ModemServiceApi {
 		Ubus *m_ubus = nullptr;
 		Modem *m_modem = nullptr;
 		ModemService *m_service = nullptr;
+		SmsDb *m_sms = nullptr;
 		
 		struct DeferApiResult {
 			int64_t time;
@@ -67,6 +69,10 @@ class ModemServiceApi {
 		
 		inline void setModem(Modem *modem) {
 			m_modem = modem;
+		}
+		
+		inline void setSmsDb(SmsDb *sms) {
+			m_sms = sms;
 		}
 		
 		inline void setUbus(Ubus *ubus) {

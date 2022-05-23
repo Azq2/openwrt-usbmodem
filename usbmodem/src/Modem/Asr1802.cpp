@@ -17,7 +17,11 @@ bool Asr1802Modem::init() {
 		// Enable CGEV events
 		"AT+CGEREP=2,0",
 		
+		// PDU mode
+		"AT+CMGF=0",
+		
 		// Setup indication mode of new message to TE
+		// "AT+CNMI=1,2,2,1,1",
 		"AT+CNMI=0,1,0,2,0",
 		
 		// Enable network indicators unsolicited events
@@ -75,6 +79,11 @@ bool Asr1802Modem::init() {
 	});
 	m_at.onUnsolicited("+CPIN", [this](const std::string &event) {
 		handleCpin(event);
+	});
+	m_at.onUnsolicited("+MMSG", [this](const std::string &event) {
+		Loop::setTimeout([this]() {
+			intiSms();
+		}, 0);
 	});
 	
 	if (!m_force_restart_network) {

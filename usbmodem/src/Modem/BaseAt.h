@@ -4,7 +4,6 @@
 #include <string>
 #include <tuple>
 #include <map>
-#include "zlib.h"
 
 #include <Core/Serial.h>
 #include <Core/AtChannel.h>
@@ -59,7 +58,15 @@ class BaseAtModem: public Modem {
 			NetworkTech toNetworkTech() const;
 			NetworkReg toNetworkReg() const;
 		};
-	
+		
+		enum SmsDir: uint8_t {
+			SMS_DIR_UNREAD		= 0,
+			SMS_DIR_READ		= 1,
+			SMS_DIR_UNSENT		= 2,
+			SMS_DIR_SENT		= 3,
+			SMS_DIR_ALL			= 4,
+		};
+		
 	protected:
 		Serial m_serial;
 		AtChannel m_at;
@@ -157,7 +164,6 @@ class BaseAtModem: public Modem {
 		
 		static std::string getSmsStorageName(SmsStorage storage);
 		static SmsStorage getSmsStorageId(const std::string &name);
-		static bool decodeSmsToPdu(const std::string &data, SmsDir *dir, Pdu *pdu, int *id, uint32_t *hash);
 		
 		bool discoverSmsStorages();
 		bool findBestSmsStorage(bool prefer_sim);
@@ -202,10 +208,10 @@ class BaseAtModem: public Modem {
 		/*
 		 * SMS
 		 * */
-		virtual std::tuple<bool, std::vector<Sms>> getSmsList(SmsDir from_dir) override;
 		virtual bool deleteSms(int id) override;
 		virtual SmsStorageCapacity getSmsCapacity() override;
 		virtual SmsStorage getSmsStorage() override;
+		virtual bool loadSmsToDb(SmsDb *sms, bool delete_from_storage) override;
 		
 		/*
 		 * Internals

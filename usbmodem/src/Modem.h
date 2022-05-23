@@ -7,6 +7,7 @@
 
 #include <Core/Log.h>
 #include <Core/Events.h>
+#include <Core/SmsDb.h>
 
 /*
  * Generic modem interface
@@ -121,35 +122,6 @@ class Modem {
 			int total = 0;
 		};
 		
-		enum SmsDir: uint8_t {
-			SMS_DIR_UNREAD		= 0,
-			SMS_DIR_READ		= 1,
-			SMS_DIR_UNSENT		= 2,
-			SMS_DIR_SENT		= 3,
-			SMS_DIR_ALL			= 4,
-		};
-		
-		enum SmsType: uint8_t {
-			SMS_INCOMING	= 0,
-			SMS_OUTGOING	= 1
-		};
-		
-		struct SmsPart {
-			int id = -1;
-			std::string text;
-		};
-		
-		struct Sms {
-			uint32_t hash = 0;
-			SmsDir dir = SMS_DIR_ALL;
-			SmsType type = SMS_INCOMING;
-			bool invalid = false;
-			bool unread = false;
-			time_t time = 0;
-			std::string addr;
-			std::vector<SmsPart> parts;
-		};
-		
 		/*
 		 * Network operators
 		 * */
@@ -255,6 +227,9 @@ class Modem {
 		// Event when connection timeout reached
 		struct EvDataConnectTimeout { };
 		
+		// Event when SMS subsystem is ready
+		struct EvSmsReady { };
+		
 		Events m_ev;
 		
 		virtual bool setOption(const std::string &name, const std::any &value) = 0;
@@ -315,10 +290,10 @@ class Modem {
 		/*
 		 * SMS
 		 * */
-		virtual std::tuple<bool, std::vector<Sms>> getSmsList(SmsDir from_dir) = 0;
 		virtual bool deleteSms(int id) = 0;
 		virtual SmsStorageCapacity getSmsCapacity() = 0;
 		virtual SmsStorage getSmsStorage() = 0;
+		virtual bool loadSmsToDb(SmsDb *sms, bool delete_from_storage) = 0;
 		
 		/*
 		 * Internals

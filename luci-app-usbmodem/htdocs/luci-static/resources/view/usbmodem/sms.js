@@ -72,41 +72,23 @@ function getSmsCount(value) {
 
 return view.extend({
 	load() {
-		return usbmodem.getInterfaces();
-	},
-	createInfoTable(title, fields) {
-		let table = E('table', { 'class': 'table' });
-		for (let i = 0; i < fields.length; i += 2) {
-			table.appendChild(E('tr', { 'class': 'tr' }, [
-				E('td', { 'class': 'td left', 'width': '33%' }, [ fields[i] ]),
-				E('td', { 'class': 'td left' }, [ fields[i + 1] ])
-			]));
-		}
-		
-		if (title) {
-			return E('div', {}, [ E('h3', {}, [ title ]), table ]);
-		} else {
-			return E('div', {}, [ table ]);
-		}
-	},
-	refresh() {
-		return this.updateSmsList(this.active_tab, false);
+		return usbmodem.api.getInterfaces();
 	},
 	deletedSelected() {
 		console.log(document.querySelectorAll('input[name="sms-select"]'));
 	},
 	onTabSelected(iface, e) {
-		this.active_tab = iface;
-		this.active_dir = 'inbox';
-		return this.refresh();
+		this.iface = iface;
+		this.dir = 'incoming';
+		return this.loadSmsList();
 	},
 	onDirSelected(dir, e) {
-		this.active_dir = dir;
-		return this.refresh();
+		this.dir = dir;
+		return this.loadSmsList();
 	},
 	onMessageSelected(global, event) {
 		let checked_cnt = 0;
-		this.view.querySelectorAll('input[name="sms-select"]').forEach((el) => {
+		document.querySelectorAll('input[name="sms-select"]').forEach((el) => {
 			if (global)
 				el.checked = event.target.checked;
 			
@@ -170,16 +152,9 @@ return view.extend({
 		});
 	},
 	renderSms(msg) {
-		let text = "";
-		let parts = [];
-		msg.parts.forEach((p) => {
-			if (p.id >= 0) {
-				text += p.text;
-				parts.push(p.id);
-			} else {
-				text += '<...>';
-			}
-		});
+		let text = msg.parts.map((p) => {
+			return p || "<...>";
+		}).join("");
 		
 		let date = '';
 		if (msg.time) {
@@ -196,19 +171,19 @@ return view.extend({
 		
 		let address = msg.invalid ? 'DecodeError' : msg.addr;
 		
-		return E('tr', { 'class': 'tr cbi-section-table-row', 'id': 'sms-' + msg.hash }, [
-			E('td', { 'class': 'td cbi-value-field left top' }, [
+		return E('tr', { 'class': 'tr cbi-section-table-row', 'id': 'sms-' + msg.id }, [
+			E('td', { 'class': 'td cbi-value-field' }, [
 				E('label', { 'class': 'cbi-checkbox' }, [
 					E('input', {
 						'type': 'checkbox',
 						'name': 'sms-select',
-						'value': parts,
+						'value': msg.id,
 						'style': 'vertical-align: text-bottom; margin: 0',
 						'click': ui.createHandlerFn(this, 'onMessageSelected', false)
 					})
 				]),
 			]),
-			E('td', { 'class': 'td cbi-value-field left top' }, [
+			E('td', { 'class': 'td cbi-value-field' }, [
 				E('a', {
 					'class': 'cbi-value-title',
 					'href': '#',
@@ -217,54 +192,23 @@ return view.extend({
 					E('b', { }, [ address ])
 				])
 			]),
-			(
-				this.active_dir == 'outbox' || this.active_dir == 'drafts' ?
-				'' :
-				E('td', { 'class': 'td cbi-value-field left top nowrap' }, [ date ])
-			),
-			E('td', { 'class': 'td cbi-value-field left top', 'width': '70%' }, [
+			E('td', { 'class': 'td cbi-value-field nowrap' }, [ date ]),
+			E('td', { 'class': 'td cbi-value-field', 'width': '70%' }, [
 				E('div', { 'style': 'word-break: break-word; white-space: pre-wrap;' }, [ text ])
 			])
 		]);
 	},
-	updateSmsList(iface, show_spinner) {
-		let sms_list = document.querySelector('#usbmodem-sms-' + iface);
-		
-		if (show_spinner) {
-			sms_list.innerHTML = '';
-			sms_list.appendChild(E('p', { 'class': 'spinning' }, _('Loading status...')));
-		}
-		
-		let SMS_DIRS = {
-			0:		'inbox',
-			1:		'inbox',
-			2:		'outbox',
-			3:		'drafts'
-		};
+	loadSmsList() {
+		let sms_list = document.querySelector(`#usbmodem-sms-${this.iface}`);
 		
 		let SMS_DIR_NAMES = {
-			'inbox':	_('Inbox (%d)'),
-			'outbox':	_('Outbox (%d)'),
-			'drafts':	_('Drafts (%d)'),
+			'incoming':	_('Inbox (%d)'),
+			'outgoing':	_('Outbox (%d)'),
+			'draft':	_('Drafts (%d)'),
 		};
 		
-		return usbmodem.call(this.active_tab, 'read_sms').then((result) => {
+		return usbmodem.api.call(this.iface, 'readSms', {type: this.dir}).then((result) => {
 			sms_list.innerHTML = '';
-			
-			let counters = {
-				inbox:	0,
-				outbox:	0,
-				drafts:	0
-			};
-			
-			let messages_in_dir = [];
-			result.messages.reverse().forEach((msg) => {
-				let dir_id = SMS_DIRS[msg.dir];
-				counters[dir_id]++;
-				
-				if (SMS_DIRS[msg.dir] == this.active_dir)
-					messages_in_dir.push(msg);
-			});
 			
 			// Capacity info
 			let used_sms_pct = result.capacity.used / result.capacity.total * 100;
@@ -284,11 +228,11 @@ return view.extend({
 			// SMS dirs tabs
 			let dirs_tabs = [];
 			for (let dir_id in SMS_DIR_NAMES) {
-				dirs_tabs.push(E('li', { 'class': this.active_dir == dir_id ? 'cbi-tab' : 'cbi-tab-disabled' }, [
+				dirs_tabs.push(E('li', { 'class': this.dir == dir_id ? 'cbi-tab' : 'cbi-tab-disabled' }, [
 					E('a', {
 						'href': '#',
 						'click': ui.createHandlerFn(this, 'onDirSelected', dir_id)
-					}, [ SMS_DIR_NAMES[dir_id].format(counters[dir_id]) ])
+					}, [ SMS_DIR_NAMES[dir_id].format(result.counters[dir_id]) ])
 				]));
 			}
 			sms_list.appendChild(E('ul', { 'class': 'cbi-tabmenu' }, dirs_tabs));
@@ -313,7 +257,7 @@ return view.extend({
 			]));
 			
 			// Render messages
-			if (messages_in_dir.length > 0) {
+			if (result.messages.length > 0) {
 				let table = E('table', { 'class': 'table cbi-section-table' }, [
 					E('tr', { 'class': 'tr cbi-section-table-titles' }, [
 						E('th', { 'class': 'th cbi-section-table-cell left top' }, [
@@ -336,7 +280,7 @@ return view.extend({
 					])
 				]);
 				
-				messages_in_dir.forEach((msg) => {
+				result.messages.forEach((msg) => {
 					table.appendChild(this.renderSms(msg));
 				});
 				sms_list.appendChild(table);
@@ -346,7 +290,7 @@ return view.extend({
 			
 			console.log(result);
 		}).catch((err) => {
-			usbmodem.renderApiError(sms_list, err);
+			usbmodem.view.renderApiError(sms_list, err);
 			
 			setTimeout(() => {
 				this.refresh();
@@ -354,17 +298,9 @@ return view.extend({
 		});
 	},
 	render(interfaces) {
-		let view = E('div', {}, [
-			usbmodem.renderModemTabs(interfaces, [this, 'onTabSelected'], (iface) => {
-				return E('div', {'id': 'usbmodem-sms-' + iface}, []);
-			})
-		]);
-		
-		ui.tabs.initTabGroup(view.lastElementChild.childNodes);
-		
-		this.view = view;
-		
-		return view;
+		return usbmodem.view.renderModemTabs(interfaces, [this, 'onTabSelected'], (iface) => {
+			return E('div', {'id': 'usbmodem-sms-' + iface}, []);
+		});
 	},
 
 	handleSaveApply: null,
