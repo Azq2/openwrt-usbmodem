@@ -45,6 +45,7 @@ class Asr1802Modem: public BaseAtModem {
 		
 		void handleCgev(const std::string &event);
 		void handleCesq(const std::string &event) override;
+		void handleMmsg(const std::string &event);
 		
 		std::tuple<bool, std::vector<NetworkMode>> getNetworkModes() override;
 		bool setNetworkMode(NetworkMode new_mode) override;

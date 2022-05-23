@@ -131,6 +131,7 @@ class BaseAtModem: public Modem {
 		static NetworkTech cregToTech(CregTech creg_tech);
 		static CregTech techToCreg(NetworkTech tech);
 		
+		virtual void handleCmt(const std::string &event);
 		virtual void handleCesq(const std::string &event);
 		virtual void handleCsq(const std::string &event);
 		virtual void handleCreg(const std::string &event);
@@ -161,6 +162,8 @@ class BaseAtModem: public Modem {
 		bool syncSmsStorage();
 		bool syncSmsCapacity();
 		bool isSmsStorageSupported(int mem_id, SmsStorage check_storage);
+		
+		bool decodePduToSms(SmsDb::SmsType type, SmsDb::RawSms *sms, const std::string &hex, int index, bool is_unread);
 		
 		static std::string getSmsStorageName(SmsStorage storage);
 		static SmsStorage getSmsStorageId(const std::string &name);
@@ -209,9 +212,10 @@ class BaseAtModem: public Modem {
 		 * SMS
 		 * */
 		virtual bool deleteSms(int id) override;
+		virtual bool deleteReadedSms() override;
 		virtual SmsStorageCapacity getSmsCapacity() override;
 		virtual SmsStorage getSmsStorage() override;
-		virtual bool loadSmsToDb(SmsDb *sms, bool delete_from_storage) override;
+		virtual std::tuple<bool, std::vector<SmsDb::RawSms>> getSmsList(SmsListType list) override;
 		
 		/*
 		 * Internals

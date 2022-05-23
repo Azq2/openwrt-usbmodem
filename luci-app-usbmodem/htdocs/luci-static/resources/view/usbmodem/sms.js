@@ -152,9 +152,7 @@ return view.extend({
 		});
 	},
 	renderSms(msg) {
-		let text = msg.parts.map((p) => {
-			return p || "<...>";
-		}).join("");
+		let text = msg.parts.map((p) => p || "<...>").join("");
 		
 		let date = '';
 		if (msg.time) {
@@ -171,7 +169,7 @@ return view.extend({
 		
 		let address = msg.invalid ? 'DecodeError' : msg.addr;
 		
-		return E('tr', { 'class': 'tr cbi-section-table-row', 'id': 'sms-' + msg.id }, [
+		return E('tr', { 'class': 'tr cbi-section-table-row sms' + (msg.unread ? ' sms-unread' : '') + (msg.invalid ? ' sms-invalid' : ''), 'id': 'sms-' + msg.id }, [
 			E('td', { 'class': 'td cbi-value-field' }, [
 				E('label', { 'class': 'cbi-checkbox' }, [
 					E('input', {

@@ -69,6 +69,13 @@ return baseclass.extend({
 				]);
 			}))
 		]);
+		
+		document.querySelector('head').appendChild(E('link', {
+			'rel': 'stylesheet',
+			'type': 'text/css',
+			'href': L.resource('view/usbmodem/custom.css')
+		}));
+		
 		ui.tabs.initTabGroup(view.querySelectorAll('[data-tab]'));
 		return view;
 	},

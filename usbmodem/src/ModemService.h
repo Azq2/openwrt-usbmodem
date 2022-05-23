@@ -18,6 +18,12 @@ class ModemServiceApi;
 
 class ModemService {
 	protected:
+		enum SmsMode {
+			SMS_MODE_MIRROR,
+			SMS_MODE_DB
+		};
+		
+	protected:
 		Ubus m_ubus;
 		Netifd m_netifd;
 		Modem *m_modem = nullptr;
@@ -40,6 +46,8 @@ class ModemService {
 		std::string m_tty_path;
 		std::string m_net_iface;
 		
+		SmsMode m_sms_mode = SMS_MODE_MIRROR;
+		
 		bool validateOptions();
 		bool startDhcp();
 		bool stopDhcp();
@@ -51,6 +59,7 @@ class ModemService {
 		
 		int checkError();
 		void intiUbusApi();
+		void loadSmsFromModem();
 	public:
 		explicit ModemService(const std::string &iface);
 		

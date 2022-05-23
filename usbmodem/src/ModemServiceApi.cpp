@@ -213,10 +213,9 @@ void ModemServiceApi::apiReadSms(std::shared_ptr<UbusRequest> req) {
 				{"addr", sms.addr},
 				{"smsc", sms.smsc},
 				{"time", sms.time},
-				{"type", sms.type},
 				{"unread", (sms.flags & SmsDb::SMS_IS_UNREAD) != 0},
 				{"invalid", (sms.flags & SmsDb::SMS_IS_INVALID) != 0},
-				{"text", json::array()}
+				{"parts", json::array()}
 			};
 			
 			for (auto &part: sms.parts)

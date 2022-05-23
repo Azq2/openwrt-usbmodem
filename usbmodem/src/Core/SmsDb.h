@@ -9,6 +9,18 @@
 
 class SmsDb {
 	public:
+		enum Mode: int {
+			MODE_MIRROR			= 0,
+			MODE_PERSISTENT		= 1
+		};
+		
+		enum StorageType {
+			STORAGE_FILESYSTEM,
+			STORAGE_SIM,
+			STORAGE_MODEM,
+			STORAGE_SIM_AND_MODEM
+		};
+		
 		enum SmsType: uint8_t {
 			SMS_INCOMING,
 			SMS_OUTGOING,
@@ -22,7 +34,7 @@ class SmsDb {
 		};
 		
 		struct SmsPart {
-			int id = -1;
+			int foreign_id = -1;
 			std::string text;
 		};
 		
@@ -37,11 +49,26 @@ class SmsDb {
 			std::vector<SmsPart> parts;
 		};
 		
+		struct RawSms {
+			int index = -1;
+			SmsType type = SMS_INCOMING;
+			SmsFlags flags = SMS_NO_FLAGS;
+			int parts = 1;
+			int part = 1;
+			uint32_t ref_id = 0;
+			time_t time = 0;
+			std::string addr;
+			std::string smsc;
+			std::string text;
+		};
+		
 		typedef std::function<void(int id)> RemoveSmsCallback;
 	protected:
 		int m_capacity = 1000;
 		int m_used_capacity = 0;
 		int m_global_sms_id = 0;
+		bool m_inited = false;
+		StorageType m_storage_type = STORAGE_FILESYSTEM;
 		
 		std::unordered_map<int, Sms> m_storage;
 		std::unordered_map<SmsType, std::vector<int>> m_list = {
@@ -52,11 +79,21 @@ class SmsDb {
 		
 		RemoveSmsCallback m_remove_sms_callback;
 		
-		Sms *findSameSms(SmsType type, uint32_t ref_id, int part, int parts, const std::string addr, const std::string smsc);
+		Sms *findSameSms(const RawSms &same);
 	public:
 		SmsDb() { }
 		
-		void loadRawPdu(SmsType type, int id, const std::string &hex);
+		inline bool ready() {
+			return m_inited;
+		}
+		
+		void init();
+		bool load(const RawSms &raw);
+		bool load(const std::vector<RawSms> &list);
+		
+		inline void setStorageType(StorageType storage) {
+			m_storage_type = storage;
+		}
 		
 		inline int getSmsCount(SmsType type) {
 			return m_list[type].size();

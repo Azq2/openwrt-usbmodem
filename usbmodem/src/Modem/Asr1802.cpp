@@ -4,6 +4,20 @@
 #include <Core/Loop.h>
 #include <Core/GsmUtils.h>
 
+void Asr1802Modem::handleMmsg(const std::string &event) {
+	int status;
+	bool success = AtParser(event)
+		.parseInt(&status)
+		.success();
+	
+	// SMS ready
+	if (success && status == 0) {
+		Loop::setTimeout([this]() {
+			intiSms();
+		}, 100);
+	}
+}
+
 bool Asr1802Modem::init() {
 	const char *init_commands[] = {
 		// Enable extended error codes
@@ -81,9 +95,13 @@ bool Asr1802Modem::init() {
 		handleCpin(event);
 	});
 	m_at.onUnsolicited("+MMSG", [this](const std::string &event) {
-		Loop::setTimeout([this]() {
-			intiSms();
-		}, 0);
+		handleMmsg(event);
+	});
+	m_at.onUnsolicited("+CMT", [this](const std::string &event) {
+		handleCmt(event);
+	});
+	m_at.onUnsolicited("+CMTI", [this](const std::string &event) {
+		handleCmt(event);
 	});
 	
 	if (!m_force_restart_network) {
@@ -123,7 +141,7 @@ bool Asr1802Modem::init() {
 		if (event.state == SIM_READY) {
 			Loop::setTimeout([this]() {
 				intiSms();
-			}, 0);
+			}, 1000);
 		}
 	});
 	

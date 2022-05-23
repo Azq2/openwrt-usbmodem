@@ -1,5 +1,23 @@
 #include "../BaseAt.h"
 
+void BaseAtModem::handleCmt(const std::string &event) {
+	if (strStartsWith(event, "+CMT:")) {
+		
+	} else if (strStartsWith(event, "+CMTI:")) {
+		int index;
+		bool success = AtParser(event)
+			.parseSkip()
+			.parseInt(&index)
+			.success();
+		if (!success)
+			return;
+		
+		emit<EvNewSms>({
+			.index = index
+		});
+	}
+}
+
 bool BaseAtModem::intiSms() {
 	if (m_sms_ready)
 		return true;
@@ -188,19 +206,78 @@ bool BaseAtModem::findBestSmsStorage(bool prefer_sim) {
 	return success;
 }
 
-bool BaseAtModem::loadSmsToDb(SmsDb *sms, bool delete_from_storage) {
-	auto response = m_at.sendCommandMultiline("AT+CMGL=" + std::to_string(SMS_DIR_ALL), "+CMGL");
+bool BaseAtModem::decodePduToSms(SmsDb::SmsType type, SmsDb::RawSms *sms, const std::string &hex, int index, bool is_unread) {
+	Pdu pdu = {};
+	PduUserDataHeader hdr = {};
+	bool decode_success = false;
+	
+	// Decode PDU
+	if (decodePdu(hex2bin(hex), &pdu, (type == SmsDb::SMS_OUTGOING)))
+		std::tie(decode_success, sms->text) = decodeSmsDcsData(&pdu, &hdr);
+	
+	if (!decode_success) {
+		sms->text = "Invalid PDU: " + hex;
+		sms->flags |= SmsDb::SMS_IS_INVALID;
+	}
+	
+	if (hdr.app_port) {
+		sms->text = "Wireless Datagram Protocol\n"
+			"Src port: " + std::to_string(hdr.app_port->src) + "\n"
+			"Dst port: " + std::to_string(hdr.app_port->dst) + "\n"
+			"Data: " + bin2hex(sms->text) + "\n"
+			"Raw PDU: " + hex + "\n";
+		sms->flags |= SmsDb::SMS_IS_INVALID;
+	}
+	
+	sms->ref_id = hdr.concatenated ? hdr.concatenated->ref_id : 0;
+	sms->parts = hdr.concatenated ? hdr.concatenated->parts : 1;
+	sms->part = hdr.concatenated ? hdr.concatenated->part : 1;
+	
+	if (sms->part < 1 || sms->part > sms->parts) {
+		LOGE("Invalid SMS part id: %d / %d, in: '%s'\n", sms->part, sms->parts, hex.c_str());
+		sms->parts = 1;
+		sms->part = 1;
+		sms->ref_id = 0;
+	}
+	
+	sms->index = index;
+	sms->type = type;
+	sms->smsc = pdu.smsc.toString();
+	sms->time = 0;
+	
+	if (pdu.type == PDU_TYPE_DELIVER) {
+		sms->time = pdu.deliver().dt.timestamp;
+		sms->addr = pdu.deliver().src.toString();
+	} else if (pdu.type == PDU_TYPE_SUBMIT) {
+		sms->addr = pdu.submit().dst.toString();
+	}
+	
+	return true;
+}
+
+std::tuple<bool, std::vector<SmsDb::RawSms>> BaseAtModem::getSmsList(SmsListType list) {
+	static std::map<SmsListType, SmsDir> list2dir = {
+		{SMS_LIST_ALL, SMS_DIR_ALL},
+		{SMS_LIST_UNREAD, SMS_DIR_UNREAD}
+	};
+	
+	if (list2dir.find(list) == list2dir.end())
+		return {false, {}};
+	
+	auto response = m_at.sendCommandMultiline("AT+CMGL=" + std::to_string(list2dir[list]), "+CMGL");
 	if (response.error)
-		return false;
+		return {false, {}};
 	
 	auto start = getCurrentTimestamp();
 	
+	std::vector<SmsDb::RawSms> result;
+	
 	for (auto &line: response.lines) {
-		int id, stat;
+		int index, stat;
 		std::string pdu_hex;
 		
 		bool success = AtParser(line)
-			.parseInt(&id)
+			.parseInt(&index)
 			.parseInt(&stat)
 			.parseSkip()
 			.parseSkip()
@@ -209,22 +286,26 @@ bool BaseAtModem::loadSmsToDb(SmsDb *sms, bool delete_from_storage) {
 			.success();
 		
 		if (!success)
-			return false;
+			return {false, {}};
 		
 		SmsDb::SmsType type = (stat == SMS_DIR_SENT || stat == SMS_DIR_UNSENT ? SmsDb::SMS_OUTGOING : SmsDb::SMS_INCOMING);
-		sms->loadRawPdu(type, id, pdu_hex);
+		bool is_unread = (stat == SMS_DIR_UNREAD);
+		
+		result.resize(result.size() + 1);
+		SmsDb::RawSms &sms = result.back();
+		
+		if (!decodePduToSms(type, &sms, pdu_hex, index, is_unread))
+			return {false, {}};
 	}
 	
 	auto elapsed = getCurrentTimestamp() - start;
 	LOGD("Sms decode time: %d\n", static_cast<int>(elapsed));
 	
-	if (delete_from_storage) {
-		// Delete all messages  except unread
-		if (m_at.sendCommandNoResponse("AT+CMGD=0,3") != 0)
-			return false;
-	}
-	
-	return true;
+	return {true, result};
+}
+
+bool BaseAtModem::deleteReadedSms() {
+	return m_at.sendCommandNoResponse("AT+CMGD=0,3") == 0;
 }
 
 bool BaseAtModem::deleteSms(int id) {

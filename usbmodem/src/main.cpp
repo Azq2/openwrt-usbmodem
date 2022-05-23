@@ -37,15 +37,6 @@ struct RawPdu {
 };
 
 static int test(int argc, char *argv[]) {
-	std::vector<RawPdu> sms_list = {
-
-	};
-	
-	SmsDb db;
-	for (auto r: sms_list)
-		db.loadRawPdu(r.type, r.id, r.hex);
-	db.save();
-	
 	LOGD("test???\n");
 	return 0;
 }

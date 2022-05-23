@@ -122,6 +122,11 @@ class Modem {
 			int total = 0;
 		};
 		
+		enum SmsListType {
+			SMS_LIST_ALL,
+			SMS_LIST_UNREAD
+		};
+		
 		/*
 		 * Network operators
 		 * */
@@ -230,6 +235,12 @@ class Modem {
 		// Event when SMS subsystem is ready
 		struct EvSmsReady { };
 		
+		// Event when new SMS received
+		struct EvNewSms {
+			int index = -1;
+			std::string pdu;
+		};
+		
 		Events m_ev;
 		
 		virtual bool setOption(const std::string &name, const std::any &value) = 0;
@@ -291,9 +302,10 @@ class Modem {
 		 * SMS
 		 * */
 		virtual bool deleteSms(int id) = 0;
+		virtual bool deleteReadedSms() = 0;
 		virtual SmsStorageCapacity getSmsCapacity() = 0;
 		virtual SmsStorage getSmsStorage() = 0;
-		virtual bool loadSmsToDb(SmsDb *sms, bool delete_from_storage) = 0;
+		virtual std::tuple<bool, std::vector<SmsDb::RawSms>> getSmsList(SmsListType list) = 0;
 		
 		/*
 		 * Internals

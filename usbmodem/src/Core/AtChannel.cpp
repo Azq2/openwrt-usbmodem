@@ -60,7 +60,7 @@ void AtChannel::stop() {
 }
 
 void AtChannel::onUnsolicited(const std::string &prefix, const std::function<void(const std::string &)> &handler) {
-	m_unsol_handlers.push_back({.prefix = prefix, .handler = handler});
+	m_unsol_handlers.push_back({.prefix = prefix + ":", .handler = handler});
 }
 
 void AtChannel::resetUnsolicitedHandlers() {
