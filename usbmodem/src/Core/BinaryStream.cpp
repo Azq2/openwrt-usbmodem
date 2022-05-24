@@ -9,6 +9,56 @@
 /*
  * BinaryReaderBase
  * */
+bool BinaryReaderBase::readPackedString(int size_type, std::string *str, bool be) {
+	switch (size_type) {
+		case 8:
+		{
+			uint8_t size8;
+			if (!readUInt8(&size8))
+				return false;
+			return read(str, size8);
+		}
+		break;
+		
+		case 16:
+		{
+			uint16_t size16;
+			if (be) {
+				if (!readUInt16BE(&size16))
+					return false;
+			} else {
+				if (!readUInt16(&size16))
+					return false;
+			}
+			return read(str, size16);
+		}
+		break;
+		
+		case 32:
+		{
+			uint32_t size32;
+			if (be) {
+				if (!readUInt32BE(&size32))
+					return false;
+			} else {
+				if (!readUInt32(&size32))
+					return false;
+			}
+			return read(str, size32);
+		}
+		break;
+	}
+	
+	return false;
+}
+
+bool BinaryReaderBase::readString(std::string *str, size_t len) {
+	if (!avail(len))
+		return false;
+	str->resize(len);
+	return read(str->data(), len);
+}
+
 bool BinaryReaderBase::readUInt16(uint16_t *value) {
 	if (!read(value, 2))
 		return false;
@@ -57,14 +107,87 @@ bool BinaryReaderBase::readUInt64BE(uint64_t *value) {
 	return true;
 }
 
-bool BinaryReaderBase::readString(std::string *str, size_t len) {
-	str->resize(len);
-	return read(&(*str)[0], len);
+/*
+ * BinaryWriterBase
+ * */
+bool BinaryWriterBase::writePackedString(int size_type, const std::string &str, bool be) {
+	switch (size_type) {
+		case 8:
+			if (str.size() > 0xFF || !writeUInt8(str.size()))
+				return false;
+		break;
+		
+		case 16:
+			if (be) {
+				if (str.size() > 0xFFFF || !writeUInt16BE(str.size()))
+					return false;
+			} else {
+				if (str.size() > 0xFFFF || !writeUInt16(str.size()))
+					return false;
+			}
+		break;
+		
+		case 32:
+			if (be) {
+				if (str.size() > 0xFFFFFFFF || !writeUInt32BE(str.size()))
+					return false;
+			} else {
+				if (str.size() > 0xFFFFFFFF || !writeUInt32(str.size()))
+					return false;
+			}
+		break;
+		
+		default:
+			// Unknown size
+			return false;
+		break;
+	}
+	return writeString(str);
+}
+
+bool BinaryWriterBase::writeUInt16(uint16_t value) {
+	if (!isLittleEndian())
+		value = __builtin_bswap16(value);
+	return write(&value, 2);
+}
+
+bool BinaryWriterBase::writeUInt16BE(uint16_t value) {
+	if (isLittleEndian())
+		value = __builtin_bswap16(value);
+	return write(&value, 2);
+}
+
+bool BinaryWriterBase::writeUInt32(uint32_t value) {
+	if (!isLittleEndian())
+		value = __builtin_bswap32(value);
+	return write(&value, 4);
+}
+
+bool BinaryWriterBase::writeUInt32BE(uint32_t value) {
+	if (isLittleEndian())
+		value = __builtin_bswap32(value);
+	return write(&value, 4);
+}
+
+bool BinaryWriterBase::writeUInt64(uint64_t value) {
+	if (!isLittleEndian())
+		value = __builtin_bswap64(value);
+	return write(&value, 8);
+}
+
+bool BinaryWriterBase::writeUInt64BE(uint64_t value) {
+	if (isLittleEndian())
+		value = __builtin_bswap64(value);
+	return write(&value, 8);
 }
 
 /*
  * BinaryBufferReader
  * */
+bool BinaryBufferReader::avail(size_t size) {
+	return m_data && m_offset + size <= m_size;
+}
+
 size_t BinaryBufferReader::size() {
 	return m_size;
 }
@@ -85,7 +208,7 @@ bool BinaryBufferReader::truncate(size_t len) {
 }
 
 bool BinaryBufferReader::read(void *data, size_t len) {
-	if (!m_data || m_offset + len > m_size)
+	if (!avail(len))
 		return false;
 	memcpy(data, m_data + m_offset, len);
 	m_offset += len;
@@ -93,7 +216,7 @@ bool BinaryBufferReader::read(void *data, size_t len) {
 }
 
 bool BinaryBufferReader::skip(size_t len) {
-	if (!m_data || m_offset + len > m_size)
+	if (!avail(len))
 		return false;
 	m_offset += len;
 	return true;
@@ -116,6 +239,10 @@ bool BinaryFileReader::setFile(FILE *fp) {
 	m_size = st.st_size;
 	
 	return true;
+}
+
+bool BinaryFileReader::avail(size_t size) {
+	return m_fp && offset() + size <= m_size;
 }
 
 size_t BinaryFileReader::size() {
@@ -141,13 +268,61 @@ bool BinaryFileReader::truncate(size_t len) {
 }
 
 bool BinaryFileReader::read(void *data, size_t len) {
-	if (!m_fp || offset() + len > m_size)
+	if (!avail(len))
 		return false;
 	return fread(data, len, 1, m_fp) == 1;
 }
 
 bool BinaryFileReader::skip(size_t len) {
-	if (!m_fp || offset() + len > m_size)
+	if (!avail(len))
 		return false;
 	return fseek(m_fp, offset() + len, SEEK_SET) != 0;
+}
+
+/*
+ * BinaryFileWriter
+ * */
+size_t BinaryBufferWriter::size() {
+	return m_buffer.size();
+}
+
+size_t BinaryBufferWriter::offset() {
+	return m_offset;
+}
+
+bool BinaryBufferWriter::write(const void *data, size_t len) {
+	const uint8_t *data8 = reinterpret_cast<const uint8_t *>(data);
+	m_buffer.insert(m_buffer.end(), data8, data8 + len);
+	return true;
+}
+
+/*
+ * BinaryFileWriter
+ * */
+bool BinaryFileWriter::setFile(FILE *fp) {
+	if (!fp)
+		return false;
+	rewind(fp);
+	m_fp = fp;
+	return true;
+}
+
+size_t BinaryFileWriter::size() {
+	struct stat st;
+	if (fstat(fileno(m_fp), &st) != 0)
+		return 0;
+	return st.st_size;
+}
+
+size_t BinaryFileWriter::offset() {
+	if (!m_fp)
+		return 0;
+	auto ret = ftell(m_fp);
+	return ret < 0 ? size() : ret;
+}
+
+bool BinaryFileWriter::write(const void *data, size_t len) {
+	if (!m_fp)
+		return false;
+	return fwrite(data, len, 1, m_fp) == 1;
 }

@@ -28,7 +28,7 @@ static constexpr uint8_t decodeDateField(uint8_t value) {
 
 bool decodePduAddr(BinaryBufferReader *parser, PduAddr *addr, bool is_smsc) {
 	uint8_t addr_len;
-	if (!parser->readByte(&addr_len))
+	if (!parser->readUInt8(&addr_len))
 		return false;
 	
 	if (!addr_len) {
@@ -39,7 +39,7 @@ bool decodePduAddr(BinaryBufferReader *parser, PduAddr *addr, bool is_smsc) {
 	}
 	
 	uint8_t addr_type;
-	if (!parser->readByte(&addr_type))
+	if (!parser->readUInt8(&addr_type))
 		return false;
 	
 	addr->plan = static_cast<PduAddrNumberingPlan>(addr_type & 0xF);
@@ -66,31 +66,31 @@ bool decodePduAddr(BinaryBufferReader *parser, PduAddr *addr, bool is_smsc) {
 bool decodePduDateTime(BinaryBufferReader *parser, PduDateTime *dt) {
 	uint8_t year, month, day, hour, minute, second, raw_rz;
 	
-	if (!parser->readByte(&year))
+	if (!parser->readUInt8(&year))
 		return false;
 	year = decodeDateField(year);
 	
-	if (!parser->readByte(&month))
+	if (!parser->readUInt8(&month))
 		return false;
 	month = decodeDateField(month);
 	
-	if (!parser->readByte(&day))
+	if (!parser->readUInt8(&day))
 		return false;
 	day = decodeDateField(day);
 	
-	if (!parser->readByte(&hour))
+	if (!parser->readUInt8(&hour))
 		return false;
 	hour = decodeDateField(hour);
 	
-	if (!parser->readByte(&minute))
+	if (!parser->readUInt8(&minute))
 		return false;
 	minute = decodeDateField(minute);
 	
-	if (!parser->readByte(&second))
+	if (!parser->readUInt8(&second))
 		return false;
 	second = decodeDateField(second);
 	
-	if (!parser->readByte(&raw_rz))
+	if (!parser->readUInt8(&raw_rz))
 		return false;
 	
 	int timezone = ((raw_rz & 0x7) * 10 + (raw_rz >> 4)) * 15 * 60;
@@ -131,7 +131,7 @@ bool decodePduValidityPeriodFormat(BinaryBufferReader *parser, PduValidityPeriod
 		break;
 		
 		case PDU_VPF_RELATIVE:
-			if (!parser->readByte(&vp->relative))
+			if (!parser->readUInt8(&vp->relative))
 				return false;
 			return true;
 		break;
@@ -169,11 +169,11 @@ bool decodePduDeliver(BinaryBufferReader *parser, Pdu *pdu, uint8_t flags) {
 		return false;
 	
 	// Protocol ID
-	if (!parser->readByte(&deliver.pid))
+	if (!parser->readUInt8(&deliver.pid))
 		return false;
 	
 	// Data Coding Scheme
-	if (!parser->readByte(&deliver.dcs))
+	if (!parser->readUInt8(&deliver.dcs))
 		return false;
 	
 	// SMSC timestamp
@@ -181,7 +181,7 @@ bool decodePduDeliver(BinaryBufferReader *parser, Pdu *pdu, uint8_t flags) {
 		return false;
 	
 	// User data length
-	if (!parser->readByte(&deliver.udl))
+	if (!parser->readUInt8(&deliver.udl))
 		return false;
 	
 	size_t udl_bytes = udlToBytes(deliver.udl, deliver.dcs);
@@ -205,7 +205,7 @@ bool decodePduSubmit(BinaryBufferReader *parser, Pdu *pdu, uint8_t flags) {
 	submit.srr = (flags & (1 << 5)) != 0;
 	
 	// Message Reference
-	if (!parser->readByte(&submit.mr))
+	if (!parser->readUInt8(&submit.mr))
 		return false;
 	
 	// Receiver address
@@ -213,11 +213,11 @@ bool decodePduSubmit(BinaryBufferReader *parser, Pdu *pdu, uint8_t flags) {
 		return false;
 	
 	// Protocol ID
-	if (!parser->readByte(&submit.pid))
+	if (!parser->readUInt8(&submit.pid))
 		return false;
 	
 	// Data Coding Scheme
-	if (!parser->readByte(&submit.dcs))
+	if (!parser->readUInt8(&submit.dcs))
 		return false;
 	
 	// Validity Period
@@ -225,7 +225,7 @@ bool decodePduSubmit(BinaryBufferReader *parser, Pdu *pdu, uint8_t flags) {
 		return false;
 	
 	// User data length
-	if (!parser->readByte(&submit.udl))
+	if (!parser->readUInt8(&submit.udl))
 		return false;
 	
 	size_t udl_bytes = udlToBytes(submit.udl, submit.dcs);
@@ -249,7 +249,7 @@ bool decodePdu(const std::string &pdu_bytes, Pdu *pdu, bool direction_to_smsc) {
 	
 	// PDU type
 	uint8_t flags;
-	if (!parser.readByte(&flags))
+	if (!parser.readUInt8(&flags))
 		return false;
 	
 	if (direction_to_smsc) {
@@ -277,7 +277,7 @@ int decodeUserDataHeader(const std::string &data, PduUserDataHeader *header) {
 	BinaryBufferReader parser(data);
 	
 	uint8_t udh_len;
-	if (!parser.readByte(&udh_len))
+	if (!parser.readUInt8(&udh_len))
 		return -1;
 	
 	if (!parser.truncate(udh_len + 1))
@@ -286,9 +286,9 @@ int decodeUserDataHeader(const std::string &data, PduUserDataHeader *header) {
 	while (!parser.eof()) {
 		uint8_t type, len;
 		
-		if (!parser.readByte(&type))
+		if (!parser.readUInt8(&type))
 			return -1;
-		if (!parser.readByte(&len))
+		if (!parser.readUInt8(&len))
 			return -1;
 		
 		switch (type) {
@@ -299,11 +299,11 @@ int decodeUserDataHeader(const std::string &data, PduUserDataHeader *header) {
 				
 				if (len != 3)
 					return -1;
-				if (!parser.readByte(&ref_id))
+				if (!parser.readUInt8(&ref_id))
 					return -1;
-				if (!parser.readByte(&parts))
+				if (!parser.readUInt8(&parts))
 					return -1;
-				if (!parser.readByte(&part))
+				if (!parser.readUInt8(&part))
 					return -1;
 				
 				header->concatenated = {
@@ -321,9 +321,9 @@ int decodeUserDataHeader(const std::string &data, PduUserDataHeader *header) {
 				
 				if (len != 2)
 					return -1;
-				if (!parser.readByte(&src))
+				if (!parser.readUInt8(&src))
 					return -1;
-				if (!parser.readByte(&dst))
+				if (!parser.readUInt8(&dst))
 					return -1;
 				
 				header->app_port = {
@@ -362,9 +362,9 @@ int decodeUserDataHeader(const std::string &data, PduUserDataHeader *header) {
 					return -1;
 				if (!parser.readUInt16BE(&ref_id))
 					return -1;
-				if (!parser.readByte(&parts))
+				if (!parser.readUInt8(&parts))
 					return -1;
-				if (!parser.readByte(&part))
+				if (!parser.readUInt8(&part))
 					return -1;
 				
 				header->concatenated = {

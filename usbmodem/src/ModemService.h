@@ -46,7 +46,7 @@ class ModemService {
 		std::string m_tty_path;
 		std::string m_net_iface;
 		
-		SmsMode m_sms_mode = SMS_MODE_MIRROR;
+		SmsMode m_sms_mode = SMS_MODE_DB;
 		
 		bool validateOptions();
 		bool startDhcp();

@@ -11,8 +11,10 @@
 #include <cstdarg>
 #include <stdexcept>
 
-#include <arpa/inet.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
+#include <arpa/inet.h>
 
 using namespace std;
 
@@ -36,6 +38,25 @@ int strToInt(const std::string &s, int base, int default_value) {
 	} catch (std::invalid_argument &e) {
 		return default_value;
 	}
+}
+
+size_t getFileSize(const std::string &file) {
+	struct stat st;
+	if (stat(file.c_str(), &st) != 0)
+		return 0;
+	return st.st_size;
+}
+
+bool isFileExists(const std::string &file) {
+	return access(file.c_str(), F_OK) == 0;
+}
+
+bool isFileReadable(const std::string &file) {
+	return access(file.c_str(), F_OK | R_OK) == 0;
+}
+
+bool isFileWriteable(const std::string &file) {
+	return access(file.c_str(), F_OK | W_OK) == 0;
 }
 
 int execFile(const std::string &path, std::vector<std::string> args, std::vector<std::string> envs) {

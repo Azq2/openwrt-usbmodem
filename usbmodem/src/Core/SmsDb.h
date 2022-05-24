@@ -9,6 +9,9 @@
 
 class SmsDb {
 	public:
+		static constexpr uint8_t DB_VERSION = 0;
+		static constexpr uint32_t DB_MAGIC = 0x534d53;
+		
 		enum StorageType {
 			STORAGE_FILESYSTEM,
 			STORAGE_SIM,
@@ -38,7 +41,7 @@ class SmsDb {
 			SmsType type = SMS_INCOMING;
 			SmsFlags flags = SMS_NO_FLAGS;
 			uint32_t ref_id = 0;
-			time_t time = 0;
+			uint64_t time = 0;
 			std::string addr;
 			std::string smsc;
 			std::vector<SmsPart> parts;
@@ -51,7 +54,7 @@ class SmsDb {
 			int parts = 1;
 			int part = 1;
 			uint32_t ref_id = 0;
-			time_t time = 0;
+			uint64_t time = 0;
 			std::string addr;
 			std::string smsc;
 			std::string text;
@@ -75,6 +78,8 @@ class SmsDb {
 		RemoveSmsCallback m_remove_sms_callback;
 		
 		Sms *findSameSms(const RawSms &same);
+		bool serialize(BinaryFileWriter *writer);
+		bool unserialize(BinaryFileReader *reader);
 	public:
 		SmsDb() { }
 		
@@ -83,8 +88,8 @@ class SmsDb {
 		}
 		
 		void init();
-		bool load(const RawSms &raw);
-		bool load(const std::vector<RawSms> &list);
+		bool add(const RawSms &raw);
+		bool add(const std::vector<RawSms> &list);
 		
 		inline void setStorageType(StorageType storage) {
 			m_storage_type = storage;
@@ -116,7 +121,8 @@ class SmsDb {
 			m_remove_sms_callback = callback;
 		}
 		
-		bool save();
+		bool load(const std::string &filename);
+		bool save(const std::string &filename);
 };
 
 DEFINE_ENUM_BIT_OPERATORS(SmsDb::SmsFlags);

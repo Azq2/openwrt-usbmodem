@@ -1,6 +1,9 @@
 #include "SmsDb.h"
 #include "Log.h"
 
+#include <sys/file.h>
+#include <unistd.h>
+
 void SmsDb::init() {
 	m_inited = true;
 }
@@ -36,7 +39,7 @@ SmsDb::Sms *SmsDb::findSameSms(const RawSms &raw) {
 	return nullptr;
 }
 
-bool SmsDb::load(const RawSms &raw) {
+bool SmsDb::add(const RawSms &raw) {
 	Sms *sms = findSameSms(raw);
 	if (!sms) {
 		int sms_id = m_global_sms_id++;
@@ -62,9 +65,9 @@ bool SmsDb::load(const RawSms &raw) {
 	return true;
 }
 
-bool SmsDb::load(const std::vector<RawSms> &list) {
+bool SmsDb::add(const std::vector<RawSms> &list) {
 	for (auto &raw: list) {
-		if (!load(raw))
+		if (!add(raw))
 			return false;
 	}
 	return true;
@@ -114,17 +117,185 @@ bool SmsDb::deleteSms(int id) {
 	return true;
 }
 
-bool SmsDb::save() {
+bool SmsDb::serialize(BinaryFileWriter *writer) {
+	// Magic
+	if (!writer->writeUInt32(DB_MAGIC))
+		return false;
 	
+	// DB version
+	if (!writer->writeUInt8(DB_VERSION))
+		return false;
 	
-	int id = 0;
-	SmsType type = SMS_INCOMING;
-	SmsFlags flags = SMS_NO_FLAGS;
-	uint32_t ref_id = 0;
-	time_t time = 0;
-	std::string addr;
-	std::string smsc;
-	std::vector<SmsPart> parts;
+	for (auto &it: m_storage) {
+		auto &sms = it.second;
+		
+		// Flags
+		if (!writer->writeUInt8(sms.type))
+			return false;
+		if (!writer->writeUInt32(sms.flags))
+			return false;
+		if (!writer->writeUInt32(sms.ref_id))
+			return false;
+		if (!writer->writeUInt64(sms.time))
+			return false;
+		
+		// Number and SMSC
+		if (!writer->writePackedString(16, sms.addr))
+			return false;
+		if (!writer->writePackedString(16, sms.smsc))
+			return false;
+		
+		// Number of parts
+		if (!writer->writeUInt8(sms.parts.size()))
+			return false;
+		
+		// Text of each parts
+		for (auto &p: sms.parts) {
+			if (!writer->writePackedString(16, p.text))
+				return false;
+		}
+	}
+	
+	return true;
+}
+
+bool SmsDb::unserialize(BinaryFileReader *reader) {
+	uint32_t magic = 0;
+	uint8_t version = 0;
+	
+	if (!reader->readUInt32(&magic) || magic != DB_MAGIC) {
+		LOGD("Invalid db magic, expected %08X, but got %08X\n", magic, DB_MAGIC);
+		return false;
+	}
+	
+	if (!reader->readUInt8(&version) || version != DB_VERSION) {
+		LOGD("Invalid db version, expected %d, but got %d\n", version, DB_VERSION);
+		return false;
+	}
+	
+	while (!reader->eof()) {
+		Sms sms;
+		
+		// Flags
+		uint8_t type;
+		if (!reader->readUInt8(&type))
+			return false;
+		sms.type = static_cast<SmsType>(type);
+		
+		uint32_t flags;
+		if (!reader->readUInt32(&flags))
+			return false;
+		sms.flags = static_cast<SmsFlags>(flags);
+		
+		if (!reader->readUInt32(&sms.ref_id))
+			return false;
+		
+		if (!reader->readUInt64(&sms.time))
+			return false;
+		
+		// Number and SMSC
+		if (!reader->readPackedString(16, &sms.addr))
+			return false;
+		if (!reader->readPackedString(16, &sms.smsc))
+			return false;
+		
+		// Number of parts
+		uint8_t parts_n;
+		if (!reader->readUInt8(&parts_n))
+			return false;
+		sms.parts.resize(parts_n);
+		
+		// Text of each parts
+		for (auto i = 0; i < parts_n; i++) {
+			if (!reader->readPackedString(16, &sms.parts[i].text))
+				return false;
+		}
+		
+		// Add sms to list
+		int sms_id = m_global_sms_id++;
+		sms.id = sms_id;
+		
+		// TODO: sort by time
+		m_list[sms.type].insert(m_list[sms.type].begin(), sms_id);
+		m_storage[sms_id] = std::move(sms);
+		
+		m_used_capacity += parts_n;
+	}
+	
+	return true;
+}
+
+bool SmsDb::load(const std::string &filename) {
+	m_list.clear();
+	m_storage.clear();
+	m_global_sms_id = 0;
+	m_used_capacity = 0;
+	
+	if (!isFileExists(filename) || !getFileSize(filename))
+		return true;
+	
+	FILE *fp = fopen(filename.c_str(), "r");
+	if (!fp) {
+		LOGE("Can't open '%s' for reading, errno = %d\n", filename.c_str(), errno);
+		return false;
+	}
+	
+	if (flock(fileno(fp), LOCK_EX) != 0) {
+		LOGE("Can't lock file '%s', errno = %d\n", filename.c_str(), errno);
+		fclose(fp);
+		return false;
+	}
+	
+	BinaryFileReader reader(fp);
+	if (!unserialize(&reader)) {
+		LOGD("Can't unserialize SMS database from %s\n", filename.c_str());
+		flock(fileno(fp), LOCK_UN);
+		fclose(fp);
+		return false;
+	}
+	
+	if (flock(fileno(fp), LOCK_UN) != 0) {
+		LOGE("Can't unlock file '%s', errno = %d\n", filename.c_str(), errno);
+		fclose(fp);
+		return false;
+	}
+	
+	fclose(fp);
+	
+	return true;
+}
+
+bool SmsDb::save(const std::string &filename) {
+	FILE *fp = fopen(filename.c_str(), "w+");
+	if (!fp) {
+		LOGE("Can't open '%s' for writing, errno = %d\n", filename.c_str(), errno);
+		return false;
+	}
+	
+	if (flock(fileno(fp), LOCK_EX) != 0) {
+		LOGE("Can't lock file '%s', errno = %d\n", filename.c_str(), errno);
+		fclose(fp);
+		unlink(filename.c_str());
+		return false;
+	}
+	
+	BinaryFileWriter writer(fp);
+	if (!serialize(&writer)) {
+		LOGD("Can't serialize SMS database to %s\n", filename.c_str());
+		flock(fileno(fp), LOCK_UN);
+		fclose(fp);
+		unlink(filename.c_str());
+		return false;
+	}
+	
+	if (flock(fileno(fp), LOCK_UN) != 0) {
+		LOGE("Can't unlock file '%s', errno = %d\n", filename.c_str(), errno);
+		fclose(fp);
+		unlink(filename.c_str());
+		return false;
+	}
+	
+	fclose(fp);
 	
 	return true;
 }

@@ -184,36 +184,44 @@ void ModemService::loadSmsFromModem() {
 				
 				// Loading all messages to DB
 				auto [success, messages] = m_modem->getSmsList(Modem::SMS_LIST_ALL);
-				if (!success || !m_sms.load(messages))
+				if (!success || !m_sms.add(messages))
 					LOGE("[sms] Failed to load exists messages from sim/modem.\n");
 			} else {
 				// Loading unread messages to DB
 				auto [success, messages] = m_modem->getSmsList(Modem::SMS_LIST_UNREAD);
-				if (!success || !m_sms.load(messages))
+				if (!success || !m_sms.add(messages))
 					LOGE("[sms] Failed to load exists messages from sim/modem.\n");
 			}
 		}
 		break;
 		
 		case SMS_MODE_DB:
-		{
+		{return;
 			if (!m_sms.ready()) {
 				m_sms.setStorageType(SmsDb::STORAGE_FILESYSTEM);
 				m_sms.init();
+				
+				if (!m_sms.load("/tmp/sms.dat")) {
+					LOGE("[sms] Failed to load sms database.\n");
+				}
 			}
 			
 			// Loading all messages to DB
 			auto [success, messages] = m_modem->getSmsList(Modem::SMS_LIST_ALL);
-			if (success && m_sms.load(messages)) {
-				// And now deleting all read SMS, because we need enough storage for new messages
-				if (!m_modem->deleteReadedSms())
-					LOGE("[sms] Failed to delete already readed SMS.\n");
+			if (success && m_sms.add(messages)) {
+				if (m_sms.save("/tmp/sms.dat")) {
+					// And now deleting all read SMS, because we need enough storage for new messages
+					if (!m_modem->deleteReadedSms())
+						LOGE("[sms] Failed to delete already readed SMS.\n");
+				} else {
+					LOGE("[sms] Failed to save sms database.\n");
+				}
 			} else {
 				LOGE("[sms] Failed to load exists messages from sim/modem.\n");
 			}
 			
 			// Sync on filesystem
-			m_sms.save();
+			m_sms.save("/tmp/sms.dat");
 		}
 		break;
 	}

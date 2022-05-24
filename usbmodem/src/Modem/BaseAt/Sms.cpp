@@ -303,7 +303,7 @@ std::tuple<bool, std::vector<SmsDb::RawSms>> BaseAtModem::getSmsList(SmsListType
 }
 
 bool BaseAtModem::deleteReadedSms() {
-	return m_at.sendCommandNoResponse("AT+CMGD=0,3") == 0;
+	return m_at.sendCommandNoResponse("AT+CMGD=1,3") == 0;
 }
 
 bool BaseAtModem::deleteSms(int id) {
