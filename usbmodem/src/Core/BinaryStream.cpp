@@ -16,7 +16,7 @@ bool BinaryReaderBase::readPackedString(int size_type, std::string *str, bool be
 			uint8_t size8;
 			if (!readUInt8(&size8))
 				return false;
-			return read(str, size8);
+			return readString(str, size8);
 		}
 		break;
 		
@@ -30,7 +30,7 @@ bool BinaryReaderBase::readPackedString(int size_type, std::string *str, bool be
 				if (!readUInt16(&size16))
 					return false;
 			}
-			return read(str, size16);
+			return readString(str, size16);
 		}
 		break;
 		
@@ -44,7 +44,7 @@ bool BinaryReaderBase::readPackedString(int size_type, std::string *str, bool be
 				if (!readUInt32(&size32))
 					return false;
 			}
-			return read(str, size32);
+			return readString(str, size32);
 		}
 		break;
 	}
@@ -253,7 +253,7 @@ size_t BinaryFileReader::offset() {
 	if (!m_fp)
 		return 0;
 	auto ret = ftell(m_fp);
-	return ret < 0 ? m_size : ret;
+	return ret < 0 ? std::string::npos : ret;
 }
 
 bool BinaryFileReader::eof() {
@@ -318,7 +318,7 @@ size_t BinaryFileWriter::offset() {
 	if (!m_fp)
 		return 0;
 	auto ret = ftell(m_fp);
-	return ret < 0 ? size() : ret;
+	return ret < 0 ? std::string::npos : ret;
 }
 
 bool BinaryFileWriter::write(const void *data, size_t len) {

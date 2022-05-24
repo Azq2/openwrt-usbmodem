@@ -196,7 +196,7 @@ void ModemService::loadSmsFromModem() {
 		break;
 		
 		case SMS_MODE_DB:
-		{return;
+		{
 			if (!m_sms.ready()) {
 				m_sms.setStorageType(SmsDb::STORAGE_FILESYSTEM);
 				m_sms.init();
