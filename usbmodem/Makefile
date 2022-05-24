@@ -17,7 +17,9 @@ define Package/usbmodem
 endef
 
 define Package/usbmodem/description
-	Rethinking of USB modems support in openwrt.
+	Support various USB modems (internet, sms, ussd and etc).
+	Provides persistent service (RIL-daemon like) which ensure automatic connection to internet.
+	Also it provides ubus API for LuCI gui or cli tools.
 endef
 
 define Package/usbmodem/install
@@ -27,6 +29,8 @@ define Package/usbmodem/install
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/sbin/usbmodem $(1)/usr/sbin/
 	$(INSTALL_BIN) ./files/usbmodem.sh $(1)/lib/netifd/proto/usbmodem.sh
 	$(INSTALL_BIN) ./files/usbmodem.usb $(1)/etc/hotplug.d/tty/30-usbmodem
+	$(INSTALL_DIR) $(1)/lib/upgrade/keep.d
+	$(INSTALL_DATA) ./files/usbmodem.upgrade $(1)/lib/upgrade/keep.d/usbmodem
 endef
 
 $(eval $(call BuildPackage,usbmodem))

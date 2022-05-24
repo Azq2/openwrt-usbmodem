@@ -24,9 +24,18 @@ echo "MODE=$MODE"
 
 # Build package
 echo "Build..."
-make -C "$DIR/usbmodem" -j9 compile || exit 1
+if [[ $MODE == "build" ]]; then
+	make -C "$DIR/luci-proto-usbmodem" -j9 compile || exit 1
+	make -C "$DIR/luci-proto-usbmodem" -j9 install || exit 1
 
-if [[ $MODE == "install" ]]; then
+	make -C "$DIR/luci-app-usbmodem" -j9 compile || exit 1
+	make -C "$DIR/luci-app-usbmodem" -j9 install || exit 1
+fi
+
+make -C "$DIR/usbmodem" -j9 compile || exit 1
+make -C "$DIR/usbmodem" -j9 install || exit 1
+
+if [[ $MODE == "build" ]]; then
 	echo "Build done."
 	exit 0
 fi
