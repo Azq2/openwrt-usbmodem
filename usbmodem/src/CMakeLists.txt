@@ -31,7 +31,7 @@ add_executable(usbmodem
 	Core/Events.cpp
 	Core/GsmUtils.cpp
 	Core/AtParser.cpp
-	Core/BinaryParser.cpp
+	Core/BinaryStream.cpp
 	Core/UsbDiscover.cpp
 	Core/Ubus.cpp
 	Core/Blobmsg.cpp

@@ -26,7 +26,7 @@ static constexpr uint8_t decodeDateField(uint8_t value) {
 	return ((value & 0xF) * 10) + (value >> 4);
 }
 
-bool decodePduAddr(BinaryParser *parser, PduAddr *addr, bool is_smsc) {
+bool decodePduAddr(BinaryBufferReader *parser, PduAddr *addr, bool is_smsc) {
 	uint8_t addr_len;
 	if (!parser->readByte(&addr_len))
 		return false;
@@ -63,7 +63,7 @@ bool decodePduAddr(BinaryParser *parser, PduAddr *addr, bool is_smsc) {
 	return true;
 }
 
-bool decodePduDateTime(BinaryParser *parser, PduDateTime *dt) {
+bool decodePduDateTime(BinaryBufferReader *parser, PduDateTime *dt) {
 	uint8_t year, month, day, hour, minute, second, raw_rz;
 	
 	if (!parser->readByte(&year))
@@ -117,7 +117,7 @@ bool decodePduDateTime(BinaryParser *parser, PduDateTime *dt) {
 	return true;
 }
 
-bool decodePduValidityPeriodFormat(BinaryParser *parser, PduValidityPeriodFormat vpf, PduValidityPeriod *vp) {
+bool decodePduValidityPeriodFormat(BinaryBufferReader *parser, PduValidityPeriodFormat vpf, PduValidityPeriod *vp) {
 	switch (vpf) {
 		case PDU_VPF_ABSENT:
 			// None
@@ -125,7 +125,7 @@ bool decodePduValidityPeriodFormat(BinaryParser *parser, PduValidityPeriodFormat
 		break;
 		
 		case PDU_VPF_ENHANCED:
-			if (!parser->readByteArray(vp->enhanced, 7))
+			if (!parser->read(vp->enhanced, sizeof(vp->enhanced)))
 				return false;
 			return true;
 		break;
@@ -155,7 +155,7 @@ size_t udlToBytes(uint8_t udl, int dcs) {
 	return udl;
 }
 
-bool decodePduDeliver(BinaryParser *parser, Pdu *pdu, uint8_t flags) {
+bool decodePduDeliver(BinaryBufferReader *parser, Pdu *pdu, uint8_t flags) {
 	auto &deliver = pdu->deliver();
 	
 	deliver.mms = (flags & (1 << 2)) == 0;
@@ -195,7 +195,7 @@ bool decodePduDeliver(BinaryParser *parser, Pdu *pdu, uint8_t flags) {
 	return true;
 }
 
-bool decodePduSubmit(BinaryParser *parser, Pdu *pdu, uint8_t flags) {
+bool decodePduSubmit(BinaryBufferReader *parser, Pdu *pdu, uint8_t flags) {
 	auto &submit = pdu->submit();
 	
 	submit.rd = (flags & (1 << 2)) != 0;
@@ -241,7 +241,7 @@ bool decodePduSubmit(BinaryParser *parser, Pdu *pdu, uint8_t flags) {
 
 // https://en.wikipedia.org/wiki/GSM_03.40
 bool decodePdu(const std::string &pdu_bytes, Pdu *pdu, bool direction_to_smsc) {
-	BinaryParser parser(pdu_bytes);
+	BinaryBufferReader parser(pdu_bytes);
 	
 	// SMSC
 	if (!decodePduAddr(&parser, &pdu->smsc, true))
@@ -274,7 +274,7 @@ bool decodePdu(const std::string &pdu_bytes, Pdu *pdu, bool direction_to_smsc) {
 }
 
 int decodeUserDataHeader(const std::string &data, PduUserDataHeader *header) {
-	BinaryParser parser(data);
+	BinaryBufferReader parser(data);
 	
 	uint8_t udh_len;
 	if (!parser.readByte(&udh_len))
@@ -340,9 +340,9 @@ int decodeUserDataHeader(const std::string &data, PduUserDataHeader *header) {
 				
 				if (len != 4)
 					return -1;
-				if (!parser.readShortBE(&src))
+				if (!parser.readUInt16BE(&src))
 					return -1;
-				if (!parser.readShortBE(&dst))
+				if (!parser.readUInt16BE(&dst))
 					return -1;
 				
 				header->app_port = {
@@ -360,7 +360,7 @@ int decodeUserDataHeader(const std::string &data, PduUserDataHeader *header) {
 				
 				if (len != 4)
 					return -1;
-				if (!parser.readShortBE(&ref_id))
+				if (!parser.readUInt16BE(&ref_id))
 					return -1;
 				if (!parser.readByte(&parts))
 					return -1;

@@ -9,11 +9,6 @@
 
 class SmsDb {
 	public:
-		enum Mode: int {
-			MODE_MIRROR			= 0,
-			MODE_PERSISTENT		= 1
-		};
-		
 		enum StorageType {
 			STORAGE_FILESYSTEM,
 			STORAGE_SIM,

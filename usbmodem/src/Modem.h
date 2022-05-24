@@ -236,9 +236,12 @@ class Modem {
 		struct EvSmsReady { };
 		
 		// Event when new SMS received
-		struct EvNewSms {
-			int index = -1;
-			std::string pdu;
+		struct EvNewDecodedSms {
+			SmsDb::RawSms sms;
+		};
+		
+		struct EvNewStoredSms {
+			int index;
 		};
 		
 		Events m_ev;

@@ -49,8 +49,12 @@ bool SmsDb::load(const RawSms &raw) {
 		sms->ref_id = raw.ref_id;
 		sms->parts.resize(raw.parts);
 		
+		if (!sms->time)
+			sms->time = time(nullptr);
+		
 		m_used_capacity += raw.parts;
 		
+		// TODO: sort by time
 		m_list[raw.type].insert(m_list[raw.type].begin(), sms_id);
 	}
 	sms->parts[raw.part - 1].foreign_id = raw.index;
@@ -111,6 +115,16 @@ bool SmsDb::deleteSms(int id) {
 }
 
 bool SmsDb::save() {
+	
+	
+	int id = 0;
+	SmsType type = SMS_INCOMING;
+	SmsFlags flags = SMS_NO_FLAGS;
+	uint32_t ref_id = 0;
+	time_t time = 0;
+	std::string addr;
+	std::string smsc;
+	std::vector<SmsPart> parts;
 	
 	return true;
 }

@@ -5,7 +5,7 @@
 #include <tuple>
 #include <any>
 
-#include "BinaryParser.h"
+#include "BinaryStream.h"
 
 enum GsmLanguage {
 	GSM_LANG_GERMAN		= 0x00,
@@ -213,11 +213,11 @@ constexpr size_t getPduMaxDataSize(PduType type) {
 
 // PDU
 bool decodePdu(const std::string &pdu_bytes, Pdu *pdu, bool direction_to_smsc);
-bool decodePduAddr(BinaryParser *parser, PduAddr *addr, bool is_smsc);
-bool decodePduDateTime(BinaryParser *parser, PduDateTime *dt);
-bool decodePduValidityPeriodFormat(BinaryParser *parser, PduValidityPeriodFormat vpf, PduValidityPeriod *vp);
-bool decodePduDeliver(BinaryParser *parser, Pdu *pdu, uint8_t flags);
-bool decodePduSubmit(BinaryParser *parser, Pdu *pdu, uint8_t flags);
+bool decodePduAddr(BinaryBufferReader *parser, PduAddr *addr, bool is_smsc);
+bool decodePduDateTime(BinaryBufferReader *parser, PduDateTime *dt);
+bool decodePduValidityPeriodFormat(BinaryBufferReader *parser, PduValidityPeriodFormat vpf, PduValidityPeriod *vp);
+bool decodePduDeliver(BinaryBufferReader *parser, Pdu *pdu, uint8_t flags);
+bool decodePduSubmit(BinaryBufferReader *parser, Pdu *pdu, uint8_t flags);
 size_t udlToBytes(uint8_t udl, int dcs);
 int decodeUserDataHeader(const std::string &data, PduUserDataHeader *header);
 

@@ -14,6 +14,14 @@
 
 int64_t getCurrentTimestamp();
 
+constexpr bool isLittleEndian() {
+	#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+	return true;
+	#else
+	return false;
+	#endif
+}
+
 inline int getNewTimeout(int64_t start, int timeout) {
 	int64_t elapsed = (getCurrentTimestamp() - start);
 	return elapsed > timeout ? 0 : timeout - elapsed;

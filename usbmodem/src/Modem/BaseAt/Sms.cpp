@@ -12,9 +12,7 @@ void BaseAtModem::handleCmt(const std::string &event) {
 		if (!success)
 			return;
 		
-		emit<EvNewSms>({
-			.index = index
-		});
+		emit<EvNewStoredSms>({.index = index});
 	}
 }
 

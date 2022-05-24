@@ -385,8 +385,13 @@ bool ModemService::runModem() {
 		}, 0);
 	});
 	
-	m_modem->on<Modem::EvNewSms>([this](const auto &event) {
-		LOGD("[sms] received new sms!\n");
+	m_modem->on<Modem::EvNewDecodedSms>([this](const auto &event) {
+		LOGD("[sms] received new sms! (decoded)\n");
+		
+	});
+	
+	m_modem->on<Modem::EvNewStoredSms>([this](const auto &event) {
+		LOGD("[sms] received new sms! (stored)\n");
 		Loop::setTimeout([this]() {
 			loadSmsFromModem();
 		}, 0);
