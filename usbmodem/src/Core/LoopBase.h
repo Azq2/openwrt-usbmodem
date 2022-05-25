@@ -9,6 +9,7 @@
 #include <future>
 #include <stdexcept>
 #include <functional>
+#include <optional>
 
 #include "Log.h"
 #include "Utils.h"
@@ -73,7 +74,7 @@ class LoopBase {
 			return !m_run || m_thread_id == std::this_thread::get_id();
 		}
 		
-		std::tuple<bool, std::any> execOnThisThread(const std::function<std::any()> &callback);
+		std::any execOnThisThread(const std::function<std::any()> &callback);
 		int addTimer(const std::function<void()> &callback, int timeout_ms, bool loop);
 		void removeTimer(int id);
 };

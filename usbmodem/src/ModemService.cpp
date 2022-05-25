@@ -429,7 +429,7 @@ bool ModemService::setError(const std::string &code, bool fatal) {
 }
 
 int ModemService::checkError() {
-	if (!m_error_code.size())
+	if (!m_error_code.size() || m_manual_shutdown)
 		return 0;
 	
 	// User callback
@@ -487,13 +487,14 @@ int ModemService::run() {
 	UbusLoop::instance()->init();
 	Loop::instance()->init();
 	
-	auto handler = +[](int sig) {
+	auto handler = [this](int sig) {
 		LOGD("Received signal: %d\n", sig);
+		m_manual_shutdown = true;
 		Loop::instance()->stop();
 		UbusLoop::instance()->stop();
 	};
-	std::signal(SIGINT, handler);
-	std::signal(SIGTERM, handler);
+	setSignalHandler(SIGINT, handler);
+	setSignalHandler(SIGTERM, handler);
 	
 	if (init() && runModem()) {
 		intiUbusApi();

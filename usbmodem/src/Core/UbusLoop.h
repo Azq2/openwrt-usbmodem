@@ -37,9 +37,11 @@ class UbusLoop: public LoopBase {
 		}
 		
 		template <typename T>
-		static inline std::tuple<bool, T> exec(const std::function<T()> &callback) {
-			auto [success, value] = instance()->execOnThisThread(callback);
-			return {success, std::any_cast<T>(value)};
+		static inline std::optional<T> exec(const std::function<T()> &callback) {
+			auto value = instance()->execOnThisThread(callback);
+			if (value.type() == typeid(void))
+				return std::nullopt;
+			return std::any_cast<T>(value);
 		}
 		
 		static inline int setTimeout(const std::function<void()> &callback, int timeout_ms) {

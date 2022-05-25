@@ -36,6 +36,7 @@ class ModemService {
 		std::string m_firewall_zone;
 		std::string m_error_code;
 		bool m_error_fatal = false;
+		bool m_manual_shutdown = false;
 		struct sigaction m_sigaction = {};
 		
 		int64_t m_start_time = 0;

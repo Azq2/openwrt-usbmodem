@@ -23,15 +23,9 @@ void Loop::implRun() {
 	struct pollfd pfd[] = {{.fd = m_waker_r, .events = POLLIN}};
 	
 	while (!m_need_stop) {
-		LOGD("[Loop] m_need_stop=%d\n", m_need_stop);
-		
-		runTimeouts();
-		
 		int timeout = m_next_run - getCurrentTimestamp();
 		if (timeout > 0) {
-			LOGD("[Loop] poll %d\n", timeout);
 			int ret = ::poll(pfd, 1, timeout);
-			LOGD("[Loop] poll end\n");
 			if (ret < 0 && errno != EINTR) {
 				LOGE("poll errno = %d\n", errno);
 				throw std::runtime_error("poll error");
@@ -46,9 +40,9 @@ void Loop::implRun() {
 				while (read(m_waker_r, buf, sizeof(buf)) > 0 || errno == EINTR);
 			}
 		}
+		
+		runTimeouts();
 	}
-	
-	LOGD("Loop done\n");
 }
 
 void Loop::implStop() {

@@ -276,21 +276,29 @@ bool BinaryFileReader::truncate(size_t len) {
 bool BinaryFileReader::read(void *data, size_t len) {
 	uint8_t *data8 = reinterpret_cast<uint8_t *>(data);
 	
-	if (!avail(len))
+	if (!m_fp || !data8 || !len)
 		return false;
 	
+	int err;
 	size_t readed = 0;
-	do {
-		int ret = fread(data8 + readed, 1, len - readed, m_fp);
-		if (ret < 0 && errno != EINTR) {
-			LOGD("fread errno = %d\n", errno);
-			return false;
-		}
-		
-		if (ret >= 0)
-			readed += ret;
-	} while (readed < len);
 	
+	do {
+		readed += fread(data8 + readed, 1, len - readed, m_fp);
+		
+		if (readed == len)
+			return true;
+		
+		err = ferror(m_fp);
+		if (err != EINTR) {
+			if (err) {
+				LOGE("[BinaryFileReader] io error = %d\n", err);
+			} else {
+				LOGE("[BinaryFileReader] unexpected EOF = %d\n", err);
+			}
+		}
+	} while (err == EINTR);
+	
+	return false;
 }
 
 bool BinaryFileReader::skip(size_t len) {
@@ -356,20 +364,27 @@ size_t BinaryFileWriter::offset() {
 bool BinaryFileWriter::write(const void *data, size_t len) {
 	const uint8_t *data8 = reinterpret_cast<const uint8_t *>(data);
 	
-	if (!m_fp)
+	if (!m_fp || !data8 || !len)
 		return false;
 	
+	int err;
 	size_t written = 0;
+	
 	do {
-		int ret = fwrite(data8 + written, 1, len - written, m_fp);
-		if (ret < 0 && errno != EINTR) {
-			LOGD("fwrite errno = %d\n", errno);
-			return false;
-		}
+		written += fwrite(data8 + written, 1, len - written, m_fp);
 		
-		if (ret >= 0)
-			written += ret;
-	} while (written < len);
+		if (written == len)
+			return true;
+		
+		err = ferror(m_fp);
+		if (err != EINTR) {
+			if (err) {
+				LOGE("[BinaryFileWriter] io error = %d\n", err);
+			} else {
+				LOGE("[BinaryFileWriter] unexpected EOF = %d\n", err);
+			}
+		}
+	} while (err == EINTR);
 	
 	return true;
 }

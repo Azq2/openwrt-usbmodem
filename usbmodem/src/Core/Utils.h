@@ -8,9 +8,13 @@
 #include <string>
 #include <cerrno>
 #include <cstdint>
+#include <cstring>
 #include <vector>
+#include <functional>
 
 #define COUNT_OF(a) (sizeof((a)) / sizeof((a)[0]))
+
+void setSignalHandler(int signal, const std::function<void(int)> &callback);
 
 int64_t getCurrentTimestamp();
 

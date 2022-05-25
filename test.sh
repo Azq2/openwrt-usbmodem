@@ -21,7 +21,8 @@ fi
 
 if [[ $TARGET == "" ]]; then
 	#export TARGET=target-mipsel_24kc_musl
-	export TARGET=target-x86_64_musl
+	#export TARGET=target-x86_64_musl
+	export TARGET=target-x86_64_glibc
 fi
 
 export CONFIG_DEBUG=y

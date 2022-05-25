@@ -7,9 +7,11 @@
 #include <algorithm> 
 #include <cctype> 
 #include <cmath> 
+#include <csignal>
 #include <cstring>
 #include <cstdarg>
 #include <stdexcept>
+#include <unordered_map>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -17,6 +19,15 @@
 #include <arpa/inet.h>
 
 using namespace std;
+
+void setSignalHandler(int signal, const std::function<void(int)> &callback) {
+	static std::unordered_map<int, std::function<void(int)>> signal_handlers;
+	std::signal(signal, +[](int signal) {
+		if (signal_handlers.find(signal) != signal_handlers.end())
+			signal_handlers[signal](signal);
+	});
+	signal_handlers[signal] = callback;
+}
 
 int64_t getCurrentTimestamp() {
 	struct timespec tm = {};

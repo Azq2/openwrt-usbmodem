@@ -74,14 +74,10 @@ bool Ubus::unregisterObject(ubus_object *obj) {
 
 bool Ubus::callAsync(const std::string &path, const std::string &method, const json &params, const UbusResponseCallback &callback) {
 	if (!UbusLoop::isOwnThread()) {
-		auto [success, value] = UbusLoop::exec<bool>([=, this]() {
+		auto result = UbusLoop::exec<bool>([=, this]() {
 			return callAsync(path, method, params, callback);
 		});
-		
-		if (!success)
-			return false;
-		
-		return value;
+		return result ? result.value() : false;
 	}
 	
 	uint32_t id;
@@ -118,14 +114,10 @@ bool Ubus::callAsync(const std::string &path, const std::string &method, const j
 
 bool Ubus::call(const std::string &path, const std::string &method, const json &params, const UbusResponseCallback &callback, int timeout) {
 	if (!UbusLoop::isOwnThread()) {
-		auto [success, value] = UbusLoop::exec<bool>([=, this]() {
+		auto result = UbusLoop::exec<bool>([=, this]() {
 			return call(path, method, params, callback, timeout);
 		});
-		
-		if (!success)
-			return false;
-		
-		return value;
+		return result ? result.value() : false;
 	}
 	
 	uint32_t id;

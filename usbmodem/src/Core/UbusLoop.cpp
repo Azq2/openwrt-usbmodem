@@ -35,7 +35,6 @@ void UbusLoop::implSetNextTimeout(int64_t time) {
 
 void UbusLoop::implRun() {
 	uloop_run();
-	LOGD("UbusLoop done\n");
 }
 
 void UbusLoop::implRequestStop() {
