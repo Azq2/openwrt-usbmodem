@@ -20,7 +20,7 @@ static std::vector<Modem::NetworkTech> ALL_NETWORK_TECH_LIST = {
 };
 
 void ModemServiceApi::apiGetModemInfo(std::shared_ptr<UbusRequest> req) {
-	Loop::setTimeout([=, this]() {
+	Loop::setTimeout([=]() {
 		auto [success, modem_info] = m_modem->getModemInfo();
 		if (!success) {
 			reply(req, {
@@ -40,7 +40,7 @@ void ModemServiceApi::apiGetModemInfo(std::shared_ptr<UbusRequest> req) {
 }
 
 void ModemServiceApi::apiGetSimInfo(std::shared_ptr<UbusRequest> req) {
-	Loop::setTimeout([=, this]() {
+	Loop::setTimeout([=]() {
 		auto [success, sim_info] = m_modem->getSimInfo();
 		if (!success) {
 			reply(req, {
@@ -58,7 +58,7 @@ void ModemServiceApi::apiGetSimInfo(std::shared_ptr<UbusRequest> req) {
 }
 
 void ModemServiceApi::apiGetNetworkInfo(std::shared_ptr<UbusRequest> req) {
-	Loop::setTimeout([=, this]() {
+	Loop::setTimeout([=]() {
 		auto [success, net_info] = m_modem->getNetworkInfo();
 		if (!success) {
 			reply(req, {
@@ -125,11 +125,11 @@ void ModemServiceApi::apiSendUssd(std::shared_ptr<UbusRequest> req) {
 		query = getStrArg(params, "query", "");
 	}
 	
-	Loop::setTimeout([=, this]() {
+	Loop::setTimeout([=]() {
 		if (!is_answer && m_modem->isUssdWaitReply())
 			m_modem->cancelUssd();
 		
-		bool success = m_modem->sendUssd(query, [=, this](Modem::UssdCode code, const std::string &response) {
+		bool success = m_modem->sendUssd(query, [=](Modem::UssdCode code, const std::string &response) {
 			if (code == Modem::USSD_ERROR) {
 				reply(req, {{"error", response}});
 			} else {
@@ -146,7 +146,7 @@ void ModemServiceApi::apiSendUssd(std::shared_ptr<UbusRequest> req) {
 }
 
 void ModemServiceApi::apiCancelUssd(std::shared_ptr<UbusRequest> req) {
-	Loop::setTimeout([=, this]() {
+	Loop::setTimeout([=]() {
 		if (!m_modem->cancelUssd()) {
 			reply(req, {{"error", "Can't cancel USSD."}});
 		} else {
@@ -166,7 +166,7 @@ void ModemServiceApi::apiSendCommand(std::shared_ptr<UbusRequest> req) {
 		return;
 	}
 	
-	Loop::setTimeout([=, this]() {
+	Loop::setTimeout([=]() {
 		auto [success, response] = m_modem->sendAtCommand(cmd, timeout);
 		reply(req, {
 			{"success", success},
@@ -176,7 +176,7 @@ void ModemServiceApi::apiSendCommand(std::shared_ptr<UbusRequest> req) {
 }
 
 void ModemServiceApi::apiReadSms(std::shared_ptr<UbusRequest> req) {
-	static std::map<std::string, SmsDb::SmsType> sms_types = {
+	static const std::map<std::string, SmsDb::SmsType> sms_types = {
 		{"incoming", SmsDb::SMS_INCOMING},
 		{"outgoing", SmsDb::SMS_OUTGOING},
 		{"draft", SmsDb::SMS_DRAFT},
@@ -186,9 +186,9 @@ void ModemServiceApi::apiReadSms(std::shared_ptr<UbusRequest> req) {
 	int offset = getIntArg(params, "offset", 0);
 	int limit = getIntArg(params, "limit", 100);
 	std::string type_name = getStrArg(params, "type", "incoming");
-	SmsDb::SmsType type = sms_types.find(type_name) != sms_types.end() ? sms_types[type_name] : SmsDb::SMS_INCOMING;
+	SmsDb::SmsType type = sms_types.find(type_name) != sms_types.end() ? sms_types.at(type_name) : SmsDb::SMS_INCOMING;
 	
-	Loop::setTimeout([=, this]() {
+	Loop::setTimeout([=]() {
 		auto list = m_sms->getSmsList(type, offset, limit);
 		
 		json response = {
@@ -249,7 +249,7 @@ void ModemServiceApi::apiDeleteSms(std::shared_ptr<UbusRequest> req) {
 		message_ids.push_back(item.get<int>());
 	}
 	
-	Loop::setTimeout([=, this]() {
+	Loop::setTimeout([=]() {
 		json response = {
 			{"result", json::object()},
 			{"errors", json::object()},
@@ -269,7 +269,7 @@ void ModemServiceApi::apiDeleteSms(std::shared_ptr<UbusRequest> req) {
 }
 
 void ModemServiceApi::apiSearchOperators(std::shared_ptr<UbusRequest> req) {
-	Loop::setTimeout([=, this]() {
+	Loop::setTimeout([=]() {
 		auto [success, list] = m_modem->searchOperators();
 		if (!success) {
 			reply(req, {
@@ -311,7 +311,7 @@ void ModemServiceApi::apiSetOperator(std::shared_ptr<UbusRequest> req) {
 	
 	LOGD("apiSetOperator!!!!!!!!!!\n");
 	
-	Loop::setTimeout([=, this]() {
+	Loop::setTimeout([=]() {
 		json response = {{"success", false}};
 		if (mode == "manual") {
 			response["success"] = m_modem->setOperator(Modem::OPERATOR_REG_MANUAL, mcc, mnc, tech);
@@ -355,7 +355,7 @@ void ModemServiceApi::apiGetSettings(std::shared_ptr<UbusRequest> req) {
 	
 	std::string deferred_id = enableDefferedResult(req, async);
 	
-	Loop::setTimeout([=, this]() {
+	Loop::setTimeout([=]() {
 		json response = {};
 		response["network_modes"] = json::array();
 		
@@ -389,7 +389,7 @@ void ModemServiceApi::apiSetNetworkMode(std::shared_ptr<UbusRequest> req) {
 	
 	std::string deferred_id = enableDefferedResult(req, async);
 	
-	Loop::setTimeout([=, this]() {
+	Loop::setTimeout([=]() {
 		json response = {{"success", true}};
 		
 		if (!m_modem->setNetworkMode(mode_id)) {
@@ -416,7 +416,7 @@ void ModemServiceApi::reply(std::shared_ptr<UbusRequest> req, json result, int s
 		m_deferred_results[req->uniqKey()].result = result;
 		m_deferred_results[req->uniqKey()].status = status;
 	} else {
-		UbusLoop::setTimeout([=, this]() {
+		UbusLoop::setTimeout([=]() {
 			req->reply(result, status);
 		}, 0);
 	}

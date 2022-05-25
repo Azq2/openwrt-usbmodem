@@ -12,7 +12,7 @@ void BaseAtModem::handleUssdResponse(int code, const std::string &data, int dcs)
 	if (m_ussd_callback) {
 		uint32_t current_req = m_ussd_request_id;
 		
-		Loop::setTimeout([=, this]() {
+		Loop::setTimeout([=]() {
 			if (current_req == m_ussd_request_id) {
 				auto callback = m_ussd_callback;
 				Loop::clearTimeout(m_ussd_timeout);

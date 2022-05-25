@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <poll.h>
+#include <unistd.h>
 #include <stdexcept>
 
 Loop *Loop::m_instance = nullptr;
