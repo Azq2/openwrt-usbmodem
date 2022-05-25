@@ -137,6 +137,11 @@ class Modem {
 			OPERATOR_STATUS_FORBIDDEN	= 3,
 		};
 		
+		struct NetworkCell {
+			uint16_t loc_id = 0;
+			uint16_t cell_id = 0;
+		};
+		
 		enum OperatorRegMode {
 			OPERATOR_REG_NONE		= 0,
 			OPERATOR_REG_AUTO		= 1,
@@ -176,6 +181,7 @@ class Modem {
 			NetworkTech tech = TECH_NO_SERVICE;
 			NetworkSignal signal;
 			Operator oper;
+			NetworkCell cell;
 		};
 		
 		struct ModemInfo {

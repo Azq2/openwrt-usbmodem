@@ -5,12 +5,13 @@ std::tuple<bool, BaseAtModem::NetworkInfo> BaseAtModem::getNetworkInfo() {
 	auto [success, oper] = getCurrentOperator();
 	
 	return {true, {
-		.ipv4	= m_ipv4,
-		.ipv6	= m_ipv6,
-		.reg	= m_net_reg,
-		.tech	= m_tech,
-		.signal	= m_signal,
-		.oper	= oper
+		.ipv4		= m_ipv4,
+		.ipv6		= m_ipv6,
+		.reg		= m_net_reg,
+		.tech		= m_tech,
+		.signal		= m_signal,
+		.oper		= oper,
+		.cell		= m_cell_info
 	}};
 }
 
@@ -235,18 +236,26 @@ void BaseAtModem::handleNetworkChange() {
 	if (m_cereg.isRegistered()) {
 		new_tech = m_cereg.toNetworkTech();
 		new_net_reg = m_cereg.toNetworkReg();
+		m_cell_info.cell_id = m_cereg.cell_id;
+		m_cell_info.loc_id = m_cereg.loc_id;
 		is_registered = true;
 	} else if (m_cgreg.isRegistered()) {
 		new_tech = m_cgreg.toNetworkTech();
 		new_net_reg = m_cgreg.toNetworkReg();
+		m_cell_info.cell_id = m_cgreg.cell_id;
+		m_cell_info.loc_id = m_cgreg.loc_id;
 		is_registered = true;
 	} else if (m_creg.isRegistered()) {
 		new_tech = m_creg.toNetworkTech();
 		new_net_reg = m_creg.toNetworkReg();
+		m_cell_info.cell_id = m_creg.cell_id;
+		m_cell_info.loc_id = m_creg.loc_id;
 		is_registered = true;
 	} else {
 		new_tech = TECH_NO_SERVICE;
 		new_net_reg = m_creg.toNetworkReg();
+		m_cell_info.cell_id = 0;
+		m_cell_info.loc_id = 0;
 	}
 	
 	if (m_net_reg != new_net_reg) {

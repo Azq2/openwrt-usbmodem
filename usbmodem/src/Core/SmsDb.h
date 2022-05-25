@@ -5,7 +5,7 @@
 
 #include <vector>
 #include <functional>
-#include <unordered_map>
+#include <map>
 
 class SmsDb {
 	public:
@@ -67,9 +67,11 @@ class SmsDb {
 		int m_global_sms_id = 0;
 		bool m_inited = false;
 		StorageType m_storage_type = STORAGE_FILESYSTEM;
+		std::string m_db_filename = "/tmp/sms.dat";
+		std::string m_tmp_filename = "/tmp/sms.dat.tmp";
 		
-		std::unordered_map<int, Sms> m_storage;
-		std::unordered_map<SmsType, std::vector<int>> m_list = {
+		std::map<int, Sms, std::less<int>> m_storage;
+		std::map<SmsType, std::vector<int>> m_list = {
 			{SMS_INCOMING, {}},
 			{SMS_OUTGOING, {}},
 			{SMS_DRAFT, {}},
@@ -77,9 +79,10 @@ class SmsDb {
 		
 		RemoveSmsCallback m_remove_sms_callback;
 		
-		Sms *findSameSms(const RawSms &same);
+		Sms *findSameSms(const RawSms &raw);
 		bool serialize(BinaryFileWriter *writer);
 		bool unserialize(BinaryFileReader *reader);
+		void addToList(Sms *sms);
 	public:
 		SmsDb() { }
 		
@@ -91,8 +94,24 @@ class SmsDb {
 		bool add(const RawSms &raw);
 		bool add(const std::vector<RawSms> &list);
 		
+		int getUnreadCount();
+		
 		inline void setStorageType(StorageType storage) {
 			m_storage_type = storage;
+		}
+		
+		inline StorageType getStorageType() {
+			return m_storage_type;
+		}
+		
+		const char *getStorageTypeName();
+		
+		inline void setDbFile(const std::string &filename) {
+			m_db_filename = filename;
+		}
+		
+		inline void setTmpFile(const std::string &filename) {
+			m_tmp_filename = filename;
 		}
 		
 		inline int getSmsCount(SmsType type) {
@@ -103,9 +122,7 @@ class SmsDb {
 			m_capacity = capacity;
 		}
 		
-		inline int getMaxCapacity() {
-			return m_capacity;
-		}
+		int getMaxCapacity();
 		
 		inline int getUsedCapacity() {
 			return m_used_capacity;
@@ -121,8 +138,8 @@ class SmsDb {
 			m_remove_sms_callback = callback;
 		}
 		
-		bool load(const std::string &filename);
-		bool save(const std::string &filename);
+		bool load();
+		bool save();
 };
 
 DEFINE_ENUM_BIT_OPERATORS(SmsDb::SmsFlags);

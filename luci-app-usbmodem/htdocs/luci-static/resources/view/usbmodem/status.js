@@ -45,11 +45,8 @@ return view.extend({
 			_('Network type'), usbmodem.TECH[network.tech]
 		];
 		
-		if (network.operator.registration != "NONE") {
-			let code = '%03d%02d'.format(network.operator.mcc, network.operator.mnc);
-			net_section.push(_('Operator code'), code);
+		if (network.operator.registration != "NONE")
 			net_section.push(_('Operator name'), network.operator.name + (network.operator.registration == 'MANUAL' ? _(' (manual)') : ''));
-		}
 		
 		if (network.signal.rssi_dbm !== null) {
 			let title = _('%s dBm (%d%%)').format(network.signal.rssi_dbm, network.signal.quality);
@@ -65,6 +62,16 @@ return view.extend({
 			net_section.push(_("Ec/io"), _('%s dB').format(network.signal.ecio_db));
 		if (network.signal.bit_err_pct !== null)
 			net_section.push(_("Bit errors"), '%s%%'.format(network.signal.bit_err_pct));
+		
+		let cell_section = [];
+		if (network.operator.registration != "NONE") {
+			cell_section.push(_('MCC / MNC'), '%03d / %02d'.format(network.operator.mcc, network.operator.mnc));
+			
+			if (network.cell.loc_id || network.cell.cell_id) {
+				cell_section.push(_('LAC'), '%d (%x)'.format(network.cell.loc_id, network.cell.loc_id));
+				cell_section.push(_('CID'), '%d (%x)'.format(network.cell.cell_id, network.cell.cell_id));
+			}
+		}
 		
 		let ipv4_section = [];
 		if (network.ipv4.ip) {
@@ -110,6 +117,7 @@ return view.extend({
 		return E('div', {}, [
 			section_modem.length > 0 ? usbmodem.view.renderTable(_('Modem'), section_modem) : '',
 			net_section.length > 0 ? usbmodem.view.renderTable(_('Network'), net_section) : '',
+			cell_section.length > 0 ? usbmodem.view.renderTable(_('Cell'), cell_section) : '',
 			sim_section.length > 0 ? usbmodem.view.renderTable(_('SIM'), sim_section) : '',
 			ipv4_section.length > 0 ? usbmodem.view.renderTable(_('IPv4'), ipv4_section) : '',
 			ipv6_section.length > 0 ? usbmodem.view.renderTable(_('IPv6'), ipv6_section) : '',

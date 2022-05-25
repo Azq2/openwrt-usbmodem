@@ -70,8 +70,6 @@ void AtChannel::resetUnsolicitedHandlers() {
 void AtChannel::readerLoop() {
 	char tmp[256];
 	
-	m_stop = false;
-	
 	while (!m_stop) {
 		int readed = m_serial->readChunk(tmp, sizeof(tmp), 30000);
 		if (m_stop)
@@ -211,8 +209,6 @@ bool AtChannel::checkCommandExists(const std::string &cmd, int timeout) {
 }
 
 int AtChannel::sendCommand(ResultType type, const std::string &cmd, const std::string &prefix, Response *response, int timeout) {
-	at_cmd_mutex.lock();
-	
 	if ((type == DEFAULT || type == MULTILINE) && prefix == "")
 		type = NO_RESPONSE;
 	
@@ -227,6 +223,8 @@ int AtChannel::sendCommand(ResultType type, const std::string &cmd, const std::s
 		if (!timeout)
 			timeout = m_default_at_timeout;
 	}
+	
+	at_cmd_mutex.lock();
 	
 	int64_t start = getCurrentTimestamp();
 	

@@ -19,9 +19,10 @@ let RE_GSM7_CHARS = new RegExp('^[' + GSM7_CHARS.join('') + ']+$', '');
 let RE_GSM7_ESC_CHARS = /([\f^{}\\\[~\]\|€])/g;
 
 let SMS_MEMORY_NAMES = {
-	SM:		_("SIM Memory"),
-	ME:		_("Modem Memory"),
-	MT:		_("Modem + SIM Memory")
+	FILESYSTEM:		_("Router Memory"),
+	SIM:			_("SIM Memory"),
+	MODEM:			_("Modem Memory"),
+	SIM_AND_MODEM:	_("Modem + SIM Memory")
 };
 
 function progressbar(value, max, byte) {

@@ -7,6 +7,10 @@ PKG_LICENSE:=GPLv2
 include $(INCLUDE_DIR)/package.mk
 include $(INCLUDE_DIR)/cmake.mk
 
+ifneq ($(CONFIG_DEBUG),)
+	CMAKE_OPTIONS += -DCMAKE_BUILD_TYPE=Debug
+endif
+
 define Package/usbmodem
 	SECTION:=net
 	CATEGORY:=Network

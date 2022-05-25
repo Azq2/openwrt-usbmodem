@@ -24,7 +24,7 @@ class Serial {
 		
 		static speed_t getBaudrate(int speed);
 		
-		int open(std::string device, int speed);
+		int open(const std::string &device, int speed);
 		int close();
 		void breakTransfer();
 		

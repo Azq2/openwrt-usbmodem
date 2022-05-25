@@ -95,6 +95,10 @@ void ModemServiceApi::apiGetNetworkInfo(std::shared_ptr<UbusRequest> req) {
 				{"rsrp_dbm", net_info.signal.rsrp_dbm},
 				{"quality", quality}
 			}},
+			{"cell", {
+				{"cell_id", net_info.cell.cell_id},
+				{"loc_id", net_info.cell.loc_id},
+			}},
 			{"operator", {
 				{"registration", Modem::getEnumName(net_info.oper.reg)},
 				{"mcc", net_info.oper.mcc},
@@ -172,12 +176,6 @@ void ModemServiceApi::apiSendCommand(std::shared_ptr<UbusRequest> req) {
 }
 
 void ModemServiceApi::apiReadSms(std::shared_ptr<UbusRequest> req) {
-	static std::map<Modem::SmsStorage, std::string> storage_names = {
-		{Modem::SMS_STORAGE_MT, "MT"},
-		{Modem::SMS_STORAGE_ME, "ME"},
-		{Modem::SMS_STORAGE_SM, "SM"},
-	};
-	
 	static std::map<std::string, SmsDb::SmsType> sms_types = {
 		{"incoming", SmsDb::SMS_INCOMING},
 		{"outgoing", SmsDb::SMS_OUTGOING},
@@ -203,7 +201,7 @@ void ModemServiceApi::apiReadSms(std::shared_ptr<UbusRequest> req) {
 				{"outgoing", m_sms->getSmsCount(SmsDb::SMS_OUTGOING)},
 				{"draft", m_sms->getSmsCount(SmsDb::SMS_DRAFT)}
 			}},
-			{"storage", "SM"},
+			{"storage", m_sms->getStorageTypeName()},
 			{"messages", json::array()}
 		};
 		

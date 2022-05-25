@@ -120,6 +120,7 @@ class BaseAtModem: public Modem {
 		NetworkSignal m_signal = {};
 		NetworkTech m_tech = TECH_NO_SERVICE;
 		NetworkReg m_net_reg = NET_NOT_REGISTERED;
+		NetworkCell m_cell_info = {};
 		
 		int m_connect_timeout = 0;
 		int m_connect_timeout_id = -1;

@@ -114,7 +114,7 @@ class BinaryBufferReader: public BinaryReaderBase {
 		size_t m_size = 0;
 		size_t m_offset = 0;
 	public:
-		BinaryBufferReader(const std::string &buffer) {
+		explicit BinaryBufferReader(const std::string &buffer) {
 			setData(buffer);
 		}
 		
@@ -154,7 +154,7 @@ class BinaryFileReader: public BinaryReaderBase {
 		FILE *m_fp = nullptr;
 		size_t m_size = 0;
 	public:
-		BinaryFileReader(FILE *fp) {
+		explicit BinaryFileReader(FILE *fp) {
 			setFile(fp);
 		}
 		
@@ -174,7 +174,7 @@ class BinaryBufferWriter: public BinaryWriterBase {
 		std::vector<uint8_t> m_buffer;
 		size_t m_offset = 0;
 	public:
-		const uint8_t *buffer() {
+		const uint8_t *buffer() const {
 			return &m_buffer[0];
 		}
 		
@@ -187,7 +187,7 @@ class BinaryFileWriter: public BinaryWriterBase {
 	protected:
 		FILE *m_fp = nullptr;
 	public:
-		BinaryFileWriter(FILE *fp) {
+		explicit BinaryFileWriter(FILE *fp) {
 			setFile(fp);
 		}
 		

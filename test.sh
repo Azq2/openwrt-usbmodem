@@ -15,8 +15,16 @@ fi
 
 if [[ $TEST_ROUTER == "" ]]; then
 	# Test router
-	TEST_ROUTER=root@192.168.2.1
+	#TEST_ROUTER=root@192.168.2.1
+	TEST_ROUTER=root@192.168.122.91
 fi
+
+if [[ $TARGET == "" ]]; then
+	#export TARGET=target-mipsel_24kc_musl
+	export TARGET=target-x86_64_musl
+fi
+
+export CONFIG_DEBUG=y
 
 export PATH="$PATH:$TOPDIR/staging_dir/host/bin"
 
@@ -44,7 +52,7 @@ if [[ $MODE == "test" ]]; then
 	ssh $TEST_ROUTER killall -9 /tmp/usbmodem-test
 	ssh $TEST_ROUTER killall -9 /tmp/usbmodem-test
 	ssh $TEST_ROUTER killall -9 /tmp/usbmodem-test
-	scp -r $TOPDIR/build_dir/*/usbmodem/ipkg-install/usr/sbin/usbmodem "$TEST_ROUTER:/tmp/usbmodem-test"
+	scp -r $TOPDIR/build_dir/$TARGET/usbmodem/ipkg-install/usr/sbin/usbmodem "$TEST_ROUTER:/tmp/usbmodem-test"
 	echo ""
 	echo ""
 	echo ""
@@ -91,7 +99,7 @@ install_file $DIR/usbmodem/files/usbmodem.user												/etc/usbmodem.sh
 install_file $DIR/usbmodem/files/usbmodem.usb												/etc/hotplug.d/tty/30-usbmodem
 
 ssh $TEST_ROUTER killall -9 usbmodem
-install_file $TOPDIR/build_dir/*/usbmodem/ipkg-install/usr/sbin/usbmodem					/usr/sbin/usbmodem
+install_file $TOPDIR/build_dir/$TARGET/usbmodem/ipkg-install/usr/sbin/usbmodem					/usr/sbin/usbmodem
 
 if [[ $NEED_SETUP != "0" ]];
 then

@@ -226,13 +226,19 @@ bool BinaryBufferReader::skip(size_t len) {
  * BinaryFileReader
  * */
 bool BinaryFileReader::setFile(FILE *fp) {
+	struct stat st;
+	int ret;
+	
 	if (!fp)
 		return false;
 	
 	rewind(fp);
 	
-	struct stat st;
-	if (fstat(fileno(fp), &st) != 0)
+	do {
+		ret = fstat(fileno(fp), &st);
+	} while (ret < 0 && errno == EINTR);
+	
+	if (ret != 0)
 		return false;
 	
 	m_fp = fp;
@@ -268,9 +274,23 @@ bool BinaryFileReader::truncate(size_t len) {
 }
 
 bool BinaryFileReader::read(void *data, size_t len) {
+	uint8_t *data8 = reinterpret_cast<uint8_t *>(data);
+	
 	if (!avail(len))
 		return false;
-	return fread(data, len, 1, m_fp) == 1;
+	
+	size_t readed = 0;
+	do {
+		int ret = fread(data8 + readed, 1, len - readed, m_fp);
+		if (ret < 0 && errno != EINTR) {
+			LOGD("fread errno = %d\n", errno);
+			return false;
+		}
+		
+		if (ret >= 0)
+			readed += ret;
+	} while (readed < len);
+	
 }
 
 bool BinaryFileReader::skip(size_t len) {
@@ -309,20 +329,47 @@ bool BinaryFileWriter::setFile(FILE *fp) {
 
 size_t BinaryFileWriter::size() {
 	struct stat st;
-	if (fstat(fileno(m_fp), &st) != 0)
+	int ret;
+	
+	do {
+		ret = fstat(fileno(m_fp), &st);
+	} while (ret < 0 && errno == EINTR);
+	
+	if (ret != 0)
 		return 0;
+	
 	return st.st_size;
 }
 
 size_t BinaryFileWriter::offset() {
 	if (!m_fp)
 		return 0;
-	auto ret = ftell(m_fp);
+	
+	long int ret;
+	do {
+		ret = ftell(m_fp);
+	} while (ret < 0 && errno == EINTR);
+	
 	return ret < 0 ? std::string::npos : ret;
 }
 
 bool BinaryFileWriter::write(const void *data, size_t len) {
+	const uint8_t *data8 = reinterpret_cast<const uint8_t *>(data);
+	
 	if (!m_fp)
 		return false;
-	return fwrite(data, len, 1, m_fp) == 1;
+	
+	size_t written = 0;
+	do {
+		int ret = fwrite(data8 + written, 1, len - written, m_fp);
+		if (ret < 0 && errno != EINTR) {
+			LOGD("fwrite errno = %d\n", errno);
+			return false;
+		}
+		
+		if (ret >= 0)
+			written += ret;
+	} while (written < len);
+	
+	return true;
 }

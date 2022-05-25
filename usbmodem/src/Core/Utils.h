@@ -15,11 +15,7 @@
 int64_t getCurrentTimestamp();
 
 constexpr bool isLittleEndian() {
-	#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-	return true;
-	#else
-	return false;
-	#endif
+	return __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__;
 }
 
 inline int getNewTimeout(int64_t start, int timeout) {

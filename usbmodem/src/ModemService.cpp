@@ -1,7 +1,7 @@
 #include "ModemService.h"
 
 #include <vector>
-#include <signal.h>
+#include <csignal>
 #include <Core/Uci.h>
 #include <Core/UbusLoop.h>
 
@@ -201,7 +201,7 @@ void ModemService::loadSmsFromModem() {
 				m_sms.setStorageType(SmsDb::STORAGE_FILESYSTEM);
 				m_sms.init();
 				
-				if (!m_sms.load("/tmp/sms.dat")) {
+				if (!m_sms.load()) {
 					LOGE("[sms] Failed to load sms database.\n");
 				}
 			}
@@ -209,7 +209,7 @@ void ModemService::loadSmsFromModem() {
 			// Loading all messages to DB
 			auto [success, messages] = m_modem->getSmsList(Modem::SMS_LIST_ALL);
 			if (success && m_sms.add(messages)) {
-				if (m_sms.save("/tmp/sms.dat")) {
+				if (m_sms.save()) {
 					// And now deleting all read SMS, because we need enough storage for new messages
 					if (!m_modem->deleteReadedSms())
 						LOGE("[sms] Failed to delete already readed SMS.\n");
@@ -219,9 +219,6 @@ void ModemService::loadSmsFromModem() {
 			} else {
 				LOGE("[sms] Failed to load exists messages from sim/modem.\n");
 			}
-			
-			// Sync on filesystem
-			m_sms.save("/tmp/sms.dat");
 		}
 		break;
 	}
@@ -489,6 +486,14 @@ void ModemService::intiUbusApi() {
 int ModemService::run() {
 	UbusLoop::instance()->init();
 	Loop::instance()->init();
+	
+	auto handler = +[](int sig) {
+		LOGD("Received signal: %d\n", sig);
+		Loop::instance()->stop();
+		UbusLoop::instance()->stop();
+	};
+	std::signal(SIGINT, handler);
+	std::signal(SIGTERM, handler);
 	
 	if (init() && runModem()) {
 		intiUbusApi();

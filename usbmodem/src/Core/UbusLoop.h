@@ -16,9 +16,11 @@ class UbusLoop: public LoopBase {
 		uloop_timeout m_main_timeout = {};
 		struct uloop_fd m_waker = {};
 		
+		const char *name() override;
 		void implInit() override;
 		void implSetNextTimeout(int64_t time) override;
 		void implRun() override;
+		void implRequestStop() override;
 		void implStop() override;
 		void implDestroy() override;
 	
@@ -35,9 +37,9 @@ class UbusLoop: public LoopBase {
 		}
 		
 		template <typename T>
-		static inline T exec(const std::function<T()> &callback) {
-			auto value = instance()->execOnThisThread(callback);
-			return std::any_cast<T>(value);
+		static inline std::tuple<bool, T> exec(const std::function<T()> &callback) {
+			auto [success, value] = instance()->execOnThisThread(callback);
+			return {success, std::any_cast<T>(value)};
 		}
 		
 		static inline int setTimeout(const std::function<void()> &callback, int timeout_ms) {

@@ -39,7 +39,7 @@ int Serial::close() {
 	return 0;
 }
 
-int Serial::open(std::string device, int speed) {
+int Serial::open(const std::string &device, int speed) {
 	if (pipe2(m_wake_fds, O_CLOEXEC | O_NONBLOCK) < 0) {
 		LOGE("pipe2() failed, error = %d\n", errno);
 		close();

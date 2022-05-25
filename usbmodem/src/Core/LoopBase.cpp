@@ -29,6 +29,10 @@ void LoopBase::run() {
 		m_run = false;
 	}
 	
+	for (auto &promise: m_promises) {
+		promise.set_value(PromiseTimeout({}));
+	}
+	
 	implStop();
 }
 
@@ -47,24 +51,36 @@ void LoopBase::destroy() {
 }
 
 void LoopBase::stop() {
+	LOGD("stop\n");
 	m_need_stop = true;
-	wake();
+	implRequestStop();
 }
 
 void LoopBase::runTimeouts() {
-	if (m_need_stop)
+	LOGD("[%s] runTimeouts start\n", name());
+	if (m_need_stop) {
+		LOGD("[%s] runTimeouts end (m_need_stop)\n", name());
 		return;
+	}
 	
+	LOGD("[%s] m_mutex lock\n", name());
 	m_mutex.lock();
 	auto next_timer = (m_list.size() > 0 ? m_list.front() : nullptr);
 	m_mutex.unlock();
+	LOGD("[%s] m_mutex unlock\n", name());
 	
-	if (!next_timer)
+	if (!next_timer) {
+		LOGD("[%s] runTimeouts end (!next_timer)\n", name());
+		implSetNextTimeout(getCurrentTimestamp() + 60000);
 		return;
+	}
 	
 	if (next_timer->time - getCurrentTimestamp() <= 0) {
-		if (!(next_timer->flags & TIMER_CANCEL))
+		if (!(next_timer->flags & TIMER_CANCEL)) {
+			LOGD("[%s] callback run\n", name());
 			next_timer->callback();
+			LOGD("[%s] callback end\n", name());
+		}
 		
 		if ((next_timer->flags & TIMER_LOOP) && !(next_timer->flags & TIMER_CANCEL)) {
 			m_mutex.lock();
@@ -83,8 +99,12 @@ void LoopBase::runTimeouts() {
 		m_mutex.unlock();
 	}
 	
-	if (next_timer)
+	if (next_timer) {
 		implSetNextTimeout(next_timer->time);
+	} else {
+		implSetNextTimeout(getCurrentTimestamp() + 60000);
+	}
+	LOGD("[%s] runTimeouts end\n", name());
 }
 
 void LoopBase::addTimerToQueue(std::shared_ptr<Timer> new_timer) {
@@ -145,19 +165,35 @@ int LoopBase::addTimer(const std::function<void()> &callback, int timeout_ms, bo
 	return id;
 }
 
-std::any LoopBase::execOnThisThread(const std::function<std::any()> &callback) {
+std::tuple<bool, std::any> LoopBase::execOnThisThread(const std::function<std::any()> &callback) {
 	if (!checkThreadId()) {
-		std::promise<std::any> promise;
+		m_mutex.lock();
+		m_promises.resize(m_promises.size() + 1);
+		auto &promise = m_promises.back();
+		auto promise_it = --m_promises.end();
+		m_mutex.unlock();
 		
-		addTimer([&promise, &callback]() {
+		LOGD("[%s] wait for own thread\n", name());
+		addTimer([this, &promise, &callback]() {
+			LOGD("[%s] exec on own thread\n", name());
 			promise.set_value(callback());
 		}, 0, false);
 		
 		auto future = promise.get_future();
 		future.wait();
-		return future.get();
+		auto value = future.get();
+		
+		m_mutex.lock();
+		m_promises.erase(promise_it);
+		m_mutex.unlock();
+		
+		if (value.type() == typeid(PromiseTimeout)) {
+			LOGD("[%s] promise timeout\n", name());
+		}
+		
+		return {true, value};
 	} else {
-		return callback();
+		return {true, callback()};
 	}
 }
 

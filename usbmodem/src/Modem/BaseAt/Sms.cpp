@@ -152,7 +152,7 @@ bool BaseAtModem::findBestSmsStorage(bool prefer_sim) {
 		return false;
 	
 	// Nothing to choose
-	if (m_sms_all_storages[0].size() == 1 && m_sms_all_storages[0].size() == 1 && m_sms_all_storages[0].size() == 1) {
+	if (m_sms_all_storages[0].size() == 1 && m_sms_all_storages[1].size() == 1 && m_sms_all_storages[2].size() == 1) {
 		m_sms_mem[0] = m_sms_all_storages[0][0];
 		m_sms_mem[1] = m_sms_all_storages[1][0];
 		m_sms_mem[2] = m_sms_all_storages[2][0];

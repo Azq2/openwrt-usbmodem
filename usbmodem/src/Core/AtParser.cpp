@@ -94,12 +94,13 @@ bool AtParser::parseNextNewLine() {
 bool AtParser::parseNextList(std::vector<std::string> *values) {
 	const char *start, *end;
 	int count = 0;
+	const char *orig = m_cursor;
 	do {
 		count++;
 		
 		m_cursor = parseNextArg(m_cursor, &start, &end);
 		if (!m_cursor) {
-			LOGE("AtParser:%s: can't parse #%d argument in '%s'\n", __FUNCTION__, count, m_cursor);
+			LOGE("AtParser:%s: can't parse #%d argument in '%s'\n", __FUNCTION__, count, orig);
 			m_success = false;
 			return false;
 		}

@@ -1,19 +1,15 @@
 #include "UbusLoop.h"
 
 #include <fcntl.h>
-#include <csignal>
 #include <stdexcept>
 
 UbusLoop *UbusLoop::m_instance = nullptr;
 
+const char *UbusLoop::name() {
+	return "UbusLoop";
+}
+
 void UbusLoop::implInit() {
-	auto handler = +[](int sig) {
-		LOGD("Received signal: %d\n", sig);
-		instance()->stop();
-	};
-	std::signal(SIGINT, handler);
-	std::signal(SIGTERM, handler);
-	
 	if (uloop_init() < 0)
 		throw std::runtime_error("uloop_init error");
 	
@@ -39,15 +35,20 @@ void UbusLoop::implSetNextTimeout(int64_t time) {
 
 void UbusLoop::implRun() {
 	uloop_run();
+	LOGD("UbusLoop done\n");
+}
+
+void UbusLoop::implRequestStop() {
+	uloop_end();
 }
 
 void UbusLoop::implStop() {
-	uloop_done();
+	
 }
 
 void UbusLoop::implDestroy() {
 	uloop_fd_delete(&m_waker);
-	uloop_end();
+	uloop_done();
 }
 
 UbusLoop *UbusLoop::instance() {
