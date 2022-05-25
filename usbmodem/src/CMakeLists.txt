@@ -3,8 +3,10 @@ set(CMAKE_CXX_STANDARD 20)
 
 project(usbmodem)
 
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_RELEASE} -g -Werror -Wno-switch -Wno-sign-compare -Wall -Os")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_RELEASE} -g -Werror -Wno-switch -Wno-sign-compare -Wall -Os")
+set(DEBUG_SATINIZE "-fsanitize=address")
+
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_RELEASE} -g -Werror -Wno-switch -Wno-sign-compare -Wall -O1 ${DEBUG_SATINIZE}")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_RELEASE} -g -Werror -Wno-switch -Wno-sign-compare -Wall -O1 ${DEBUG_SATINIZE}")
 
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -s -Os -Wl,--gc-sections -fdata-sections -ffunction-sections -flto")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -s -Os -Wl,--gc-sections -fdata-sections -ffunction-sections -flto")
@@ -49,7 +51,6 @@ add_executable(usbmodem
 	Core/Semaphore.cpp
 )
 target_include_directories(usbmodem PUBLIC .)
-target_link_libraries(usbmodem -lubox -lubus -luci -lstdc++ -lstdc++fs -lz)
+target_link_libraries(usbmodem -lubox -lubus -luci -lstdc++ -lstdc++fs)
 install(TARGETS usbmodem DESTINATION sbin/)
-
-# target_precompile_headers(usbmodem PUBLIC Json.h)
+# target_precompile_headers(usbmodem PUBLIC Core/Json.h)

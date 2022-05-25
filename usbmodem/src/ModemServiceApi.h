@@ -35,16 +35,22 @@ class ModemServiceApi {
 		void initApiRequest(std::shared_ptr<UbusRequest> req);
 		
 		inline std::string getStrArg(const json &params, std::string key, std::string default_value = "") {
+			if (!params.contains(key))
+				return default_value;
 			return params[key].is_string() ? params[key].get<std::string>() : default_value;
 		}
 		
 		inline int getIntArg(const json &params, std::string key, int default_value = 0) {
+			if (!params.contains(key))
+				return default_value;
 			if (params[key].is_string())
 				return strToInt(params[key].get<std::string>(), 10, 0);
 			return params[key].is_number() ? params[key].get<int>() : default_value;
 		}
 		
 		inline bool getBoolArg(const json &params, std::string key, bool default_value = false) {
+			if (!params.contains(key))
+				return default_value;
 			return params[key].is_boolean() ? params[key].get<bool>() : default_value;
 		}
 		

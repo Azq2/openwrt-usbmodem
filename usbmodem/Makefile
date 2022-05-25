@@ -15,7 +15,12 @@ define Package/usbmodem
 	SECTION:=net
 	CATEGORY:=Network
 	SUBMENU:=WWAN
-	DEPENDS:=+libubus +libstdcpp +libubox +libuci +zlib
+	DEPENDS:=+libubus +libstdcpp +libubox +libuci
+	
+	ifneq ($(CONFIG_DEBUG),)
+		DEPENDS +=+libasan +libubsan +liblsan +libtsan
+	endif
+	
 	PKG_BUILD_DEPENDS:=nlohmannjson
 	TITLE:=USB Modem Service
 endef

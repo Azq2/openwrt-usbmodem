@@ -63,6 +63,7 @@ class ModemService {
 		void loadSmsFromModem();
 	public:
 		explicit ModemService(const std::string &iface);
+		~ModemService();
 		
 		inline int64_t uptime() const {
 			return getCurrentTimestamp() - m_start_time;

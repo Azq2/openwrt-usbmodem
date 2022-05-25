@@ -276,8 +276,11 @@ bool BinaryFileReader::truncate(size_t len) {
 bool BinaryFileReader::read(void *data, size_t len) {
 	uint8_t *data8 = reinterpret_cast<uint8_t *>(data);
 	
-	if (!m_fp || !data8 || !len)
+	if (!m_fp || !data8)
 		return false;
+	
+	if (!len)
+		return true;
 	
 	int err;
 	size_t readed = 0;
@@ -364,8 +367,11 @@ size_t BinaryFileWriter::offset() {
 bool BinaryFileWriter::write(const void *data, size_t len) {
 	const uint8_t *data8 = reinterpret_cast<const uint8_t *>(data);
 	
-	if (!m_fp || !data8 || !len)
+	if (!m_fp || !data8)
 		return false;
+	
+	if (!len)
+		return true;
 	
 	int err;
 	size_t written = 0;

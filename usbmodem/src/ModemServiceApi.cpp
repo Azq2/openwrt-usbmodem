@@ -216,8 +216,13 @@ void ModemServiceApi::apiReadSms(std::shared_ptr<UbusRequest> req) {
 				{"parts", json::array()}
 			};
 			
-			for (auto &part: sms.parts)
-				message["parts"].push_back(part.text.size() > 0 ? part.text : nullptr);
+			for (auto &part: sms.parts) {
+				if (part.text.size() > 0) {
+					message["parts"].push_back(part.text);
+				} else {
+					message["parts"].push_back(nullptr);
+				}
+			}
 			
 			response["messages"].push_back(message);
 		}

@@ -30,6 +30,14 @@ ModemService::ModemService(const std::string &iface): m_iface(iface) {
 	m_uci_options["preferred_sms_storage"] = "modem";
 }
 
+ModemService::~ModemService() {
+	if (m_api)
+		delete m_api;
+	
+	if (m_modem)
+		delete m_modem;
+}
+
 bool ModemService::validateOptions() {
 	if (m_uci_options["proto"] != "usbmodem") {
 		LOGE("Uunsupported protocol: %s\n", m_uci_options["proto"].c_str());
@@ -411,11 +419,8 @@ bool ModemService::runModem() {
 }
 
 void ModemService::finishModem() {
-	if (m_modem) {
+	if (m_modem)
 		m_modem->close();
-		m_modem = nullptr;
-		delete m_modem;
-	}
 }
 
 bool ModemService::setError(const std::string &code, bool fatal) {
