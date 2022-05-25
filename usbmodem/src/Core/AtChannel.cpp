@@ -261,7 +261,7 @@ int AtChannel::sendCommand(ResultType type, const std::string &cmd, const std::s
 	
 	if (m_verbose) {
 		if (type != NO_PREFIX) {
-			for (int i = 0; i < response->lines.size(); i++)
+			for (auto i = 0; i < response->lines.size(); i++)
 				LOGD("AT << %s\n", response->lines[i].c_str());
 		}
 		

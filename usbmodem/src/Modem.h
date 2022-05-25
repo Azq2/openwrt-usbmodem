@@ -272,6 +272,8 @@ class Modem {
 			return {status, std::any_cast<T>(value)};
 		}
 	public:
+		virtual ~Modem() { }
+		
 		/*
 		 * Main Operations
 		 * */

@@ -13,6 +13,7 @@
 #include <functional>
 
 #define COUNT_OF(a) (sizeof((a)) / sizeof((a)[0]))
+#define COUNT_OF_S(a) (static_cast<ssize_t>(sizeof((a)) / sizeof((a)[0])))
 
 void setSignalHandler(int signal, const std::function<void(int)> &callback);
 

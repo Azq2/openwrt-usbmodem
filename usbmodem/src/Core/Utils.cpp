@@ -111,7 +111,7 @@ std::string strJoin(const std::vector<std::string> &lines, const std::string &de
 		}
 	}
 	
-	return std::move(out);
+	return out;
 }
 
 std::string numberFormat(float num, int max_decimals) {
@@ -158,7 +158,7 @@ std::string strprintf(const char *format, ...) {
 	vsnprintf(&out[0], out.size() + 1, format, v);
 	va_end(v);
 	
-	return std::move(out);
+	return out;
 }
 
 std::string bin2hex(const std::string &raw, bool uc) {

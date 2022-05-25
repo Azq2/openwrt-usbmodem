@@ -16,6 +16,7 @@ extern "C" {
 #include <vector>
 #include <string>
 #include <functional>
+#include <cinttypes>
 
 class Ubus;
 class UbusDeferRequest;
@@ -41,7 +42,7 @@ class UbusRequest {
 		}
 		
 		inline std::string uniqKey() const {
-			return strprintf("%lld_%u", m_time, m_req_id);
+			return strprintf(PRIu64 "_%zu", m_time, m_req_id);
 		}
 		
 		inline bool done() const {

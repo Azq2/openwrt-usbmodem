@@ -439,10 +439,8 @@ bool isValidLanguage(GsmLanguage lang) {
 
 // SMS Data Coding Scheme
 bool decodeSmsDcs(int dcs, GsmEncoding *out_encoding, bool *out_compression) {
-	bool autodel = false;
 	bool compression = false;
 	GsmEncoding encoding = GSM_ENC_7BIT;
-	GsmMessageClass msg_class = GSM_MSG_CLASS_UNSPEC;
 	
 	uint8_t group = (dcs & 0xF0) >> 4;
 	switch (group) {

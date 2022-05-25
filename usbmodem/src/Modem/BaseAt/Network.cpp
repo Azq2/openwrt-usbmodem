@@ -113,7 +113,7 @@ void BaseAtModem::handleCesq(const std::string &event) {
 	m_signal.rssi_dbm = -(rssi >= 99 ? NAN : 111 - rssi);
 	
 	// Bit Error
-	m_signal.bit_err_pct = ber >= 0 && ber < COUNT_OF(bit_errors) ? bit_errors[ber] : NAN;
+	m_signal.bit_err_pct = ber >= 0 && ber < COUNT_OF_S(bit_errors) ? bit_errors[ber] : NAN;
 	
 	// RSCP (Received signal code power)
 	m_signal.rscp_dbm = -(rscp >= 255 ? NAN : 121 - rscp);
@@ -232,25 +232,21 @@ void BaseAtModem::handleNetworkChange() {
 	NetworkTech new_tech;
 	NetworkReg new_net_reg;
 	
-	bool is_registered = false;
 	if (m_cereg.isRegistered()) {
 		new_tech = m_cereg.toNetworkTech();
 		new_net_reg = m_cereg.toNetworkReg();
 		m_cell_info.cell_id = m_cereg.cell_id;
 		m_cell_info.loc_id = m_cereg.loc_id;
-		is_registered = true;
 	} else if (m_cgreg.isRegistered()) {
 		new_tech = m_cgreg.toNetworkTech();
 		new_net_reg = m_cgreg.toNetworkReg();
 		m_cell_info.cell_id = m_cgreg.cell_id;
 		m_cell_info.loc_id = m_cgreg.loc_id;
-		is_registered = true;
 	} else if (m_creg.isRegistered()) {
 		new_tech = m_creg.toNetworkTech();
 		new_net_reg = m_creg.toNetworkReg();
 		m_cell_info.cell_id = m_creg.cell_id;
 		m_cell_info.loc_id = m_creg.loc_id;
-		is_registered = true;
 	} else {
 		new_tech = TECH_NO_SERVICE;
 		new_net_reg = m_creg.toNetworkReg();

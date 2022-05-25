@@ -161,7 +161,7 @@ void ModemServiceApi::apiSendCommand(std::shared_ptr<UbusRequest> req) {
 	int timeout = getIntArg(params, "timeout", 0);
 	std::string cmd = getStrArg(params, "command", "");
 	
-	if (!cmd.size() > 0) {
+	if (!cmd.size()) {
 		reply(req, {}, UBUS_STATUS_INVALID_ARGUMENT);
 		return;
 	}
