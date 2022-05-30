@@ -100,7 +100,7 @@ return view.extend({
 				E('td', { 'class': 'td cbi-value-field left top' }, [
 					E('button', {
 						"class": "btn cbi-button cbi-button-apply",
-						"click": ui.createHandlerFn(this, 'joinNetwork', row.mcc, row.mnc, row.tech)
+						"click": ui.createHandlerFn(this, 'joinNetwork', 'manual', row.mcc, row.mnc, row.tech)
 					}, [_("Join")]),
 				]),
 			]));

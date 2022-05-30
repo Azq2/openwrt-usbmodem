@@ -225,6 +225,7 @@ int AtChannel::sendCommand(ResultType type, const std::string &cmd, const std::s
 	}
 	
 	at_cmd_mutex.lock();
+	m_busy = true;
 	
 	int64_t start = getCurrentTimestamp();
 	
@@ -269,6 +270,7 @@ int AtChannel::sendCommand(ResultType type, const std::string &cmd, const std::s
 			LOGD("AT << %s\n", response->status.c_str());
 	}
 	
+	m_busy = false;
 	m_curr_response = nullptr;
 	
 	at_cmd_mutex.unlock();

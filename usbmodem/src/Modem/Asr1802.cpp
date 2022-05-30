@@ -47,6 +47,9 @@ bool Asr1802Modem::init() {
 		// Enable background search
 		"AT+BGLTEPLMN=1,30",
 		
+		// Enable "Engineering Mode"
+		"AT+EEMOPT=1",
+		
 		nullptr
 	};
 	
@@ -69,6 +72,9 @@ bool Asr1802Modem::init() {
 		return false;
 	}
 	
+	if (!detectModemType())
+		return false;
+	
 	if (!syncApn())
 		return false;
 	
@@ -88,9 +94,6 @@ bool Asr1802Modem::init() {
 	m_at.onUnsolicited("+CESQ", [this](const std::string &event) {
 		handleCesq(event);
 	});
-	m_at.onUnsolicited("+CSQ", [this](const std::string &event) {
-		handleCsq(event);
-	});
 	m_at.onUnsolicited("+CPIN", [this](const std::string &event) {
 		handleCpin(event);
 	});
@@ -102,6 +105,16 @@ bool Asr1802Modem::init() {
 	});
 	m_at.onUnsolicited("+CMTI", [this](const std::string &event) {
 		handleCmt(event);
+	});
+	
+	m_at.onUnsolicited("+EEMLTESVC", [this](const std::string &event) {
+		handleServingCell(event);
+	});
+	m_at.onUnsolicited("+EEMUMTSSVC", [this](const std::string &event) {
+		handleServingCell(event);
+	});
+	m_at.onUnsolicited("+EEMGINFOSVC", [this](const std::string &event) {
+		handleServingCell(event);
 	});
 	
 	if (!m_force_restart_network) {
@@ -151,6 +164,7 @@ bool Asr1802Modem::init() {
 	
 	startNetWatchdog();
 	startSimPolling();
+	startEngPolling();
 	
 	return true;
 }
@@ -167,6 +181,9 @@ bool Asr1802Modem::close() {
 }		
 
 bool Asr1802Modem::setRadioOn(bool state) {
+	if (isRadioOn())
+		return true;
+	
 	std::string cmd = "AT+CFUN=" + std::to_string(state ? 1 : 4);
 	return m_at.sendCommandNoResponse(cmd) == 0;
 }

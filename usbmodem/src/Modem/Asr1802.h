@@ -8,7 +8,8 @@
 
 class Asr1802Modem: public BaseAtModem {
 	protected:
-		static constexpr int DEFAULT_PDP_CONTEXT = 5;
+		static constexpr int DEFAULT_PDP_CONTEXT		= 5;
+		static constexpr int ENG_INFO_UPDATE_TIMEOUT	= 15000;
 		
 		enum DataConnectState {
 			DISCONNECTED		= 0,
@@ -32,6 +33,7 @@ class Asr1802Modem: public BaseAtModem {
 		int m_connect_errors = 0;
 		bool m_prefer_dhcp = false;
 		bool m_force_restart_network = false;
+		bool m_is_td_modem = false; // true - TDSCDMA, false - WCDMA
 		int m_pdp_context = DEFAULT_PDP_CONTEXT;
 		
 		bool dial();
@@ -40,12 +42,14 @@ class Asr1802Modem: public BaseAtModem {
 		int getCurrentPdpCid();
 		void restartNetwork();
 		
+		std::tuple<bool, NetworkInfo> getNetworkInfo() override;
 		IfaceProto getIfaceProto() override;
 		int getDelayAfterDhcpRelease() override;
 		
 		void handleCgev(const std::string &event);
 		void handleCesq(const std::string &event) override;
 		void handleMmsg(const std::string &event);
+		void handleServingCell(const std::string &event);
 		
 		std::tuple<bool, std::vector<NetworkMode>> getNetworkModes() override;
 		bool setNetworkMode(NetworkMode new_mode) override;
@@ -53,6 +57,18 @@ class Asr1802Modem: public BaseAtModem {
 		void handleConnect();
 		void handleDisconnect();
 		void handleConnectError();
+		
+		bool detectModemType();
+		
+		/*
+		 * Engineering Info
+		 * */
+		int m_eng_recheck_timeout = -1;
+		int64_t m_eng_last_requested = 0;
+		
+		void requestEngInfo();
+		void startEngPolling();
+		void wakeEngTimer();
 		
 		/*
 		 * Maintenance

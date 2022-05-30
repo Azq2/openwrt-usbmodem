@@ -171,7 +171,31 @@ class BaseAtModem: public Modem {
 		
 		bool discoverSmsStorages();
 		bool findBestSmsStorage(bool prefer_sim);
-	
+		
+		static inline float decodeRSSI(int rssi) {
+			return -(rssi >= 99 ? NAN : 111 - rssi);
+		}
+		
+		static inline float decodeRERR(int ber) {
+			static const double bit_errors[] = {0.14, 0.28, 0.57, 1.13, 2.26, 4.53, 9.05, 18.10};
+			return ber >= 0 && ber < COUNT_OF_S(bit_errors) ? bit_errors[ber] : NAN;
+		}
+		
+		static inline float decodeRSCP(int rscp) {
+			return -(rscp >= 255 ? NAN : 121 - rscp);
+		}
+		
+		static inline float decodeECIO(int ecio) {
+			return -(ecio >= 255 ? NAN : (49.0f - (float) ecio) / 2.0f);
+		}
+		
+		static inline float decodeRSRQ(int rsrq) {
+			return -(rsrq >= 255 ? NAN : (40.0f - (float) rsrq) / 2.0f);
+		}
+		
+		static inline float decodeRSRP(int rsrp) {
+			return -(rsrp >= 255 ? NAN : 141 - rsrp);
+		}
 	public:
 		/*
 		 * Main Operations

@@ -94,7 +94,6 @@ void BaseAtModem::handleCsq(const std::string &event) {
 }
 
 void BaseAtModem::handleCesq(const std::string &event) {
-	static const double bit_errors[] = {0.14, 0.28, 0.57, 1.13, 2.26, 4.53, 9.05, 18.10};
 	int rssi, ber, rscp, ecio, rsrq, rsrp;
 	
 	bool parsed = AtParser(event)
@@ -110,24 +109,22 @@ void BaseAtModem::handleCesq(const std::string &event) {
 		return;
 	
 	// RSSI (Received signal strength)
-	m_signal.rssi_dbm = -(rssi >= 99 ? NAN : 111 - rssi);
+	m_signal.rssi_dbm = decodeRSSI(rssi);
 	
 	// Bit Error
-	m_signal.bit_err_pct = ber >= 0 && ber < COUNT_OF_S(bit_errors) ? bit_errors[ber] : NAN;
+	m_signal.bit_err_pct = decodeRERR(ber);
 	
 	// RSCP (Received signal code power)
-	m_signal.rscp_dbm = -(rscp >= 255 ? NAN : 121 - rscp);
+	m_signal.rscp_dbm = decodeRSCP(rscp);
 	
 	// Ec/lo
-	m_signal.ecio_db = -(ecio >= 255 ? NAN : (49.0f - (float) ecio) / 2.0f);
+	m_signal.ecio_db = decodeECIO(ecio);
 	
 	// RSRQ (Reference signal received quality)
-	m_signal.rsrq_db = -(rsrq >= 255 ? NAN : (40.0f - (float) rsrq) / 2.0f);
+	m_signal.rsrq_db = decodeRSRQ(rsrq);
 	
 	// RSRP (Reference signal received power)
-	m_signal.rsrp_dbm = -(rsrp >= 255 ? NAN : 141 - rsrp);
-	
-	emit<EvNetworkSignalChanged>({.signal = m_signal});
+	m_signal.rsrp_dbm = decodeRSRP(rsrp);
 }
 
 void BaseAtModem::handleCreg(const std::string &event) {
@@ -416,9 +413,9 @@ bool BaseAtModem::setOperator(OperatorRegMode mode, int mcc, int mnc, NetworkTec
 	} else {
 		std::string at_cmd;
 		if (act != CREG_TECH_UNKNOWN) {
-			at_cmd = strprintf("AT+COPS=1,2,%03d%02d,%d", mcc, mnc, static_cast<int>(act));
+			at_cmd = strprintf("AT+COPS=1,2,\"%03d%02d\",%d", mcc, mnc, static_cast<int>(act));
 		} else {
-			at_cmd = strprintf("AT+COPS=1,2,%03d%02d", mcc, mnc);
+			at_cmd = strprintf("AT+COPS=1,2,\"%03d%02d\"", mcc, mnc);
 		}
 		return m_at.sendCommandNoResponse(at_cmd) == 0;
 	}

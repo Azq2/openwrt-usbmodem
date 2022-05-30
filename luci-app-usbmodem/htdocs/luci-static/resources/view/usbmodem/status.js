@@ -52,12 +52,25 @@ return view.extend({
 			let title = _('%s dBm (%d%%)').format(network.signal.rssi_dbm, network.signal.quality);
 			net_section.push(_("RSSI"), usbmodem.view.renderNetIndicator(network.signal.quality, title));
 		}
+		
 		if (network.signal.rscp_dbm !== null)
 			net_section.push(_("RSCP"), _('%s dBm').format(network.signal.rscp_dbm));
+		
 		if (network.signal.rsrp_dbm !== null)
 			net_section.push(_("RSRP"), _('%s dBm').format(network.signal.rsrp_dbm));
 		if (network.signal.rsrq_db !== null)
 			net_section.push(_("RSRQ"), _('%s dB').format(network.signal.rsrq_db));
+		
+		if (network.signal.main_rsrp_dbm !== null)
+			net_section.push(_("Main RSRP"), _('%s dBm').format(network.signal.main_rsrp_dbm));
+		if (network.signal.main_rsrq_db !== null)
+			net_section.push(_("Main RSRQ"), _('%s dB').format(network.signal.main_rsrq_db));
+		
+		if (network.signal.div_rsrp_dbm !== null)
+			net_section.push(_("Div RSRP"), _('%s dBm').format(network.signal.div_rsrp_dbm));
+		if (network.signal.div_rsrq_db !== null)
+			net_section.push(_("Div RSRQ"), _('%s dB').format(network.signal.div_rsrq_db));
+		
 		if (network.signal.ecio_db !== null)
 			net_section.push(_("Ec/io"), _('%s dB').format(network.signal.ecio_db));
 		if (network.signal.bit_err_pct !== null)
@@ -114,14 +127,27 @@ return view.extend({
 		if (sim.imsi)
 			sim_section.push(_("IMSI"), sim.imsi);
 		
-		return E('div', {}, [
+		let content = [
 			section_modem.length > 0 ? usbmodem.view.renderTable(_('Modem'), section_modem) : '',
 			net_section.length > 0 ? usbmodem.view.renderTable(_('Network'), net_section) : '',
 			cell_section.length > 0 ? usbmodem.view.renderTable(_('Cell'), cell_section) : '',
 			sim_section.length > 0 ? usbmodem.view.renderTable(_('SIM'), sim_section) : '',
 			ipv4_section.length > 0 ? usbmodem.view.renderTable(_('IPv4'), ipv4_section) : '',
 			ipv6_section.length > 0 ? usbmodem.view.renderTable(_('IPv6'), ipv6_section) : '',
-		]);
+		];
+		
+		if (network.custom) {
+			for (let section_name in network.custom) {
+				if (network.custom[section_name]) {
+					let tmp_section = [];
+					for (let row of network.custom[section_name])
+						tmp_section.push(row[0], row[1]);
+					content.push(usbmodem.view.renderTable(section_name, tmp_section));
+				}
+			}
+		}
+		
+		return E('div', {}, content);
 	},
 	render(interfaces) {
 		poll.add(() => {

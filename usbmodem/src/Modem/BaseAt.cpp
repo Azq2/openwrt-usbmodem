@@ -1,5 +1,6 @@
 #include "BaseAt.h"
 
+#include <unistd.h>
 #include <Core/Loop.h>
 
 BaseAtModem::BaseAtModem() : Modem() {

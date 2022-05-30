@@ -351,33 +351,6 @@ bool ModemService::runModem() {
 		}
 	});
 	
-	m_modem->on<Modem::EvNetworkSignalChanged>([this](const auto &event) {
-		std::vector<std::string> info;
-		
-		if (!std::isnan(event.signal.rssi_dbm))
-			info.push_back("RSSI: " + numberFormat(event.signal.rssi_dbm, 1) + " dBm");
-		
-		if (!std::isnan(event.signal.bit_err_pct))
-			info.push_back("Bit errors: " + numberFormat(event.signal.bit_err_pct, 1) + "%");
-		
-		if (!std::isnan(event.signal.rscp_dbm))
-			info.push_back("RSCP: " + numberFormat(event.signal.rscp_dbm, 1) + " dBm");
-		
-		if (!std::isnan(event.signal.ecio_db))
-			info.push_back("Ec/lo: " + numberFormat(event.signal.ecio_db, 1) + " dB");
-		
-		if (!std::isnan(event.signal.rsrq_db))
-			info.push_back("RSRQ: " + numberFormat(event.signal.rsrq_db, 1) + " dB");
-		
-		if (!std::isnan(event.signal.rsrp_dbm))
-			info.push_back("RSRP: " + numberFormat(event.signal.rsrp_dbm, 1) + " dBm");
-		
-		if (info.size() > 0) {
-			std::string str = strJoin(info, ", ");
-			LOGD("[network] %s\n", str.c_str());
-		}
-	});
-	
 	m_modem->on<Modem::EvSimStateChaned>([this](const auto &event) {
 		LOGD("[sim] %s\n", Modem::getEnumName(event.state, true));
 	});

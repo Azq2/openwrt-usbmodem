@@ -16,7 +16,7 @@ fi
 if [[ $TEST_ROUTER == "" ]]; then
 	# Test router
 	#TEST_ROUTER=root@192.168.2.1
-	TEST_ROUTER=root@192.168.122.91
+	TEST_ROUTER=root@192.168.122.54
 fi
 
 if [[ $TARGET == "" ]]; then

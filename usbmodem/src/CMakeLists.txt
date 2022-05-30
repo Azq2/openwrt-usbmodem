@@ -26,6 +26,7 @@ add_executable(usbmodem
 	Modem/Asr1802.cpp
 	Modem/Asr1802/Data.cpp
 	Modem/Asr1802/Network.cpp
+	Modem/Asr1802/EngMode.cpp
 	
 	ModemService.cpp
 	ModemServiceApi.cpp

@@ -70,6 +70,10 @@ class Modem {
 			float ecio_db = NAN;
 			float rsrq_db = NAN;
 			float rsrp_dbm = NAN;
+			float div_rsrq_db = NAN;
+			float div_rsrp_dbm = NAN;
+			float main_rsrq_db = NAN;
+			float main_rsrp_dbm = NAN;
 		};
 		
 		enum IfaceProto {
@@ -222,11 +226,6 @@ class Modem {
 		// Event when changed current operator
 		struct EvOperatorChanged { };
 		
-		// Event when signal levels changed
-		struct EvNetworkSignalChanged {
-			NetworkSignal signal;
-		};
-		
 		// Event when SIM status changed
 		struct EvSimStateChaned {
 			SimState state;
@@ -253,6 +252,11 @@ class Modem {
 		Events m_ev;
 		
 		virtual bool setOption(const std::string &name, const std::any &value) = 0;
+		
+		/*
+		 * Custom Info
+		 * */
+		std::unordered_map<std::string, std::vector<std::pair<std::string, std::any>>> m_custom_info;
 		
 		/*
 		 * Cache
@@ -286,6 +290,9 @@ class Modem {
 		virtual std::tuple<bool, ModemInfo> getModemInfo() = 0;
 		virtual std::tuple<bool, SimInfo> getSimInfo() = 0;
 		virtual std::tuple<bool, NetworkInfo> getNetworkInfo() = 0;
+		inline std::unordered_map<std::string, std::vector<std::pair<std::string, std::any>>> getCustomInfo() {
+			return m_custom_info;
+		}
 		
 		/*
 		 * Network

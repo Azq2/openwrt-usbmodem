@@ -82,6 +82,7 @@ class AtChannel {
 		std::mutex at_cmd_mutex;
 		TimeoutSetCallback m_timeout_callback;
 		int m_default_at_timeout = 10 * 1000;
+		bool m_busy = false;
 		
 		std::function<void()> m_broken_io_handler;
 		std::function<void(Errors error, int64_t start)> m_global_error_handler;
@@ -133,6 +134,10 @@ class AtChannel {
 		
 		bool start();
 		void stop();
+		
+		inline bool busy() {
+			return m_busy;
+		}
 		
 		inline Response sendCommand(const std::string &cmd, const std::string &prefix = "", int timeout = 0) {
 			Response response;

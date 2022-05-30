@@ -93,6 +93,10 @@ void ModemServiceApi::apiGetNetworkInfo(std::shared_ptr<UbusRequest> req) {
 				{"ecio_db", net_info.signal.ecio_db},
 				{"rsrq_db", net_info.signal.rsrq_db},
 				{"rsrp_dbm", net_info.signal.rsrp_dbm},
+				{"main_rsrq_db", net_info.signal.main_rsrq_db},
+				{"main_rsrp_dbm", net_info.signal.main_rsrp_dbm},
+				{"div_rsrq_db", net_info.signal.div_rsrq_db},
+				{"div_rsrp_dbm", net_info.signal.div_rsrp_dbm},
 				{"quality", quality}
 			}},
 			{"cell", {

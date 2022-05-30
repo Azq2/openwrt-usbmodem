@@ -19,13 +19,34 @@ void Asr1802Modem::handleCgev(const std::string &event) {
 	}
 }
 
+std::tuple<bool, Asr1802Modem::NetworkInfo> Asr1802Modem::getNetworkInfo() {
+	wakeEngTimer();
+	return BaseAtModem::getNetworkInfo();
+}
+
 void Asr1802Modem::handleCesq(const std::string &event) {
-	BaseAtModem::handleCesq(event);
-	
-	if (std::isnan(m_signal.rssi_dbm) && !std::isnan(m_signal.rscp_dbm)) {
-		m_signal.rssi_dbm = m_signal.rscp_dbm;
-		m_signal.rscp_dbm = NAN;
+	bool is_3g = (m_tech == TECH_UMTS || m_tech == TECH_HSDPA || m_tech == TECH_HSUPA || m_tech == TECH_HSPA || m_tech == TECH_HSPAP);
+	if (is_3g || m_tech == TECH_LTE) {
+		Loop::setTimeout([this]() {
+			requestEngInfo();
+		}, 0);
+	} else {
+		BaseAtModem::handleCesq(event);
 	}
+}
+
+bool Asr1802Modem::detectModemType() {
+	auto response = m_at.sendCommand("AT*EHSDPA=?", "*EHSDPA");
+	if (response.error)
+		return false;
+	
+	// As datasheet
+	// TDSCDMA: (0-3),(1-11,13-16,23,35),(6),(0),(0),(0),(0),(0)
+	// WCDMA: (0-2,4),(1-12),(1-6),(0,1),(1-14),(7),(0,1),(0,1)
+	
+	m_is_td_modem = !strcasecmp(response.data().c_str(), "(0-2,4),(1-12),");
+	
+	return true;
 }
 
 std::tuple<bool, std::vector<Asr1802Modem::NetworkMode>> Asr1802Modem::getNetworkModes() {
