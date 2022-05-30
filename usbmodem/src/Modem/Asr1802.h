@@ -35,6 +35,7 @@ class Asr1802Modem: public BaseAtModem {
 		bool m_force_restart_network = false;
 		bool m_is_td_modem = false; // true - TDSCDMA, false - WCDMA
 		int m_pdp_context = DEFAULT_PDP_CONTEXT;
+		static std::map<NetworkMode, int> m_mode2id;
 		
 		bool dial();
 		bool syncApn();
@@ -53,6 +54,10 @@ class Asr1802Modem: public BaseAtModem {
 		
 		std::tuple<bool, std::vector<NetworkMode>> getNetworkModes() override;
 		bool setNetworkMode(NetworkMode new_mode) override;
+		std::tuple<bool, NetworkMode> getCurrentNetworkMode() override;
+		
+		std::tuple<bool, bool> isRoamingEnabled() override;
+		bool setDataRoaming(bool enable) override;
 		
 		void handleConnect();
 		void handleDisconnect();

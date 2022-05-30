@@ -39,7 +39,9 @@ class Modem {
 			NET_REGISTERED_ROAMING
 		};
 		
-		enum NetworkMode {
+		enum NetworkMode: int {
+			NET_MODE_UNKNOWN = -1,
+			
 			NET_MODE_AUTO,
 			
 			NET_MODE_ONLY_2G,
@@ -301,9 +303,10 @@ class Modem {
 		virtual bool setOperator(OperatorRegMode mode, int mcc = -1, int mnc = -1, NetworkTech tech = TECH_UNKNOWN) = 0;
 		
 		virtual std::tuple<bool, std::vector<NetworkMode>> getNetworkModes() = 0;
+		virtual std::tuple<bool, NetworkMode> getCurrentNetworkMode() = 0;
 		virtual bool setNetworkMode(NetworkMode new_mode) = 0;
 		
-		virtual bool isRoamingEnabled() = 0;
+		virtual std::tuple<bool, bool> isRoamingEnabled() = 0;
 		virtual bool setDataRoaming(bool enable) = 0;
 		
 		virtual std::tuple<bool, Operator> getCurrentOperator() = 0;

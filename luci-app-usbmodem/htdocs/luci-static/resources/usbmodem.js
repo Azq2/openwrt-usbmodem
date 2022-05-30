@@ -6,6 +6,29 @@
 'require usbmodem-api';
 
 return baseclass.extend({
+	NET_MODES: {
+		NET_MODE_AUTO:				_("Auto"),
+		
+		NET_MODE_ONLY_2G:			_("Only 2G"),
+		NET_MODE_ONLY_3G:			_("Only 3G"),
+		NET_MODE_ONLY_4G:			_("Only 4G"),
+		
+		NET_MODE_PREFER_2G:			_("Prefer 2G"),
+		NET_MODE_PREFER_3G:			_("Prefer 3G"),
+		NET_MODE_PREFER_4G:			_("Prefer 4G"),
+		
+		NET_MODE_2G_3G_AUTO:		_("2G/3G (auto)"),
+		NET_MODE_2G_3G_PREFER_2G:	_("2G/3G (prefer 2G)"),
+		NET_MODE_2G_3G_PREFER_3G:	_("2G/3G (prefer 2G)"),
+		
+		NET_MODE_2G_4G_AUTO:		_("2G/4G (auto)"),
+		NET_MODE_2G_4G_PREFER_2G:	_("2G/4G (prefer 2G)"),
+		NET_MODE_2G_4G_PREFER_4G:	_("2G/4G (prefer 3G)"),
+		
+		NET_MODE_3G_4G_AUTO:		_("3G/4G (auto)"),
+		NET_MODE_3G_4G_PREFER_3G:	_("3G/4G (prefer 3G)"),
+		NET_MODE_3G_4G_PREFER_4G:	_("3G/4G (prefer 4G)"),
+	},
 	NET_REG: {
 		NOT_REGISTERED:			_("Unregistered"),
 		SEARCHING:				_("Searching network..."),

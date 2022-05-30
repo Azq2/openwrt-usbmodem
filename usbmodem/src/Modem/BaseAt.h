@@ -219,8 +219,9 @@ class BaseAtModem: public Modem {
 		
 		virtual std::tuple<bool, std::vector<NetworkMode>> getNetworkModes() override;
 		virtual bool setNetworkMode(NetworkMode new_mode) override;
+		virtual std::tuple<bool, NetworkMode> getCurrentNetworkMode() override;
 		
-		virtual bool isRoamingEnabled() override;
+		virtual std::tuple<bool, bool> isRoamingEnabled() override;
 		virtual bool setDataRoaming(bool enable) override;
 		
 		virtual std::tuple<bool, Operator> getCurrentOperator() override;

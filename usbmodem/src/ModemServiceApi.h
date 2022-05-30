@@ -65,8 +65,8 @@ class ModemServiceApi {
 		void apiDeleteSms(std::shared_ptr<UbusRequest> req);
 		void apiSearchOperators(std::shared_ptr<UbusRequest> req);
 		void apiSetOperator(std::shared_ptr<UbusRequest> req);
-		void apiGetSettings(std::shared_ptr<UbusRequest> req);
-		void apiSetNetworkMode(std::shared_ptr<UbusRequest> req);
+		void apiGetNetworkSettings(std::shared_ptr<UbusRequest> req);
+		void apiSetNetworkSettings(std::shared_ptr<UbusRequest> req);
 		
 		// Internal API
 		int apiGetDeferredResult(std::shared_ptr<UbusRequest> req);

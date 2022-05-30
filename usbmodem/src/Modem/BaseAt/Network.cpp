@@ -422,17 +422,21 @@ bool BaseAtModem::setOperator(OperatorRegMode mode, int mcc, int mnc, NetworkTec
 }
 
 std::tuple<bool, std::vector<BaseAtModem::NetworkMode>> BaseAtModem::getNetworkModes() {
-	return {false, {}};
+	return {true, {NET_MODE_AUTO}};
+}
+
+std::tuple<bool, BaseAtModem::NetworkMode> BaseAtModem::getCurrentNetworkMode() {
+	return {true, NET_MODE_AUTO};
 }
 
 bool BaseAtModem::setNetworkMode(NetworkMode new_mode) {
-	return false;
+	return true;
 }
 
-bool BaseAtModem::isRoamingEnabled() {
-	return false;
+std::tuple<bool, bool> BaseAtModem::isRoamingEnabled() {
+	return {true, false};
 }
 
 bool BaseAtModem::setDataRoaming(bool enable) {
-	return false;
+	return true;
 }

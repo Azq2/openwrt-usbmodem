@@ -1,6 +1,25 @@
 #include "../Asr1802.h"
 #include <Core/Loop.h>
 
+std::map<Asr1802Modem::NetworkMode, int> Asr1802Modem::m_mode2id = {
+	{Asr1802Modem::NET_MODE_AUTO, 12},
+	{Asr1802Modem::NET_MODE_ONLY_2G, 0},
+	{Asr1802Modem::NET_MODE_ONLY_3G, 1},
+	{Asr1802Modem::NET_MODE_ONLY_4G, 5},
+	{Asr1802Modem::NET_MODE_PREFER_2G, 13},
+	{Asr1802Modem::NET_MODE_PREFER_3G, 14},
+	{Asr1802Modem::NET_MODE_PREFER_4G, 15},
+	{Asr1802Modem::NET_MODE_2G_3G_AUTO, 2},
+	{Asr1802Modem::NET_MODE_2G_3G_PREFER_2G, 3},
+	{Asr1802Modem::NET_MODE_2G_3G_PREFER_3G, 4},
+	{Asr1802Modem::NET_MODE_2G_4G_AUTO, 6},
+	{Asr1802Modem::NET_MODE_2G_4G_PREFER_2G, 7},
+	{Asr1802Modem::NET_MODE_2G_4G_PREFER_4G, 8},
+	{Asr1802Modem::NET_MODE_3G_4G_AUTO, 9},
+	{Asr1802Modem::NET_MODE_3G_4G_PREFER_3G, 10},
+	{Asr1802Modem::NET_MODE_3G_4G_PREFER_4G, 11},
+};
+
 void Asr1802Modem::handleCgev(const std::string &event) {
 	// "DEACT" and "DETACH" mean disconnect
 	if (event.find("DEACT") != std::string::npos || event.find("DETACH") != std::string::npos) {
@@ -49,6 +68,69 @@ bool Asr1802Modem::detectModemType() {
 	return true;
 }
 
+std::tuple<bool, bool> Asr1802Modem::isRoamingEnabled() {
+	auto response = m_at.sendCommand("AT*BAND?", "*BAND");
+	if (response.error)
+		return {false, false};
+	
+	int roaming_cfg;
+	bool success = AtParser(response.data())
+		.parseSkip() // mode
+		.parseSkip() // GSMband
+		.parseSkip() // UMTSband
+		.parseSkip() // LTEbandH
+		.parseSkip() // LTEbandL
+		.parseInt(&roaming_cfg) // roamingConfig
+		.success();
+	if (!success)
+		return {false, false};
+	
+	return {true, roaming_cfg != 0};
+}
+
+bool Asr1802Modem::setDataRoaming(bool enable) {
+	auto response = m_at.sendCommand("AT*BAND?", "*BAND");
+	if (response.error)
+		return false;
+	
+	int mode, gsm_band, umts_band, lte_bandh, lte_bandl, roaming_cfg, srv_domain, band_priority;
+	bool success = AtParser(response.data())
+		.parseInt(&mode) // mode
+		.parseInt(&gsm_band) // GSMband
+		.parseInt(&umts_band) // UMTSband
+		.parseInt(&lte_bandh) // LTEbandH
+		.parseInt(&lte_bandl) // LTEbandL
+		.parseInt(&roaming_cfg) // roamingConfig
+		.parseInt(&srv_domain) // srvDomain
+		.parseInt(&band_priority) // bandPriorityFlag
+		.success();
+	if (!success)
+		return false;
+	
+	roaming_cfg = enable ? 1 : 0;
+	
+	std::string query = strprintf("AT*BAND=%d,%d,%d,%d,%d,%d,%d,%d",
+		mode, gsm_band, umts_band, lte_bandh, lte_bandl, roaming_cfg, srv_domain, band_priority);
+	return m_at.sendCommandNoResponse(query) == 0;
+}
+
+std::tuple<bool, Asr1802Modem::NetworkMode> Asr1802Modem::getCurrentNetworkMode() {
+	auto response = m_at.sendCommand("AT*BAND?", "*BAND");
+	if (response.error)
+		return {false, NET_MODE_UNKNOWN};
+	
+	int mode;
+	if (!AtParser(response.data()).parseNextInt(&mode))
+		return {false, NET_MODE_UNKNOWN};
+	
+	for (auto &it: m_mode2id) {
+		if (it.second == mode)
+			return {true, it.first};
+	}
+	
+	return {false, NET_MODE_UNKNOWN};
+}
+
 std::tuple<bool, std::vector<Asr1802Modem::NetworkMode>> Asr1802Modem::getNetworkModes() {
 	return {true, {
 		NET_MODE_AUTO,
@@ -76,26 +158,7 @@ std::tuple<bool, std::vector<Asr1802Modem::NetworkMode>> Asr1802Modem::getNetwor
 }
 
 bool Asr1802Modem::setNetworkMode(NetworkMode new_mode) {
-	static std::map<NetworkMode, int> mode2id = {
-		{NET_MODE_AUTO, 12},
-		{NET_MODE_ONLY_2G, 0},
-		{NET_MODE_ONLY_3G, 1},
-		{NET_MODE_ONLY_4G, 5},
-		{NET_MODE_PREFER_2G, 13},
-		{NET_MODE_PREFER_3G, 14},
-		{NET_MODE_PREFER_4G, 15},
-		{NET_MODE_2G_3G_AUTO, 2},
-		{NET_MODE_2G_3G_PREFER_2G, 3},
-		{NET_MODE_2G_3G_PREFER_3G, 4},
-		{NET_MODE_2G_4G_AUTO, 6},
-		{NET_MODE_2G_4G_PREFER_2G, 7},
-		{NET_MODE_2G_4G_PREFER_4G, 8},
-		{NET_MODE_3G_4G_AUTO, 9},
-		{NET_MODE_3G_4G_PREFER_3G, 10},
-		{NET_MODE_3G_4G_PREFER_4G, 11},
-	};
-	
-	if (mode2id.find(new_mode) == mode2id.end())
+	if (m_mode2id.find(new_mode) == m_mode2id.end())
 		return false;
 	
 	auto response = m_at.sendCommand("AT*BAND?", "*BAND");
@@ -116,7 +179,7 @@ bool Asr1802Modem::setNetworkMode(NetworkMode new_mode) {
 	if (!success)
 		return false;
 	
-	mode = mode2id[new_mode];
+	mode = m_mode2id[new_mode];
 	
 	std::string query = strprintf("AT*BAND=%d,%d,%d,%d,%d,%d,%d,%d",
 		mode, gsm_band, umts_band, lte_bandh, lte_bandl, roaming_cfg, srv_domain, band_priority);

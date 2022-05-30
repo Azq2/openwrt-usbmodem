@@ -55,6 +55,18 @@ return baseclass.extend({
 		div.innerHTML = '';
 		div.appendChild(E('p', { 'class': 'spinning' }, message));
 	},
+	renderSubTabs(tabs_names, current, callback) {
+		let tabs = [];
+		for (let id in tabs_names) {
+			tabs.push(E('li', { 'class': id == current ? 'cbi-tab' : 'cbi-tab-disabled' }, [
+				E('a', {
+					'href': '#',
+					'click': ui.createHandlerFn(callback[0], callback[1], id)
+				}, [ tabs_names[id] ])
+			]));
+		}
+		return E('ul', { 'class': 'cbi-tabmenu' }, tabs);
+	},
 	renderModemTabs(interfaces, callback, render) {
 		let view = E('div', {}, [
 			// E('div', { id: 'busy-message' }, []),
@@ -88,7 +100,7 @@ return baseclass.extend({
 			]));
 		}
 		return E('div', {}, [
-			E('h3', {}, [ title ]),
+			(title ? E('h3', {}, [ title ]) : ''),
 			table
 		]);
 	},

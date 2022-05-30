@@ -19,6 +19,25 @@ static std::vector<Modem::NetworkTech> ALL_NETWORK_TECH_LIST = {
 	Modem::TECH_LTE
 };
 
+static std::vector<Modem::NetworkMode> ALL_NETWORK_MODES = {
+	Modem::NET_MODE_AUTO,
+	Modem::NET_MODE_ONLY_2G,
+	Modem::NET_MODE_ONLY_3G,
+	Modem::NET_MODE_ONLY_4G,
+	Modem::NET_MODE_PREFER_2G,
+	Modem::NET_MODE_PREFER_3G,
+	Modem::NET_MODE_PREFER_4G,
+	Modem::NET_MODE_2G_3G_AUTO,
+	Modem::NET_MODE_2G_3G_PREFER_2G,
+	Modem::NET_MODE_2G_3G_PREFER_3G,
+	Modem::NET_MODE_2G_4G_AUTO,
+	Modem::NET_MODE_2G_4G_PREFER_2G,
+	Modem::NET_MODE_2G_4G_PREFER_4G,
+	Modem::NET_MODE_3G_4G_AUTO,
+	Modem::NET_MODE_3G_4G_PREFER_3G,
+	Modem::NET_MODE_3G_4G_PREFER_4G,
+};
+
 void ModemServiceApi::apiGetModemInfo(std::shared_ptr<UbusRequest> req) {
 	Loop::setTimeout([=]() {
 		auto [success, modem_info] = m_modem->getModemInfo();
@@ -44,7 +63,7 @@ void ModemServiceApi::apiGetSimInfo(std::shared_ptr<UbusRequest> req) {
 		auto [success, sim_info] = m_modem->getSimInfo();
 		if (!success) {
 			reply(req, {
-				{"error", "Can't get modem info"}
+				{"error", "Can't get sim info"}
 			});
 			return;
 		}
@@ -62,7 +81,7 @@ void ModemServiceApi::apiGetNetworkInfo(std::shared_ptr<UbusRequest> req) {
 		auto [success, net_info] = m_modem->getNetworkInfo();
 		if (!success) {
 			reply(req, {
-				{"error", "Can't get modem info"}
+				{"error", "Can't get network info"}
 			});
 			return;
 		}
@@ -277,7 +296,7 @@ void ModemServiceApi::apiSearchOperators(std::shared_ptr<UbusRequest> req) {
 		auto [success, list] = m_modem->searchOperators();
 		if (!success) {
 			reply(req, {
-				{"error", "Can't get modem info"}
+				{"error", "Search operators failed"}
 			});
 			return;
 		}
@@ -313,8 +332,6 @@ void ModemServiceApi::apiSetOperator(std::shared_ptr<UbusRequest> req) {
 		}
 	}
 	
-	LOGD("apiSetOperator!!!!!!!!!!\n");
-	
 	Loop::setTimeout([=]() {
 		json response = {{"success", false}};
 		if (mode == "manual") {
@@ -326,6 +343,68 @@ void ModemServiceApi::apiSetOperator(std::shared_ptr<UbusRequest> req) {
 		} else {
 			response["error"] = "Invalid mode.";
 		}
+		reply(req, response);
+	}, 0);
+}
+
+void ModemServiceApi::apiGetNetworkSettings(std::shared_ptr<UbusRequest> req) {
+	Loop::setTimeout([=]() {
+		json response = {
+			{"network_modes", json::array()}
+		};
+		
+		auto [success, list] = m_modem->getNetworkModes();
+		if (!success) {
+			reply(req, {{"error", "getNetworkModes error"}});
+			return;
+		}
+		
+		auto [success2, curr_mode] = m_modem->getCurrentNetworkMode();
+		if (!success2) {
+			reply(req, {{"error", "getCurrentNetworkMode error"}});
+			return;
+		}
+		
+		auto [success3, roaming] = m_modem->isRoamingEnabled();
+		if (!success3) {
+			reply(req, {{"error", "isRoamingEnabled error"}});
+			return;
+		}
+		
+		for (auto &mode: list)
+			response["network_modes"].push_back(m_modem->getEnumName(mode));
+		
+		response["roaming"] = roaming;
+		response["network_mode"] = m_modem->getEnumName(curr_mode);
+		
+		reply(req, response);
+	}, 0);
+}
+
+void ModemServiceApi::apiSetNetworkSettings(std::shared_ptr<UbusRequest> req) {
+	const auto &params = req->data();
+	std::string mode_name = getStrArg(params, "mode", "");
+	bool roaming = getBoolArg(params, "roaming", false);
+	
+	Modem::NetworkMode mode = Modem::NET_MODE_UNKNOWN;
+	for (auto v: ALL_NETWORK_MODES) {
+		if (strcasecmp(Modem::getEnumName(v), mode_name.c_str()) == 0) {
+			mode = v;
+			break;
+		}
+	}
+	
+	Loop::setTimeout([=]() {
+		json response = {{"success", true}};
+		
+		if (!m_modem->setNetworkMode(mode)) {
+			response["success"] = false;
+			response["error"] = "Can't set network mode";
+		} else if (!m_modem->setDataRoaming(roaming)) {
+			response["success"] = false;
+			response["error"] = "Can't set data roaming";
+		}
+		
 		reply(req, response);
 	}, 0);
 }
@@ -350,68 +429,6 @@ int ModemServiceApi::apiGetDeferredResult(std::shared_ptr<UbusRequest> req) {
 	req->reply(response);
 	
 	return 0;
-}
-
-void ModemServiceApi::apiGetSettings(std::shared_ptr<UbusRequest> req) {
-	/*
-	const auto &params = req->data();
-	bool async = getBoolArg(params, "async", false);
-	
-	std::string deferred_id = enableDefferedResult(req, async);
-	
-	Loop::setTimeout([=]() {
-		json response = {};
-		response["network_modes"] = json::array();
-		
-		int mode_id = m_modem->getCurrentModeId();
-		for (auto &mode: m_modem->getAvailableNetworkModes()) {
-			response["network_modes"].push_back({
-				{"id", mode.id},
-				{"name", mode.name}
-			});
-		}
-		
-		response["network_mode"] = mode_id;
-		response["roaming_enabled"] = m_modem->isRoamingEnabled();
-		
-		if (async) {
-			setDeferredResult(deferred_id, response);
-		} else {
-			req->reply(response);
-		}
-	}, 0);
-	*/
-	reply(req, {}, UBUS_STATUS_INVALID_ARGUMENT);
-}
-
-void ModemServiceApi::apiSetNetworkMode(std::shared_ptr<UbusRequest> req) {
-	/*
-	const auto &params = req->data();
-	bool async = getBoolArg(params, "async", false);
-	bool roaming = getBoolArg(params, "roaming", false);
-	int mode_id = getIntArg(params, "mode", -1);
-	
-	std::string deferred_id = enableDefferedResult(req, async);
-	
-	Loop::setTimeout([=]() {
-		json response = {{"success", true}};
-		
-		if (!m_modem->setNetworkMode(mode_id)) {
-			response["success"] = false;
-			response["error"] = "Can't set network mode";
-		} else if (!m_modem->setDataRoaming(roaming)) {
-			response["success"] = false;
-			response["error"] = "Can't set data roaming";
-		}
-		
-		if (async) {
-			setDeferredResult(deferred_id, response);
-		} else {
-			req->reply(response);
-		}
-	}, 0);
-	*/
-	reply(req, {}, UBUS_STATUS_INVALID_ARGUMENT);
 }
 
 void ModemServiceApi::reply(std::shared_ptr<UbusRequest> req, json result, int status) {
@@ -520,14 +537,15 @@ bool ModemServiceApi::start() {
 			return 0;
 		})
 		
-		.method("get_settings", [this](auto req) {
+		.method("getNetworkSettings", [this](auto req) {
 			initApiRequest(req);
-			apiGetSettings(req);
+			apiGetNetworkSettings(req);
 			return 0;
 		})
-		.method("set_network_mode", [this](auto req) {
+		
+		.method("setNetworkSettings", [this](auto req) {
 			initApiRequest(req);
-			apiSetNetworkMode(req);
+			apiSetNetworkSettings(req);
 			return 0;
 		})
 		.attach();

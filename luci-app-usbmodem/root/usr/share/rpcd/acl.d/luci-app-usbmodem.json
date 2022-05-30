@@ -14,7 +14,9 @@
 					"cancelUssd",
 					"sendCommand",
 					"readSms",
-					"deleteSms"
+					"deleteSms",
+					"getNetworkSettings",
+					"setNetworkSettings"
 				]
 			}
 		},
@@ -31,7 +33,9 @@
 					"cancelUssd",
 					"sendCommand",
 					"readSms",
-					"deleteSms"
+					"deleteSms",
+					"getNetworkSettings",
+					"setNetworkSettings"
 				]
 			}
 		}

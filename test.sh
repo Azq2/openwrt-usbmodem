@@ -3,7 +3,7 @@
 # Example usage:
 # TEST_ROUTER=root@192.168.1.1 TOPDIR=~/build/openwrt ./test.sh
 
-VERSION=16
+VERSION=18
 DIR=$(readlink -f $0)
 DIR=$(dirname $0)
 MODE=$1
