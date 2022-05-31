@@ -282,7 +282,7 @@ void Asr1802Modem::startDataConnection() {
 	// Manual connection to internet needed only for 3G/EDGE
 	// On LTE modem connects to internet autmatically
 	// And also we don't try connect if no service
-	if (m_tech == TECH_LTE || m_tech == TECH_NO_SERVICE || m_tech == TECH_UNKNOWN)
+	if (m_tech == TECH_LTE || m_tech == TECH_NO_SERVICE || m_tech == TECH_UNKNOWN || !isPacketServiceReady())
 		return;
 	
 	// Connection already scheduled

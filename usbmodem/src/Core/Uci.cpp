@@ -1,4 +1,6 @@
 #include "Uci.h"
+#include "Log.h"
+
 #include <uci.h>
 #include <cstring>
 
@@ -15,26 +17,23 @@ bool Uci::loadIfaceConfig(const std::string &iface, std::map<std::string, std::s
 		return false;
 	}
 	
-	bool found = false;
-	uci_element *section_el, *option_el;
-	uci_foreach_element(&package->sections, section_el) {
-		uci_section *section = uci_to_section(section_el);
-		
-		if (strcmp(section->type, "interface") == 0 && strcmp(section_el->name, iface.c_str()) == 0) {
-			uci_foreach_element(&section->options, option_el) {
-				uci_option *option = uci_to_option(option_el);
-				if (option->type == UCI_TYPE_STRING) {
-					options->insert_or_assign(option_el->name, option->v.string);
-					found = true;
-				}
-			};
-			break;
-		}
+	auto section = uci_lookup_section(context, package, iface.c_str());
+	if (!section || strcmp(section->type, "interface") != 0) {
+		LOGE("Can't find config network.%s\n", iface.c_str());
+		uci_free_context(context);
+		return false;
 	}
+	
+	uci_element *option_el;
+	uci_foreach_element(&section->options, option_el) {
+		uci_option *option = uci_to_option(option_el);
+		if (option->type == UCI_TYPE_STRING)
+			options->insert_or_assign(option_el->name, option->v.string);
+	};
 	
 	uci_free_context(context);
 	
-	return found;
+	return true;
 }
 
 bool Uci::loadIfaceFwZone(const std::string &iface, std::string *zone) {

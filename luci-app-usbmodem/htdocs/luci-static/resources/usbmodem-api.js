@@ -80,6 +80,7 @@ return baseclass.extend({
 			case "MEP_LOCK":	return true;
 			case "OTHER_LOCK":	return true;
 			case "ERROR":		return true;
+			case "REMOVED":		return true;
 		}
 		return false;
 	}

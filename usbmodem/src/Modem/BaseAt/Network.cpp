@@ -21,6 +21,8 @@ bool BaseAtModem::Creg::isRegistered() const {
 		case CREG_REGISTERED_ROAMING:			return true;
 		case CREG_REGISTERED_HOME_NO_CSFB:		return true;
 		case CREG_REGISTERED_ROAMING_NO_CSFB:	return true;
+		case CREG_REGISTERED_EMERGENY_ONLY:		return true;
+		case CREG_REGISTERED_EMERGENY_ONLY2:	return true;
 	}
 	return false;
 }
@@ -41,10 +43,10 @@ BaseAtModem::NetworkReg BaseAtModem::Creg::toNetworkReg() const {
 		case CREG_REGISTERED_ROAMING:				return NET_REGISTERED_ROAMING;
 		case CREG_REGISTERED_HOME_SMS_ONLY:			return NET_REGISTERED_HOME;
 		case CREG_REGISTERED_ROAMING_SMS_ONLY:		return NET_REGISTERED_ROAMING;
-		case CREG_REGISTERED_EMERGENY_ONLY:			return NET_NOT_REGISTERED;
+		case CREG_REGISTERED_EMERGENY_ONLY:			return NET_EMERGENY_ONLY;
 		case CREG_REGISTERED_HOME_NO_CSFB:			return NET_REGISTERED_HOME;
 		case CREG_REGISTERED_ROAMING_NO_CSFB:		return NET_REGISTERED_ROAMING;
-		case CREG_REGISTERED_EMERGENY_ONLY2:		return NET_NOT_REGISTERED;
+		case CREG_REGISTERED_EMERGENY_ONLY2:		return NET_EMERGENY_ONLY;
 	}
 	return NET_NOT_REGISTERED;
 }
@@ -239,16 +241,11 @@ void BaseAtModem::handleNetworkChange() {
 		new_net_reg = m_cgreg.toNetworkReg();
 		m_cell_info.cell_id = m_cgreg.cell_id;
 		m_cell_info.loc_id = m_cgreg.loc_id;
-	} else if (m_creg.isRegistered()) {
+	} else {
 		new_tech = m_creg.toNetworkTech();
 		new_net_reg = m_creg.toNetworkReg();
 		m_cell_info.cell_id = m_creg.cell_id;
 		m_cell_info.loc_id = m_creg.loc_id;
-	} else {
-		new_tech = TECH_NO_SERVICE;
-		new_net_reg = m_creg.toNetworkReg();
-		m_cell_info.cell_id = 0;
-		m_cell_info.loc_id = 0;
 	}
 	
 	if (m_net_reg != new_net_reg) {
@@ -322,7 +319,7 @@ std::tuple<bool, BaseAtModem::Operator> BaseAtModem::getCurrentOperator() {
 		Operator value;
 		value.mcc = strToInt(id.substr(0, 3), 10, -1);
 		value.mnc = strToInt(id.substr(3, 2), 10, -1);
-		value.name = name;
+		value.name = !name.size() ? strprintf("%03d %02d", value.mcc, value.mnc) : name;
 		value.tech = cregToTech(static_cast<CregTech>(creg));
 		value.status = OPERATOR_STATUS_REGISTERED;
 		value.reg = (mode == 0 ? OPERATOR_REG_AUTO : OPERATOR_REG_MANUAL);
@@ -439,4 +436,8 @@ std::tuple<bool, bool> BaseAtModem::isRoamingEnabled() {
 
 bool BaseAtModem::setDataRoaming(bool enable) {
 	return true;
+}
+
+std::tuple<bool, std::vector<BaseAtModem::NetworkNeighborCell>> BaseAtModem::getNeighboringCell() {
+	return {true, {}};
 }

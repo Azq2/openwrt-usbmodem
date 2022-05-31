@@ -36,7 +36,8 @@ class Modem {
 			NET_NOT_REGISTERED,
 			NET_SEARCHING,
 			NET_REGISTERED_HOME,
-			NET_REGISTERED_ROAMING
+			NET_REGISTERED_ROAMING,
+			NET_EMERGENY_ONLY
 		};
 		
 		enum NetworkMode: int {
@@ -110,7 +111,8 @@ class Modem {
 			SIM_MEP_LOCK,
 			SIM_OTHER_LOCK,
 			SIM_WAIT_UNLOCK,
-			SIM_ERROR
+			SIM_ERROR,
+			SIM_REMOVED
 		};
 		
 		/*
@@ -146,6 +148,16 @@ class Modem {
 		struct NetworkCell {
 			uint16_t loc_id = 0;
 			uint16_t cell_id = 0;
+		};
+		
+		struct NetworkNeighborCell {
+			float rscp_dbm = NAN;
+			float rssi_dbm = NAN;
+			int mcc = 0;
+			int mnc = 0;
+			uint16_t loc_id = 0;
+			uint16_t cell_id = 0;
+			int freq = 0;
 		};
 		
 		enum OperatorRegMode {
@@ -310,6 +322,8 @@ class Modem {
 		virtual bool setDataRoaming(bool enable) = 0;
 		
 		virtual std::tuple<bool, Operator> getCurrentOperator() = 0;
+		
+		virtual std::tuple<bool, std::vector<NetworkNeighborCell>> getNeighboringCell() = 0;
 		
 		/*
 		 * USSD

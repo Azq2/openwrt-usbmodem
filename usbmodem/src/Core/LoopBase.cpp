@@ -1,6 +1,7 @@
 #include "LoopBase.h"
 
 #include <fcntl.h>
+#include <unistd.h>
 #include <csignal>
 
 void LoopBase::init() {

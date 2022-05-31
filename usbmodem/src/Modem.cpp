@@ -43,6 +43,7 @@ const char *Modem::getEnumName(NetworkReg reg, bool is_human_readable) {
 			case NET_SEARCHING:				return "Searching network...";
 			case NET_REGISTERED_HOME:		return "Registered to home network";
 			case NET_REGISTERED_ROAMING:	return "Registered to roaming network";
+			case NET_EMERGENY_ONLY:			return "Emergeny only";
 		}
 		return "UNKNOWN";
 	} else {
@@ -51,6 +52,7 @@ const char *Modem::getEnumName(NetworkReg reg, bool is_human_readable) {
 			case NET_SEARCHING:				return "SEARCHING";
 			case NET_REGISTERED_HOME:		return "REGISTERED_HOME";
 			case NET_REGISTERED_ROAMING:	return "REGISTERED_ROAMING";
+			case NET_EMERGENY_ONLY:			return "EMERGENY_ONLY";
 		}
 		return "UNKNOWN";
 	}
@@ -70,6 +72,7 @@ const char *Modem::getEnumName(SimState state, bool is_human_readable) {
 			case SIM_OTHER_LOCK:		return "SIM or Modem requires other lock code";
 			case SIM_WAIT_UNLOCK:		return "SIM unlocking...";
 			case SIM_ERROR:				return "SIM error";
+			case SIM_REMOVED:			return "SIM removed";
 		}
 		return "UNKNOWN";
 	} else {
@@ -85,6 +88,7 @@ const char *Modem::getEnumName(SimState state, bool is_human_readable) {
 			case SIM_OTHER_LOCK:		return "OTHER_LOCK";
 			case SIM_WAIT_UNLOCK:		return "WAIT_UNLOCK";
 			case SIM_ERROR:				return "ERROR";
+			case SIM_REMOVED:			return "REMOVED";
 		}
 		return "UNKNOWN";
 	}

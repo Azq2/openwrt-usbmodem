@@ -16,7 +16,8 @@
 					"readSms",
 					"deleteSms",
 					"getNetworkSettings",
-					"setNetworkSettings"
+					"setNetworkSettings",
+					"getNeighboringCell"
 				]
 			}
 		},
@@ -35,7 +36,8 @@
 					"readSms",
 					"deleteSms",
 					"getNetworkSettings",
-					"setNetworkSettings"
+					"setNetworkSettings",
+					"getNeighboringCell"
 				]
 			}
 		}

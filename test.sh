@@ -3,7 +3,7 @@
 # Example usage:
 # TEST_ROUTER=root@192.168.1.1 TOPDIR=~/build/openwrt ./test.sh
 
-VERSION=18
+VERSION=22
 DIR=$(readlink -f $0)
 DIR=$(dirname $0)
 MODE=$1
@@ -15,17 +15,17 @@ fi
 
 if [[ $TEST_ROUTER == "" ]]; then
 	# Test router
-	#TEST_ROUTER=root@192.168.2.1
-	TEST_ROUTER=root@192.168.122.54
+	TEST_ROUTER=root@192.168.2.1
+	#TEST_ROUTER=root@192.168.122.54
 fi
 
 if [[ $TARGET == "" ]]; then
-	#export TARGET=target-mipsel_24kc_musl
+	export TARGET=target-mipsel_24kc_musl
 	#export TARGET=target-x86_64_musl
-	export TARGET=target-x86_64_glibc
+	#export TARGET=target-x86_64_glibc
 fi
 
-export CONFIG_DEBUG=y
+#export CONFIG_DEBUG=y
 
 export PATH="$PATH:$TOPDIR/staging_dir/host/bin"
 

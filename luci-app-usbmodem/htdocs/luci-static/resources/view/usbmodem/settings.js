@@ -36,6 +36,13 @@ let NETWORK_MODES = {
 
 return view.extend({
 	/*
+	 * Security
+	 * */
+	renderSecurity() {
+		
+	},
+	
+	/*
 	 * Network
 	 * */
 	saveNetworkMode(e) {
@@ -80,7 +87,11 @@ return view.extend({
 				network_reg.innerHTML = usbmodem.NET_REG[network.registration];
 			} else {
 				let code = '%03d%02d'.format(network.operator.mcc, network.operator.mnc);
-				current_operator.innerHTML = network.operator.name + ' ' + usbmodem.TECH[network.tech] + ' / ' + code;
+				if (network.tech == "NO_SERVICE") {
+					current_operator.innerHTML = network.operator.name + ' / ' + code;
+				} else{
+					current_operator.innerHTML = network.operator.name + ' ' + usbmodem.TECH[network.tech] + ' / ' + code;
+				}
 				network_reg.innerHTML = usbmodem.NET_REG[network.registration] + ' ' + (network.operator.registration == 'MANUAL' ? _(' (manual)') : ' (auto)');
 			}
 		});
@@ -195,6 +206,13 @@ return view.extend({
 			]),
 		]);
 	},
+	
+	/*
+	 * Common
+	 * */
+	load() {
+		return usbmodem.api.getInterfaces();
+	},
 	renderForm() {
 		let tabs = {
 			network:	_('Network'),
@@ -208,13 +226,6 @@ return view.extend({
 			usbmodem.view.renderSubTabs(tabs, this.tab, [this, 'onSubTabSelected']),
 			this[tab_render_func]()
 		]);
-	},
-	
-	/*
-	 * Common
-	 * */
-	load() {
-		return usbmodem.api.getInterfaces();
 	},
 	onTabSelected(iface) {
 		this.iface = iface;

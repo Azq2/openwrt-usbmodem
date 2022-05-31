@@ -52,7 +52,23 @@ int BaseAtModem::getCommandTimeout(const std::string &cmd) {
 	
 	// Default timeout for operators search
 	if (strStartsWith(cmd, "AT+COPS"))
-		return 110 * 1000;
+		return 300 * 1000;
+	
+	// SMS send
+	if (strStartsWith(cmd, "AT+CMGS"))
+		return 90 * 1000;
+	
+	// SMS write
+	if (strStartsWith(cmd, "AT+CMGW"))
+		return 90 * 1000;
+	
+	// PhoneBook write
+	if (strStartsWith(cmd, "AT+CPBW"))
+		return 90 * 1000;
+	
+	// Pincode
+	if (strStartsWith(cmd, "AT+CPIN"))
+		return 185 * 1000;
 	
 	// Default timeout
 	return 0;

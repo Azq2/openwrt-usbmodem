@@ -107,6 +107,15 @@ bool Asr1802Modem::init() {
 		handleCmt(event);
 	});
 	
+	m_at.onUnsolicited("+EEMGINFO", [this](const std::string &event) {
+		handleEngInfoStart(event);
+	});
+	
+	m_at.onUnsolicited("+EEMGINFO ", [this](const std::string &event) {
+		handleEngInfoStart(event);
+	});
+	
+	// Serving Cell
 	m_at.onUnsolicited("+EEMLTESVC", [this](const std::string &event) {
 		handleServingCell(event);
 	});
@@ -115,6 +124,14 @@ bool Asr1802Modem::init() {
 	});
 	m_at.onUnsolicited("+EEMGINFOSVC", [this](const std::string &event) {
 		handleServingCell(event);
+	});
+	
+	// Neighboring Cell
+	m_at.onUnsolicited("+EEMUMTSINTER", [this](const std::string &event) {
+		handleNeighboringCell(event);
+	});
+	m_at.onUnsolicited("+EEMUMTSINTRA", [this](const std::string &event) {
+		handleNeighboringCell(event);
 	});
 	
 	if (!m_force_restart_network) {
@@ -215,17 +232,17 @@ int Asr1802Modem::getCommandTimeout(const std::string &cmd) {
 	if (strStartsWith(cmd, "AT+CFUN"))
 		return 50 * 1000;
 	
-	if (strStartsWith(cmd, "AT+CGDATA"))
-		return 185 * 1000;
-	
-	if (strStartsWith(cmd, "AT+CUSD"))
+	if (strStartsWith(cmd, "AT+CGACT"))
 		return 110 * 1000;
 	
 	if (strStartsWith(cmd, "AT+CGATT"))
 		return 110 * 1000;
 	
-	if (strStartsWith(cmd, "AT+CPIN"))
+	if (strStartsWith(cmd, "AT+CGDATA"))
 		return 185 * 1000;
+	
+	if (strStartsWith(cmd, "AT+CUSD"))
+		return 110 * 1000;
 	
 	return BaseAtModem::getCommandTimeout(cmd);
 }

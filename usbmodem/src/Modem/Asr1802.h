@@ -35,6 +35,7 @@ class Asr1802Modem: public BaseAtModem {
 		bool m_force_restart_network = false;
 		bool m_is_td_modem = false; // true - TDSCDMA, false - WCDMA
 		int m_pdp_context = DEFAULT_PDP_CONTEXT;
+		std::vector<NetworkNeighborCell> m_neighboring_cell;
 		static std::map<NetworkMode, int> m_mode2id;
 		
 		bool dial();
@@ -51,6 +52,8 @@ class Asr1802Modem: public BaseAtModem {
 		void handleCesq(const std::string &event) override;
 		void handleMmsg(const std::string &event);
 		void handleServingCell(const std::string &event);
+		void handleNeighboringCell(const std::string &event);
+		void handleEngInfoStart(const std::string &event);
 		
 		std::tuple<bool, std::vector<NetworkMode>> getNetworkModes() override;
 		bool setNetworkMode(NetworkMode new_mode) override;
@@ -58,6 +61,8 @@ class Asr1802Modem: public BaseAtModem {
 		
 		std::tuple<bool, bool> isRoamingEnabled() override;
 		bool setDataRoaming(bool enable) override;
+		
+		std::tuple<bool, std::vector<NetworkNeighborCell>> getNeighboringCell() override;
 		
 		void handleConnect();
 		void handleDisconnect();
@@ -90,5 +95,5 @@ class Asr1802Modem: public BaseAtModem {
 		
 		bool close() override;
 		
-		~Asr1802Modem() { }
+		virtual ~Asr1802Modem() { }
 };

@@ -33,12 +33,12 @@
 			"path": "usbmodem/ussd"
 		}
 	},
-	"admin/services/usbmodem/commands": {
-		"title": "AT Commands",
+	"admin/services/usbmodem/utils": {
+		"title": "Utils",
 		"order": 13,
 		"action": {
 			"type": "view",
-			"path": "usbmodem/commands"
+			"path": "usbmodem/utils"
 		}
 	},
 	"admin/services/usbmodem/settings": {

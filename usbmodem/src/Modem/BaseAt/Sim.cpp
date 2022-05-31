@@ -33,9 +33,13 @@ void BaseAtModem::startSimPolling() {
 		
 		switch (error) {
 			case 10:	// SIM not inserted
+				LOGD("SIM not present\n");
+				setSimState(SIM_REMOVED);
+			break;
+			
 			case 13:	// SIM failure
 			case 15:	// SIM wrong
-				LOGD("SIM not present or failure\n");
+				LOGD("SIM not failure\n");
 				setSimState(SIM_ERROR);
 			break;
 			
@@ -87,6 +91,9 @@ bool BaseAtModem::handleSimLock(const std::string &code) {
 			startSimPolling();
 		}, 0);
 		
+		return true;
+	} else if (strStartsWith(code, "SIM REMOVED")) {
+		setSimState(SIM_REMOVED);
 		return true;
 	} else if (strStartsWith(code, "SIM PIN2")) {
 		setSimState(SIM_PIN2_LOCK);

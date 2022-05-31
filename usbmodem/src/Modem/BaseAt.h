@@ -196,7 +196,13 @@ class BaseAtModem: public Modem {
 		static inline float decodeRSRP(int rsrp) {
 			return -(rsrp >= 255 ? NAN : 141 - rsrp);
 		}
+		
+		inline bool isPacketServiceReady() {
+			return (m_net_reg == NET_REGISTERED_HOME || m_net_reg == NET_REGISTERED_ROAMING);
+		}
 	public:
+		virtual ~BaseAtModem() { }
+		
 		/*
 		 * Main Operations
 		 * */
@@ -225,6 +231,8 @@ class BaseAtModem: public Modem {
 		virtual bool setDataRoaming(bool enable) override;
 		
 		virtual std::tuple<bool, Operator> getCurrentOperator() override;
+		
+		virtual std::tuple<bool, std::vector<NetworkNeighborCell>> getNeighboringCell() override;
 		
 		/*
 		 * USSD

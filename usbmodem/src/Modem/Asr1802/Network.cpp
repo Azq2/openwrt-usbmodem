@@ -185,3 +185,7 @@ bool Asr1802Modem::setNetworkMode(NetworkMode new_mode) {
 		mode, gsm_band, umts_band, lte_bandh, lte_bandl, roaming_cfg, srv_domain, band_priority);
 	return m_at.sendCommandNoResponse(query) == 0;
 }
+
+std::tuple<bool, std::vector<Asr1802Modem::NetworkNeighborCell>> Asr1802Modem::getNeighboringCell() {
+	return {true, m_neighboring_cell};
+}

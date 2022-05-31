@@ -409,6 +409,31 @@ void ModemServiceApi::apiSetNetworkSettings(std::shared_ptr<UbusRequest> req) {
 	}, 0);
 }
 
+
+void ModemServiceApi::apiGetNeighboringCell(std::shared_ptr<UbusRequest> req) {
+	Loop::setTimeout([=]() {
+		auto [success, list] = m_modem->getNeighboringCell();
+		if (!success) {
+			reply(req, {{"error", "getNeighboringCell error"}});
+			return;
+		}
+		
+		json response = {{"list", json::array()}};
+		for (auto &cell: list) {
+			response["list"].push_back({
+				{"rssi_dbm", cell.rssi_dbm},
+				{"rscp_dbm", cell.rscp_dbm},
+				{"mcc", cell.mcc},
+				{"mnc", cell.mnc},
+				{"loc_id", cell.loc_id},
+				{"cell_id", cell.cell_id},
+				{"freq", cell.freq},
+			});
+		}
+		reply(req, response);
+	}, 0);
+}
+
 int ModemServiceApi::apiGetDeferredResult(std::shared_ptr<UbusRequest> req) {
 	json response = {};
 	const auto &params = req->data();
@@ -548,5 +573,12 @@ bool ModemServiceApi::start() {
 			apiSetNetworkSettings(req);
 			return 0;
 		})
+		
+		.method("getNeighboringCell", [this](auto req) {
+			initApiRequest(req);
+			apiGetNeighboringCell(req);
+			return 0;
+		})
+		
 		.attach();
 }

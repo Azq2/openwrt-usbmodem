@@ -67,6 +67,7 @@ class ModemServiceApi {
 		void apiSetOperator(std::shared_ptr<UbusRequest> req);
 		void apiGetNetworkSettings(std::shared_ptr<UbusRequest> req);
 		void apiSetNetworkSettings(std::shared_ptr<UbusRequest> req);
+		void apiGetNeighboringCell(std::shared_ptr<UbusRequest> req);
 		
 		// Internal API
 		int apiGetDeferredResult(std::shared_ptr<UbusRequest> req);

@@ -9,6 +9,8 @@ include $(INCLUDE_DIR)/cmake.mk
 
 ifneq ($(CONFIG_DEBUG),)
 	CMAKE_OPTIONS += -DCMAKE_BUILD_TYPE=Debug
+else
+	CMAKE_OPTIONS += -DCMAKE_BUILD_TYPE=Release
 endif
 
 define Package/usbmodem

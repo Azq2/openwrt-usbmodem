@@ -5,8 +5,8 @@ project(usbmodem)
 
 set(DEBUG_SATINIZE "-fsanitize=address")
 
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_RELEASE} -g -Werror -Wno-switch -Wno-sign-compare -Wall -O1 ${DEBUG_SATINIZE}")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_RELEASE} -g -Werror -Wno-switch -Wno-sign-compare -Wall -O1 ${DEBUG_SATINIZE}")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_RELEASE} -ggdb3 -Werror -Wno-switch -Wno-sign-compare -Wall -O1 ${DEBUG_SATINIZE}")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_RELEASE} -ggdb3 -Werror -Wno-switch -Wno-sign-compare -Wall -O1 ${DEBUG_SATINIZE}")
 
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -s -Os -Wl,--gc-sections -fdata-sections -ffunction-sections -flto")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -s -Os -Wl,--gc-sections -fdata-sections -ffunction-sections -flto")
