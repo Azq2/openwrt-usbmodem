@@ -4,9 +4,10 @@ set(CMAKE_CXX_STANDARD 17)
 project(usbmodem)
 
 set(DEBUG_SATINIZE "-fsanitize=address")
+set(DEBUG_WERROR "-Werror -Wno-switch -Wno-sign-compare -Wno-error=unused-function -Wno-error=unused-variable -Wall")
 
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_RELEASE} -ggdb3 -Werror -Wno-switch -Wno-sign-compare -Wall -O1 ${DEBUG_SATINIZE}")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_RELEASE} -ggdb3 -Werror -Wno-switch -Wno-sign-compare -Wall -O1 ${DEBUG_SATINIZE}")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_RELEASE} -ggdb3 ${DEBUG_WERROR} -O1 ${DEBUG_SATINIZE}")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_RELEASE} -ggdb3 ${DEBUG_WERROR} -O1 ${DEBUG_SATINIZE}")
 
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -s -Os -Wl,--gc-sections -fdata-sections -ffunction-sections -flto")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -s -Os -Wl,--gc-sections -fdata-sections -ffunction-sections -flto")
@@ -31,6 +32,9 @@ add_executable(usbmodem
 	ModemService.cpp
 	ModemServiceApi.cpp
 	
+	UsbDiscover.cpp
+	UsbDiscoverData.cpp
+	
 	Core/Serial.cpp
 	Core/AtChannel.cpp
 	Core/Utils.cpp
@@ -38,7 +42,6 @@ add_executable(usbmodem
 	Core/GsmUtils.cpp
 	Core/AtParser.cpp
 	Core/BinaryStream.cpp
-	Core/UsbDiscover.cpp
 	Core/Ubus.cpp
 	Core/Blobmsg.cpp
 	Core/UbusObject.cpp

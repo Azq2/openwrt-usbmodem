@@ -2,8 +2,6 @@
 
 #include "Log.h"
 
-#include <fstream>
-#include <filesystem>
 #include <algorithm> 
 #include <cctype> 
 #include <cmath> 
@@ -13,10 +11,12 @@
 #include <stdexcept>
 #include <unordered_map>
 
+#include <dirent.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <libgen.h>
 
 using namespace std;
 
@@ -49,43 +49,6 @@ int strToInt(const std::string &s, int base, int default_value) {
 	} catch (std::invalid_argument &e) {
 		return default_value;
 	}
-}
-
-size_t getFileSize(const std::string &file) {
-	struct stat st;
-	if (stat(file.c_str(), &st) != 0)
-		return 0;
-	return st.st_size;
-}
-
-bool isFileExists(const std::string &file) {
-	return access(file.c_str(), F_OK) == 0;
-}
-
-bool isFileReadable(const std::string &file) {
-	return access(file.c_str(), F_OK | R_OK) == 0;
-}
-
-bool isFileWriteable(const std::string &file) {
-	return access(file.c_str(), F_OK | W_OK) == 0;
-}
-
-int execFile(const std::string &path, std::vector<std::string> args, std::vector<std::string> envs) {
-	// Arguments
-	std::vector<char *> args_c_array;
-	args_c_array.resize(args.size() + 1);
-	for (auto &value: args)
-		args_c_array.push_back(value.data());
-	args_c_array.push_back(nullptr);
-	
-	// Env variables
-	std::vector<char *> envs_c_array;
-	envs_c_array.resize(envs.size() + 1);
-	for (auto &value: envs)
-		envs_c_array.push_back(value.data());
-	envs_c_array.push_back(nullptr);
-	
-	return execvpe(path.c_str(), args_c_array.data(), envs_c_array.data());
 }
 
 double rssiToPercent(double rssi, double min, double max) {
@@ -343,11 +306,6 @@ bool normalizeIp(std::string *raw_ip, int require_ipv, bool allow_dec_v6) {
 	return false;
 }
 
-std::string readFile(std::string path) {
-	std::ifstream s(path);
-	return std::string((std::istreambuf_iterator<char>(s)), std::istreambuf_iterator<char>());
-}
-
 std::string trim(std::string s) {
 	s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](uint8_t c) {
 		return !isspace(c);
@@ -358,47 +316,57 @@ std::string trim(std::string s) {
 	return s;
 }
 
-std::string findUsbIface(std::string dev_path, int iface) {
-	for (auto &p: std::filesystem::directory_iterator(dev_path)) {
-		if (std::filesystem::exists(p.path().string() + "/bInterfaceNumber")) {
-			int found_iface = strToInt(readFile(p.path().string() + "/bInterfaceNumber"), 16);
-			if (found_iface == iface) {
-				return p.path().string();
-			}
+std::string urlencode(const std::string &str) {
+	std::string result;
+	for (auto c: str) {
+		if (!isalpha(c) && !isdigit(c)) {
+			result += strprintf("%%%02X", c);
+		} else {
+			result += c;
+		}
+	}
+	return result;
+}
+
+std::string findUsbIface(const std::string &dev_path, int iface) {
+	for (auto &dir: readDir(dev_path)) {
+		if (isFile(dir + "/bInterfaceNumber")) {
+			int found_iface = strToInt(readFile(dir + "/bInterfaceNumber"), 16);
+			if (found_iface == iface)
+				return dir;
 		}
 	}
 	return "";
 }
 
 std::string findUsbDevice(int vid, int pid) {
-	for (auto &p: std::filesystem::directory_iterator("/sys/bus/usb/devices")) {
-		std::string path = p.path().string();
-		if (std::filesystem::exists(path + "/idVendor") && std::filesystem::exists(path + "/idProduct")) {
-			int found_vid = strToInt(readFile(path + "/idVendor"), 16);
-			int found_pid = strToInt(readFile(path + "/idProduct"), 16);
+	for (auto &dir: readDir("/sys/bus/usb/devices")) {
+		if (isFile(dir + "/idVendor") && isFile(dir + "/idProduct")) {
+			int found_vid = strToInt(readFile(dir + "/idVendor"), 16);
+			int found_pid = strToInt(readFile(dir + "/idProduct"), 16);
 			
 			if (found_vid == vid && found_pid == pid)
-				return path;
+				return dir;
 		}
 	}
 	return "";
 }
 
 std::string findUsbTTYName(const std::string &iface_path) {
-	if (std::filesystem::exists(iface_path + "/tty")) {
-		for (auto &p: std::filesystem::directory_iterator(iface_path + "/tty")) {
-			if (std::filesystem::exists(p.path().string() + "/dev"))
-				return p.path().filename();
+	if (isDir(iface_path + "/tty")) {
+		for (auto &dir: readDir(iface_path + "/tty")) {
+			if (isDir(dir + "/dev"))
+				return getFileBaseName(dir);
 		}
 	}
 	return "";
 }
 
 std::string findUsbNetName(const std::string &iface_path) {
-	if (std::filesystem::exists(iface_path + "/net")) {
-		for (auto &p: std::filesystem::directory_iterator(iface_path + "/net")) {
-			if (std::filesystem::exists(p.path().string() + "/address"))
-				return p.path().filename();
+	if (isDir(iface_path + "/net")) {
+		for (auto &dir: readDir(iface_path + "/net")) {
+			if (isDir(dir + "/address"))
+				return getFileBaseName(dir);
 		}
 	}
 	return "";
@@ -417,7 +385,7 @@ std::string findUsbTTY(int vid, int pid, int iface) {
 	return "";
 }
 
-std::string findTTY(std::string url) {
+std::string findTTY(const std::string &url) {
 	if (strStartsWith(url, "usb://")) {
 		uint32_t vid, pid, iface;
 		if (sscanf(url.c_str(), "usb://%x:%x/%u", &vid, &pid, &iface) == 3)
@@ -428,20 +396,119 @@ std::string findTTY(std::string url) {
 	}
 }
 
-std::string findNetByTTY(std::string url) {
+std::string findNetByTTY(const std::string &url) {
 	if (!strStartsWith(url, "/dev/tty"))
 		return "";
 	
-	std::string dev_name = std::filesystem::path(url).filename().string();
+	std::string dev_name = getFileBaseName(url);
 	std::string usb_dev_path = "/sys/class/tty/" + dev_name + "/device";
 	
-	for (auto &p: std::filesystem::directory_iterator(usb_dev_path + "/../")) {
-		if (std::filesystem::exists(p.path().string() + "/bInterfaceNumber")) {
-			std::string net_name = findUsbNetName(p.path().string());
+	for (auto &dir: readDir(usb_dev_path + "/../")) {
+		if (isFile(dir + "/bInterfaceNumber")) {
+			std::string net_name = findUsbNetName(dir);
 			if (net_name.size() > 0)
 				return net_name;
 		}
 	}
 	
 	return "";
+}
+
+/*
+ * File utils
+ * */
+std::string readFile(const std::string &path) {
+	FILE *fp = fopen(path.c_str(), "r");
+	if (!fp)
+		throw std::runtime_error(strprintf("fopen(%s) error: %s", path.c_str(), strerror(errno)));
+	
+	char buff[4096];
+	std::string result;
+	while (!feof(fp)) {
+		int readed = fread(buff, 1, sizeof(buff), fp);
+		if (readed > 0)
+			result.append(buff, readed);
+	}
+	fclose(fp);
+	
+	return result;
+}
+
+std::vector<std::string> readDir(const std::string &path) {
+	DIR *dir_p = opendir(path.c_str());
+	if (!dir_p)
+		throw std::runtime_error(strprintf("opendir(%s) error: %s", path.c_str(), strerror(errno)));
+	
+	std::vector<std::string> result;
+	while (auto *ent = readdir(dir_p)) {
+		if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0)
+			continue;
+		result.push_back(path + "/" + ent->d_name);
+	}
+	closedir(dir_p);
+	
+	return result;
+}
+
+size_t getFileSize(const std::string &file) {
+	struct stat st;
+	if (lstat(file.c_str(), &st) != 0)
+		return 0;
+	return st.st_size;
+}
+
+bool isFileExists(const std::string &file) {
+	return access(file.c_str(), F_OK) == 0;
+}
+
+bool isFileReadable(const std::string &file) {
+	return access(file.c_str(), F_OK | R_OK) == 0;
+}
+
+bool isFileWriteable(const std::string &file) {
+	return access(file.c_str(), F_OK | W_OK) == 0;
+}
+
+bool isFile(const std::string &file) {
+	struct stat st;
+	if (lstat(file.c_str(), &st) != 0)
+		return false;
+	return (st.st_mode & S_IFMT) != S_IFDIR;
+}
+
+bool isDir(const std::string &file) {
+	struct stat st;
+	if (lstat(file.c_str(), &st) != 0)
+		return false;
+	return (st.st_mode & S_IFMT) == S_IFDIR;
+}
+
+int execFile(const std::string &path, std::vector<std::string> args, std::vector<std::string> envs) {
+	// Arguments
+	std::vector<char *> args_c_array;
+	args_c_array.resize(args.size() + 1);
+	for (auto &value: args)
+		args_c_array.push_back(value.data());
+	args_c_array.push_back(nullptr);
+	
+	// Env variables
+	std::vector<char *> envs_c_array;
+	envs_c_array.resize(envs.size() + 1);
+	for (auto &value: envs)
+		envs_c_array.push_back(value.data());
+	envs_c_array.push_back(nullptr);
+	
+	return execvpe(path.c_str(), args_c_array.data(), envs_c_array.data());
+}
+
+bool fileNameCmp(const std::string &a, const std::string &b) {
+	size_t len = std::max(a.size(), b.size());
+	for (auto i = 0; i < len; i++) {
+		auto a_ch = i < a.size() ? a[i] : 0;
+		auto b_ch = i < b.size() ? b[i] : 0;
+		
+		if (a_ch > b_ch)
+			return false;
+	}
+	return true;
 }

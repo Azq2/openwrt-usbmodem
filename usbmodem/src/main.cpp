@@ -5,7 +5,6 @@
 #include <fstream>
 #include <filesystem>
 
-#include <Core/UsbDiscover.h>
 #include <Core/Log.h>
 #include <Core/Loop.h>
 #include <Core/UbusLoop.h>
@@ -20,6 +19,7 @@
 #include "Modem/BaseAt.h"
 #include "Modem/Asr1802.h"
 #include "ModemService.h"
+#include "UsbDiscover.h"
 
 static int modemDaemon(int argc, char *argv[]) {
 	if (argc == 3) {
@@ -44,23 +44,17 @@ static int test(int argc, char *argv[]) {
 int main(int argc, char *argv[]) {
 	if (argc > 1) {
 		if (strcmp(argv[1], "discover") == 0)
-			return discoverUsbModems(argc, argv);
-		if (strcmp(argv[1], "check") == 0)
-			return checkDevice(argc, argv);
-		if (strcmp(argv[1], "ifname") == 0)
-			return findIfname(argc, argv);
-		if (strcmp(argv[1], "daemon") == 0)
-			return modemDaemon(argc, argv);
-		if (strcmp(argv[1], "test") == 0)
-			return test(argc, argv);
+			return UsbDiscover::run(argc - 2, argv + 2);
 		
+		if (strcmp(argv[1], "daemon") == 0)
+			return modemDaemon(argc - 2, argv + 2);
+		
+		if (strcmp(argv[1], "test") == 0)
+			return test(argc - 2, argv + 2);
 	}
 	
-	fprintf(stderr, "usage: %s <action>\n", argv[0]);
-	fprintf(stderr, "  %s discover - discover usb modems\n", argv[0]);
-	fprintf(stderr, "  %s check <device> - check if device available\n", argv[0]);
-	fprintf(stderr, "  %s ifname <device> - get network device by tty\n", argv[0]);
-	fprintf(stderr, "  %s daemon <iface> - start modem daemon\n", argv[0]);
+	fprintf(stderr, "usage: usbmodem <action>\n");
+	fprintf(stderr, "  usbmodem daemon <iface>    - start modem daemon\n");
 	
 	return -1;
 }

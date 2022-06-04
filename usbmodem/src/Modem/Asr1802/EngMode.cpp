@@ -62,8 +62,8 @@ void Asr1802Modem::handleNeighboringCell(const std::string &event) {
 		auto &cell = m_neighboring_cell.back();
 		cell.rssi_dbm = rssi == -1 ? NAN : decodeRSSI(rssi);
 		cell.rscp_dbm = rscp == -32768 ? NAN : rscp;
-		cell.mcc = mcc;
-		cell.mnc = mnc;
+		cell.mcc = strToInt(strprintf("%x", mcc));
+		cell.mnc = strToInt(strprintf("%x", mnc));
 		cell.loc_id = lac;
 		cell.cell_id = ci;
 		cell.freq = arfcn;
@@ -183,8 +183,8 @@ void Asr1802Modem::handleServingCell(const std::string &event) {
 			auto &cell = m_neighboring_cell.back();
 			cell.rssi_dbm = m_signal.rssi_dbm;
 			cell.rscp_dbm = m_signal.rscp_dbm;
-			cell.mcc = mcc;
-			cell.mnc = mnc;
+			cell.mcc = strToInt(strprintf("%x", mcc));
+			cell.mnc = strToInt(strprintf("%x", mnc));
 			cell.loc_id = lac;
 			cell.cell_id = ci;
 			cell.freq = arfcn;

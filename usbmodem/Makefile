@@ -4,14 +4,15 @@ PKG_NAME:=usbmodem
 PKG_RELEASE:=1
 PKG_LICENSE:=GPLv2
 
-include $(INCLUDE_DIR)/package.mk
-include $(INCLUDE_DIR)/cmake.mk
-
 ifneq ($(CONFIG_DEBUG),)
 	CMAKE_OPTIONS += -DCMAKE_BUILD_TYPE=Debug
+	PKG_BUILD_PARALLEL := 1
 else
 	CMAKE_OPTIONS += -DCMAKE_BUILD_TYPE=Release
 endif
+
+include $(INCLUDE_DIR)/package.mk
+include $(INCLUDE_DIR)/cmake.mk
 
 define Package/usbmodem
 	SECTION:=net

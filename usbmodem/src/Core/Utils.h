@@ -66,14 +66,6 @@ std::string converOctalIpv6(const std::string &value);
 int getIpType(const std::string &raw_ip, bool allow_dec_v6 = false);
 bool normalizeIp(std::string *raw_ip, int require_ipv = 0, bool allow_dec_v6 = false);
 
-bool isFileWriteable(const std::string &file);
-bool isFileReadable(const std::string &file);
-bool isFileExists(const std::string &file);
-size_t getFileSize(const std::string &file);
-bool isFileExists(const std::string &file);
-
-int execFile(const std::string &path, std::vector<std::string> args, std::vector<std::string> envs);
-
 std::pair<bool, std::string> tryHexToBin(const std::string &hex);
 
 std::string bin2hex(const std::string &raw, bool uc = false);
@@ -85,17 +77,45 @@ inline std::string hex2bin(const std::string &hex) {
 	return success ? decoded : hex;
 }
 
+std::string urlencode(const std::string &str);
+
 std::string numberFormat(float num, int max_decimals = 0);
 std::string numberFormat(double num, int max_decimals = 0);
 std::string strJoin(const std::vector<std::string> &lines, const std::string &delim);
 std::string strprintf(const char *format, ...)  __attribute__((format(printf, 1, 2)));
 std::string trim(std::string s);
-std::string readFile(std::string path);
-std::string findUsbIface(std::string dev_path, int iface);
+std::string findUsbIface(const std::string &dev_path, int iface);
 std::string findUsbDevice(int vid, int pid);
 std::string findUsbTTYName(const std::string &iface_path);
 std::string findUsbNetName(const std::string &iface_path);
 std::string findUsbTTY(int vid, int pid, int iface);
-std::string findTTY(std::string url);
-std::string findNetByTTY(std::string url);
+std::string findTTY(const std::string &url);
+std::string findNetByTTY(const std::string &url);
 std::string getDefaultNetmask(const std::string &ip);
+
+/*
+ * File utils
+ * */
+std::string readFile(const std::string &path);
+std::vector<std::string> readDir(const std::string &path);
+bool isFileWriteable(const std::string &file);
+bool isFileReadable(const std::string &file);
+bool isFileExists(const std::string &file);
+size_t getFileSize(const std::string &file);
+bool isFileExists(const std::string &file);
+int execFile(const std::string &path, std::vector<std::string> args, std::vector<std::string> envs);
+bool isDir(const std::string &file);
+bool isFile(const std::string &file);
+
+inline std::string tryReadFile(const std::string &path, const std::string &def = "") {
+	if (isFile(path) && isFileReadable(path))
+		return readFile(path);
+	return def;
+}
+
+inline std::string getFileBaseName(const std::string &path) {
+	// Why argument non-const in basename()????
+	return basename((char *) path.c_str());
+}
+
+bool fileNameCmp(const std::string &a, const std::string &b);
