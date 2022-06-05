@@ -46,6 +46,7 @@ class ModemService {
 		int m_tty_speed = 0;
 		std::string m_tty_path;
 		std::string m_net_iface;
+		std::string m_ppp_iface;
 		
 		SmsMode m_sms_mode = SMS_MODE_DB;
 		
@@ -73,8 +74,10 @@ class ModemService {
 			return m_iface;
 		}
 		
+		static int run(const std::string &type, int argc, char *argv[]);
+		
 		bool init();
 		bool runModem();
 		void finishModem();
-		int run();
+		int start();
 };

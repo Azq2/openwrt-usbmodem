@@ -57,8 +57,8 @@ if [[ $MODE == "test" ]]; then
 	echo ""
 	echo ""
 	echo ""
-	ssh $TEST_ROUTER /tmp/usbmodem-test discover types
-	ssh $TEST_ROUTER /tmp/usbmodem-test discover modems
+	ssh $TEST_ROUTER /tmp/usbmodem-test check
+#	ssh $TEST_ROUTER /tmp/usbmodem-test discover modems
 	exit 0
 fi
 

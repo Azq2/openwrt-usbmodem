@@ -56,9 +56,9 @@ double rssiToPercent(double rssi, double min, double max) {
 	return std::min(100.0, std::max(0.0, signal_quality));
 }
 
-std::string strJoin(const std::vector<std::string> &lines, const std::string &delim) {
+std::string strJoin(const std::string &sep, const std::vector<std::string> &lines) {
 	std::string out;
-	size_t length = lines.size() > 1 ? delim.size() * (lines.size() - 1) : 0;
+	size_t length = lines.size() > 1 ? sep.size() * (lines.size() - 1) : 0;
 	for (auto &line: lines)
 		length += line.size();
 	
@@ -70,11 +70,29 @@ std::string strJoin(const std::vector<std::string> &lines, const std::string &de
 			first = false;
 			out += line;
 		} else {
-			out += delim + line;
+			out += sep + line;
 		}
 	}
 	
 	return out;
+}
+
+std::vector<std::string> strSplit(const std::string &sep, const std::string &str) {
+	std::vector<std::string> result;
+	size_t last_pos = 0;
+	
+	while (true) {
+		size_t pos = str.find(sep, last_pos);
+		if (pos == std::string::npos) {
+			result.push_back(str.substr(last_pos));
+			break;
+		} else {
+			result.push_back(str.substr(last_pos, pos - last_pos));
+			last_pos = pos + 1;
+		}
+	}
+	
+	return result;
 }
 
 std::string numberFormat(float num, int max_decimals) {
@@ -317,101 +335,43 @@ std::string trim(std::string s) {
 }
 
 std::string urlencode(const std::string &str) {
+	const static char allowed[] = "\"!'()*-.~_/"; // this chars will not escaped
 	std::string result;
-	for (auto c: str) {
-		if (!isalpha(c) && !isdigit(c)) {
-			result += strprintf("%%%02X", c);
-		} else {
+	for (char c: str) {
+		if (c == ' ') {
+			result += '+';
+		} else if (isalpha(c) || isdigit(c) || memmem(allowed, sizeof(allowed) - 1, &c, 1)) {
 			result += c;
+		} else {
+			result += strprintf("%%%02X", static_cast<uint8_t>(c));
 		}
 	}
 	return result;
 }
 
-std::string findUsbIface(const std::string &dev_path, int iface) {
-	for (auto &dir: readDir(dev_path)) {
-		if (isFile(dir + "/bInterfaceNumber")) {
-			int found_iface = strToInt(readFile(dir + "/bInterfaceNumber"), 16);
-			if (found_iface == iface)
-				return dir;
+std::string urldecode(const std::string &str) {
+	std::string result;
+	for (auto i = 0; i < str.size(); i++) {
+		char c = str[i];
+		if (c == '+') {
+			result += ' ';
+		} else if (c == '%') {
+			if (i + 2 < str.size()) {
+				int ch = strToInt(str.substr(i + 1, 2), 16, -1);
+				if (ch >= 0) {
+					result += static_cast<char>(ch);
+					i += 2;
+				} else {
+					result += c;
+				}
+			} else {
+				result += c;
+			}
+		} else {
+			result += c;
 		}
 	}
-	return "";
-}
-
-std::string findUsbDevice(int vid, int pid) {
-	for (auto &dir: readDir("/sys/bus/usb/devices")) {
-		if (isFile(dir + "/idVendor") && isFile(dir + "/idProduct")) {
-			int found_vid = strToInt(readFile(dir + "/idVendor"), 16);
-			int found_pid = strToInt(readFile(dir + "/idProduct"), 16);
-			
-			if (found_vid == vid && found_pid == pid)
-				return dir;
-		}
-	}
-	return "";
-}
-
-std::string findUsbTTYName(const std::string &iface_path) {
-	if (isDir(iface_path + "/tty")) {
-		for (auto &dir: readDir(iface_path + "/tty")) {
-			if (isDir(dir + "/dev"))
-				return getFileBaseName(dir);
-		}
-	}
-	return "";
-}
-
-std::string findUsbNetName(const std::string &iface_path) {
-	if (isDir(iface_path + "/net")) {
-		for (auto &dir: readDir(iface_path + "/net")) {
-			if (isDir(dir + "/address"))
-				return getFileBaseName(dir);
-		}
-	}
-	return "";
-}
-
-std::string findUsbTTY(int vid, int pid, int iface) {
-	std::string dev_path = findUsbDevice(vid, pid);
-	if (dev_path.size() > 0) {
-		std::string iface_path = findUsbIface(dev_path, iface);
-		if (iface_path.size() > 0) {
-			std::string tty_name = findUsbTTYName(iface_path);
-			if (tty_name.size() > 0)
-				return "/dev/" + tty_name;
-		}
-	}
-	return "";
-}
-
-std::string findTTY(const std::string &url) {
-	if (strStartsWith(url, "usb://")) {
-		uint32_t vid, pid, iface;
-		if (sscanf(url.c_str(), "usb://%x:%x/%u", &vid, &pid, &iface) == 3)
-			return findUsbTTY(vid, pid, iface);
-		return "";
-	} else {
-		return url;
-	}
-}
-
-std::string findNetByTTY(const std::string &url) {
-	if (!strStartsWith(url, "/dev/tty"))
-		return "";
-	
-	std::string dev_name = getFileBaseName(url);
-	std::string usb_dev_path = "/sys/class/tty/" + dev_name + "/device";
-	
-	for (auto &dir: readDir(usb_dev_path + "/../")) {
-		if (isFile(dir + "/bInterfaceNumber")) {
-			std::string net_name = findUsbNetName(dir);
-			if (net_name.size() > 0)
-				return net_name;
-		}
-	}
-	
-	return "";
+	return result;
 }
 
 /*

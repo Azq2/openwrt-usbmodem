@@ -21,12 +21,6 @@ class UsbDiscover {
 			NET_CDMA
 		};
 		
-		struct ModemTypeDescr {
-			ModemType type;
-			std::string name;
-			std::vector<std::string> options;
-		};
-		
 		struct ModemDescr {
 			uint16_t vid;
 			uint16_t pid;
@@ -47,15 +41,36 @@ class UsbDiscover {
 			std::string name;
 			std::string title;
 		};
-	
+		
+		enum UsbDevUrlType {
+			USB_DEV_URL_TTY,
+			USB_DEV_URL_NET
+		};
+		
+		struct UsbDevUrl {
+			UsbDevUrlType type = USB_DEV_URL_TTY;
+			int id = 0;
+			uint16_t vid = 0;
+			uint16_t pid = 0;
+			std::map<std::string, std::string> params;
+		};
 	protected:
 		static const std::vector<ModemDescr> m_modem_list;
-		static const std::vector<ModemTypeDescr> m_types_descr;
 	
 	public:
 		static int run(int argc, char *argv[]);
 		static json discover();
-		static json getModemTypes();
+		
+		static std::string mkUsbUrl(const UsbDevUrl &dev_url);
+		static std::pair<bool, UsbDevUrl> parseUsbUrl(const std::string &url);
+		
+		static std::string findDevice(const std::string &url, UsbDevUrlType type);
+		static inline std::string findTTY(const std::string &url) {
+			return findDevice(url, USB_DEV_URL_TTY);
+		}
+		static inline std::string findNet(const std::string &url) {
+			return findDevice(url, USB_DEV_URL_NET);
+		}
 		
 		static void discoverModem(json &main_json, const std::string &path);
 		static const ModemDescr *findModemDescr(uint16_t vid, uint16_t pid);
@@ -63,7 +78,3 @@ class UsbDiscover {
 		static const char *getEnumName(ModemType type);
 		static const char *getEnumName(ModemNetworkType type);
 };
-
-int discoverUsbModems(int argc, char *argv[]);
-int checkDevice(int argc, char *argv[]);
-int findIfname(int argc, char *argv[]);

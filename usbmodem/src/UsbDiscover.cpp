@@ -12,38 +12,112 @@
 #include <Core/Json.h>
 #include <Core/Utils.h>
 
-const std::vector<UsbDiscover::ModemTypeDescr> UsbDiscover::m_types_descr = {
-	{
-		UsbDiscover::TYPE_PPP,
-		"PPP",
-		{
-			"modem_device",
-			"ppp_device",
-			"net_type",
-			"pdp_type",
-			"apn",
-			"username",
-			"password",
-			"pin_code"
-		}
-	},
-	{
-		UsbDiscover::TYPE_ASR1802,
-		"Marvell ASR1802",
-		{
-			"modem_device",
-			"net_device",
-			"pdp_type",
-			"apn",
-			"auth_type",
-			"username",
-			"password",
-			"pin_code",
-			"mep_code",
-			"prefer_dhcp"
+std::string UsbDiscover::mkUsbUrl(const UsbDevUrl &url) {
+	std::string url_str = strprintf("usb://%04x:%04x", url.vid, url.pid);
+	
+	if (url.type == USB_DEV_URL_TTY) {
+		url_str += "/tty" + url.id;
+	} else if (url.type == USB_DEV_URL_NET) {
+		url_str += "/net" + url.id;
+	}
+	
+	if (url.params.size()) {
+		std::vector<std::string> pairs;
+		for (auto &it: url.params)
+			pairs.push_back(urlencode(it.first) + "=" + urlencode(it.second));
+		url_str += "?" + strJoin("&", pairs);
+	}
+	return url_str;
+}
+
+std::pair<bool, UsbDiscover::UsbDevUrl> UsbDiscover::parseUsbUrl(const std::string &url) {
+	UsbDevUrl result;
+	
+	if (!strStartsWith(url, "usb://")) {
+		LOGE("Invalid usb url: %s\n", url.c_str());
+		return {false, {}};
+	}
+	
+	auto parts = strSplit("?", url.substr(strlen("usb://")));
+	auto path_parts = strSplit("/", parts[0]);
+	
+	// vid:pid
+	auto host_parts = strSplit(":", path_parts[0]);
+	if (host_parts.size() != 2) {
+		LOGE("Invalid usb url: %s\n", url.c_str());
+		return {false, {}};
+	}
+	
+	result.vid = strToInt(host_parts[0], 16, 0);
+	result.pid = strToInt(host_parts[1], 16, 0);
+	
+	// ttyN or netN
+	if (path_parts.size() > 1) {
+		if (strStartsWith(path_parts[1], "tty")) {
+			result.type = USB_DEV_URL_TTY;
+			result.id = strToInt(path_parts[1].substr(strlen("tty")));
+		} else if (strStartsWith(path_parts[1], "net")) {
+			result.type = USB_DEV_URL_NET;
+			result.id = strToInt(path_parts[1].substr(strlen("net")));
+		} else {
+			LOGE("Invalid usb url: %s\n", url.c_str());
+			return {false, {}};
 		}
 	}
-};
+	
+	// Custom params
+	if (parts.size() > 1) {
+		for (auto &pair: strSplit("&", parts[1])) {
+			auto pair_parts = strSplit("=", pair);
+			if (pair_parts.size() > 1) {
+				result.params[urldecode(pair_parts[0])] = urldecode(pair_parts[1]);
+			} else {
+				result.params[urldecode(pair_parts[0])] = "";
+			}
+		}
+	}
+	
+	return {true, result};
+}
+
+std::string UsbDiscover::findDevice(const std::string &url, UsbDevUrlType type) {
+	if (strStartsWith(url, "usb://")) {
+		auto [success, parsed_url] = parseUsbUrl(url);
+		if (!success)
+			return "";
+		if (parsed_url.type != type)
+			return "";
+		
+		for (auto &path: readDir("/sys/bus/usb/devices")) {
+			if (!isFile(path + "/idVendor") || !isFile(path + "/idProduct"))
+				continue;
+			
+			std::string serial = trim(tryReadFile(path + "/serial"));
+			uint16_t vid = strToInt(trim(tryReadFile(path + "/idVendor")), 16);
+			uint16_t pid = strToInt(trim(tryReadFile(path + "/idProduct")), 16);
+			
+			if (vid != parsed_url.vid || pid != parsed_url.pid)
+				continue;
+			
+			if (parsed_url.params.find("serial") != parsed_url.params.end()) {
+				if (parsed_url.params["serial"] != serial)
+					continue;
+			}
+			
+			auto [net_list, tty_list] = findDevices(path);
+			if (parsed_url.type == USB_DEV_URL_TTY) {
+				if (parsed_url.id >= 0 && parsed_url.id < tty_list.size())
+					return "/dev/" + tty_list[parsed_url.id].name;
+			} else if (parsed_url.type == USB_DEV_URL_NET) {
+				if (parsed_url.id >= 0 && parsed_url.id < net_list.size())
+					return net_list[parsed_url.id].name;
+			}
+		}
+		
+		return "";
+	}
+	return url;
+}
 
 int UsbDiscover::run(int argc, char *argv[]) {
 	if (!argc) {
@@ -80,9 +154,9 @@ int UsbDiscover::run(int argc, char *argv[]) {
 			
 			printf("#\toption username ''\n");
 			printf("#\toption password ''\n");
+			
+			i++;
 		}
-	} else if (!strcmp(argv[0], "types")) {
-		printf("%s\n", getModemTypes().dump(2).c_str());
 	} else if (!strcmp(argv[0], "modems")) {
 		printf("%s\n", discover().dump(2).c_str());
 	}
@@ -114,18 +188,6 @@ const UsbDiscover::ModemDescr *UsbDiscover::findModemDescr(uint16_t vid, uint16_
 			return &descr;
 	}
 	return nullptr;
-}
-
-json UsbDiscover::getModemTypes() {
-	json result = json::array();
-	for (auto &descr: m_types_descr) {
-		result.push_back({
-			{"name", descr.name},
-			{"type", getEnumName(descr.type)},
-			{"options", descr.options}
-		});
-	}
-	return result;
 }
 
 json UsbDiscover::discover() {
@@ -219,8 +281,17 @@ void UsbDiscover::discoverModem(json &main_json, const std::string &path) {
 	uint16_t bus = strToInt(trim(tryReadFile(path + "/busnum")), 10);
 	uint16_t dev = strToInt(trim(tryReadFile(path + "/devnum")), 10);
 	
-	auto mk_dev_uri = [&](const DevItem &dev, const std::string &type) {
-		return strprintf("usb://%04x:%04x/%s/%s%d", vid, pid, (serial.size() ? urlencode(serial).c_str() : "-"), type.c_str(), dev.id);
+	auto *descr = findModemDescr(vid, pid);
+	
+	auto mk_dev_uri = [&](const DevItem &dev, UsbDevUrlType type) {
+		UsbDevUrl url = {};
+		url.vid = vid;
+		url.pid = pid;
+		url.type = type;
+		url.id = dev.id;
+		url.params["serial"] = serial;
+		url.params["name"] = descr ? descr->name : name;
+		return mkUsbUrl(url);
 	};
 	
 	auto [net_list, tty_list] = findDevices(path);
@@ -232,14 +303,14 @@ void UsbDiscover::discoverModem(json &main_json, const std::string &path) {
 			{"bus", bus},
 			{"dev", dev},
 			{"serial", serial},
-			{"name", name},
+			{"name", descr ? descr->name : name},
 			{"net", json::array()},
 			{"tty", json::array()},
 		};
 		
 		for (auto &d: net_list) {
 			usb_info["net"].push_back({
-				{"url", mk_dev_uri(d, "net")},
+				{"url", mk_dev_uri(d, USB_DEV_URL_NET)},
 				{"name", d.name},
 				{"title", d.title},
 			});
@@ -247,7 +318,7 @@ void UsbDiscover::discoverModem(json &main_json, const std::string &path) {
 		
 		for (auto &d: tty_list) {
 			usb_info["tty"].push_back({
-				{"url", mk_dev_uri(d, "tty")},
+				{"url", mk_dev_uri(d, USB_DEV_URL_TTY)},
 				{"name", d.name},
 				{"title", d.title},
 			});
@@ -256,7 +327,6 @@ void UsbDiscover::discoverModem(json &main_json, const std::string &path) {
 		main_json["usb"].push_back(usb_info);
 	}
 	
-	auto *descr = findModemDescr(vid, pid);
 	if (descr) {
 		bool valid = true;
 		if (descr->tty_control >= tty_list.size())
@@ -276,154 +346,14 @@ void UsbDiscover::discoverModem(json &main_json, const std::string &path) {
 				{"name", descr->name},
 				{"type", getEnumName(descr->type)},
 				{"net_type", getEnumName(descr->net)},
-				{"control", mk_dev_uri(tty_list[descr->tty_control], "tty")},
-				{"data", mk_dev_uri(tty_list[descr->tty_data], "tty")}
+				{"control", mk_dev_uri(tty_list[descr->tty_control], USB_DEV_URL_TTY)},
+				{"data", mk_dev_uri(tty_list[descr->tty_data], USB_DEV_URL_TTY)}
 			};
 			
 			if (descr->hasNetDev())
-				modem_descr["net"] = mk_dev_uri(net_list[0], "net");
+				modem_descr["net"] = mk_dev_uri(net_list[0], USB_DEV_URL_NET);
 			
 			main_json["modems"].push_back(modem_descr);
 		}
 	}
-}
-
-static json discoverModem(std::string path) {
-	std::string name = trim(readFile(path + "/product"));
-	std::string serial = trim(readFile(path + "/serial"));
-	std::string vid = trim(readFile(path + "/idVendor"));
-	std::string pid = trim(readFile(path + "/idProduct"));
-	uint16_t bus_id = stoul(readFile(path + "/busnum"), 0, 16);
-	uint16_t dev_id = stoul(readFile(path + "/devnum"), 0, 16);
-	
-	json modem = {
-		{"name", name},
-		{"vid", vid},
-		{"pid", pid},
-		{"bus", bus_id},
-		{"dev", dev_id},
-		{"serial", serial},
-		{"tty", json::array()},
-		{"net", json::array()},
-		{"can_internet", false}
-	};
-	
-	int tty_count = 0;
-	int net_count = 0;
-	
-	for (auto &p: std::filesystem::directory_iterator(path)) {
-		if (std::filesystem::exists(p.path().string() + "/tty")) {
-			std::string dev_name;
-			for (auto &tp: std::filesystem::directory_iterator(p.path().string() + "/tty")) {
-				if (std::filesystem::exists(tp.path().string() + "/dev")) {
-					dev_name =  tp.path().filename().c_str();
-					break;
-				}
-			}
-			
-			if (!dev_name.size())
-				continue;
-			
-			int iface = strToInt(readFile(p.path().string() + "/bInterfaceNumber"), 16);
-			
-			json tty = {
-				{"device", dev_name},
-				{"interface", iface},
-				{"path", strprintf("usb://%s:%s/%d", vid.c_str(), pid.c_str(), iface)}
-			};
-			
-			if (std::filesystem::exists(p.path().string() + "/interface"))
-				tty["interface_name"] = trim(readFile(p.path().string() + "/interface"));
-			
-			modem["tty"].push_back(tty);
-			tty_count++;
-		}
-		
-		if (std::filesystem::exists(p.path().string() + "/net")) {
-			std::string dev_name;
-			for (auto &np: std::filesystem::directory_iterator(p.path().string() + "/net")) {
-				if (std::filesystem::exists(np.path().string() + "/address")) {
-					dev_name =  np.path().filename().c_str();
-					break;
-				}
-			}
-			
-			int iface = strToInt(readFile(p.path().string() + "/bInterfaceNumber"), 16);
-			
-			json net = {
-				{"device", dev_name},
-				{"interface", iface},
-				{"path", strprintf("usb://%s:%s/%d", vid.c_str(), pid.c_str(), iface)}
-			};
-			
-			if (std::filesystem::exists(p.path().string() + "/interface"))
-				net["interface_name"] = trim(readFile(p.path().string() + "/interface"));
-			
-			modem["net"].push_back(net);
-			net_count++;
-		}
-	}
-	
-	if (!tty_count)
-		return nullptr;
-	
-	if ((tty_count > 0 && net_count > 0) || tty_count > 1)
-		modem["can_internet"] = true;
-	
-	return modem;
-}
-
-int checkDevice(int argc, char *argv[]) {
-	if (argc == 3) {
-		const char *device = argv[2];
-		std::string tty_path = findTTY(device);
-		printf("%d\n", tty_path.size() > 0 && std::filesystem::exists(tty_path) ? 1 : 0);
-	} else {
-		fprintf(stderr, "usage: %s check <device>\n", argv[0]);
-	}
-	return 0;
-}
-
-int findIfname(int argc, char *argv[]) {
-	if (argc == 3) {
-		const char *device = argv[2];
-		std::string tty_path = findTTY(device);
-		if (tty_path.size() > 0) {
-			std::string net_device = findNetByTTY(tty_path);
-			if (net_device.size() > 0)
-				printf("%s\n", net_device.c_str());
-		}
-	} else {
-		fprintf(stderr, "usage: %s iface <device>\n", argv[0]);
-	}
-	return 0;
-}
-
-int discoverUsbModems(int argc, char *argv[]) {
-	/*
-	json out = {
-		{"modems", json::array()},
-		{"tty", json::array()}
-	};
-	
-	for (auto &p: std::filesystem::directory_iterator("/sys/bus/usb/devices")) {
-		if (std::filesystem::exists(p.path().string() + "/idVendor") && std::filesystem::exists(p.path().string() + "/idProduct")) {
-			json modem = discoverModem(p.path().string());
-			if (modem != nullptr)
-				out["modems"].push_back(modem);
-		}
-	}
-	
-	for (auto &p: std::filesystem::directory_iterator("/dev")) {
-		if (p.path().filename().string().size() < 4)
-			continue;
-		
-		if (strStartsWith(p.path().filename(), "tty"))
-			out["tty"].push_back(p.path().string());
-	}
-	*/
-	auto str = UsbDiscover::discover().dump(2);
-	printf("%s\n", str.c_str());
-	
-	return 0;
 }

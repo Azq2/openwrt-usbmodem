@@ -140,7 +140,7 @@ std::pair<bool, std::string> BaseAtModem::sendAtCommand(const std::string &cmd, 
 	std::string out;
 	
 	if (response.lines.size() > 0) {
-		out = strJoin(response.lines, "\n") + "\n" + response.status;
+		out = strJoin("\n", response.lines) + "\n" + response.status;
 	} else {
 		out = response.status;
 	}

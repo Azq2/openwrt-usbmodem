@@ -10,7 +10,7 @@ network.registerPatternVirtual(/^usbmodem-.+$/);
 
 const MODEM_TYPES = {
 	ppp: {
-		title:	_('PPP'),
+		title:	_('Classic modem (PPP)'),
 		fields:	[
 			"modem_device",
 			"ppp_device",
@@ -20,6 +20,21 @@ const MODEM_TYPES = {
 			"username",
 			"password",
 			"pin_code"
+		]
+	},
+	ncm: {
+		title:	_('Huawei (NCM)'),
+		fields:	[
+			"modem_device",
+			"net_device",
+			"pdp_type",
+			"apn",
+			"auth_type",
+			"username",
+			"password",
+			"pin_code",
+			"mep_code",
+			"prefer_dhcp"
 		]
 	},
 	asr1802: {
@@ -48,7 +63,8 @@ const MODEM_FIELDS = {
 		descr:		_('This list contains plugged and detected modems. Choose one for automatic setup.'),
 		optional:	false,
 		default:	'',
-		global:		true
+		global:		true,
+		dummy:		true
 	},
 	modem_type: {
 		type:		'select',
@@ -263,11 +279,7 @@ const RichListValue = form.ListValue.extend({
 			validate: L.bind(this.validate, this, section_id),
 			disabled: (this.readonly != null) ? this.readonly : this.map.readonly
 		});
-		
-		let content = widget.render();
-		if (this.onchange)
-			content.addEventListener('widget-change', this.onchange);
-		return content;
+		return widget.render();
 	},
 	addCategory(title, descr) {
 		this.category_id = this.category_id || 0;
@@ -437,7 +449,7 @@ function loadModems() {
 	});
 }
 
-function loadNetDevices() {
+function loadNetDevices(section_id) {
 	return Promise.all([
 		fs.exec("/usr/sbin/usbmodem", ["discover", "modems"]),
 		getNetworkDevices()
@@ -456,10 +468,12 @@ function loadNetDevices() {
 			for (let iface of interfaces)
 				this.value(iface, iface);
 		}
+		
+		return RichListValue.prototype.load.apply(this, [section_id]);
 	});
 }
 
-function loadTTYDevices() {
+function loadTTYDevices(section_id) {
 	return fs.exec("/usr/sbin/usbmodem", ["discover", "modems"]).then((res) => {
 		let response = JSON.parse(res.stdout.trim());
 		for (let dev of response.usb) {
@@ -474,6 +488,8 @@ function loadTTYDevices() {
 			for (let tty of response.tty)
 				this.value(tty, tty);
 		}
+		
+		return RichListValue.prototype.load.apply(this, [section_id]);
 	});
 }
 
@@ -499,15 +515,10 @@ function createOption(s, name, field) {
 	switch (field.type) {
 		case "select":
 			widget = s.taboption(field.tab, form.ListValue, name, field.title, descr);
-			for (let k in field.values)
-				widget.value(k, field.values[k]);
 		break;
 		
 		case "rich_select":
 			widget = s.taboption(field.tab, RichListValue, name, field.title, descr);
-			for (let k in field.values)
-				widget.value(k, field.values[k]);
-			widget.onchange = field.onchange;
 		break;
 		
 		case "checkbox":
@@ -529,8 +540,6 @@ function createOption(s, name, field) {
 		break;
 	}
 	
-	widget.ucioption = name;
-	
 	if (field.optional != null)
 		widget.optional = field.optional;
 	
@@ -540,8 +549,23 @@ function createOption(s, name, field) {
 	if (field.optional)
 		widget.rmempty = true;
 	
+	if (field.onchange)
+		widget.onchange = field.onchange;
+	
 	if (field.load)
 		widget.load = field.load;
+	
+	if (field.dummy) {
+		widget.remove = () => {};
+		widget.write = () => {};
+	} else {
+		widget.ucioption = name;
+	}
+	
+	if (field.values) {
+		for (let k in field.values)
+			widget.value(k, field.values[k]);
+	}
 	
 	if (field.validate) {
 		if (typeof field.validate == 'string') {

@@ -5,6 +5,7 @@
 #include <Core/Uci.h>
 #include <Core/UbusLoop.h>
 
+#include "UsbDiscover.h"
 #include "Modem/Asr1802.h"
 
 ModemService::ModemService(const std::string &iface): m_iface(iface) {
@@ -16,6 +17,8 @@ ModemService::ModemService(const std::string &iface): m_iface(iface) {
 	m_uci_options["proto"] = "";
 	m_uci_options["modem_device"] = "";
 	m_uci_options["modem_speed"] = "115200";
+	m_uci_options["ppp_device"] = "";
+	m_uci_options["net_device"] = "";
 	m_uci_options["modem_type"] = "";
 	m_uci_options["auth_type"] = "";
 	m_uci_options["pdp_type"] = "IP";
@@ -145,8 +148,9 @@ bool ModemService::init() {
 	}
 	
 	m_tty_speed = strToInt(m_uci_options["modem_speed"]);
-	m_tty_path = findTTY(m_uci_options["modem_device"]);
-	m_net_iface = findNetByTTY(m_tty_path);
+	m_tty_path = UsbDiscover::findTTY(m_uci_options["modem_device"]);
+	m_net_iface = UsbDiscover::findNet(m_uci_options["net_device"]);
+	m_ppp_iface = UsbDiscover::findNet(m_uci_options["ppp_device"]);
 	
 	if (!m_tty_path.size()) {
 		LOGE("Device not found: %s\n", m_uci_options["modem_device"].c_str());
@@ -461,7 +465,7 @@ void ModemService::intiUbusApi() {
 	}, 0);
 }
 
-int ModemService::run() {
+int ModemService::start() {
 	UbusLoop::instance()->init();
 	Loop::instance()->init();
 	
@@ -491,4 +495,21 @@ int ModemService::run() {
 	LOGD("Done, total uptime: %d ms\n", diff);
 	
 	return checkError();
+}
+
+int ModemService::run(const std::string &type, int argc, char *argv[]) {
+	if (type == "daemon") {
+		if (!argc) {
+			LOGD("usage: usbmodem daemon <iface>\n");
+			return 1;
+		}
+		
+		ModemService s(argv[0]);
+		return s.start();
+	} else if (type == "check") {
+		// Uci::getSections
+		
+		LOGD("check...\n");
+	}
+	return 1;
 }

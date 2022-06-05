@@ -2,25 +2,9 @@
 . /lib/functions.sh
 . /lib/netifd/netifd-proto.sh
 
-check_usbmodem() {
-	local interface="$1"
-	
-	# check proto
-	local proto
-	config_get proto "$interface" proto
-	[ "$proto" = usbmodem ] || return 0
-	
-	# get device
-	local modem_device
-	config_get modem_device "$interface" modem_device
-	
-	avail=$(usbmodem check "$modem_device")
-	proto_set_available "$interface" $avail
-}
-
 case "$DEVICENAME" in
+	cdc-wdm*)
 	tty*)
-		config_load network
-		config_foreach check_usbmodem interface
+		usbmodem check
 	;;
 esac

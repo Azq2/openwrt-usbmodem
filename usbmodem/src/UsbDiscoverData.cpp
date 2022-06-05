@@ -93,6 +93,8 @@ const std::vector<UsbDiscover::ModemDescr> UsbDiscover::m_modem_list = {
 	{0x1199,	0x6892,	"Sierra Compass HSPA",										UsbDiscover::TYPE_PPP,		UsbDiscover::NET_GSM,	3,	3},
 	{0x1199,	0x6893,	"Sierra C889",												UsbDiscover::TYPE_PPP,		UsbDiscover::NET_GSM,	3,	3},
 	{0x1199,	0x68aa,	"Sierra AC320U/AC330U Direct IP",							UsbDiscover::TYPE_PPP,		UsbDiscover::NET_GSM,	3,	3},
+	{0x11f5,	0x0004,	"Siemens X75",												UsbDiscover::TYPE_PPP,		UsbDiscover::NET_GSM,	0,	0},
+	{0x11f5,	0x1004,	"Siemens X75 (2nd COM)",									UsbDiscover::TYPE_PPP,		UsbDiscover::NET_GSM,	0,	1},
 	{0x1286,	0x4e3d,	"ASR1802",													UsbDiscover::TYPE_ASR1802,	UsbDiscover::NET_GSM,	1,	1},
 	{0x12d1,	0x1035,	"HUAWEI U8110",												UsbDiscover::TYPE_PPP,		UsbDiscover::NET_GSM,	0,	0},
 	{0x12d1,	0x1406,	"HUAWEI/Option newer modems",								UsbDiscover::TYPE_PPP,		UsbDiscover::NET_GSM,	1,	0},

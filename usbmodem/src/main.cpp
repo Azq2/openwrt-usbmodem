@@ -21,23 +21,10 @@
 #include "ModemService.h"
 #include "UsbDiscover.h"
 
-static int modemDaemon(int argc, char *argv[]) {
-	if (argc == 3) {
-		ModemService s(argv[2]);
-		return s.run();
-	}
-	fprintf(stderr, "usage: %s daemon <iface>\n", argv[0]);
-	return -1;
-}
-
-struct RawPdu {
-	SmsDb::SmsType type;
-	int id;
-	std::string hex;
-};
-
 static int test(int argc, char *argv[]) {
-	LOGD("test???\n");
+	LOGD("test??? %s\n", urldecode("xuj%3F%3F%3Fpizda+jgurda").c_str());
+	auto found = UsbDiscover::findTTY("usb://201e:10f8/tty1?name=Haier+CE81b&serial=");
+	LOGD("found=%s\n", found.c_str());
 	return 0;
 }
 
@@ -46,8 +33,8 @@ int main(int argc, char *argv[]) {
 		if (strcmp(argv[1], "discover") == 0)
 			return UsbDiscover::run(argc - 2, argv + 2);
 		
-		if (strcmp(argv[1], "daemon") == 0)
-			return modemDaemon(argc - 2, argv + 2);
+		if (strcmp(argv[1], "daemon") == 0 || strcmp(argv[1], "check") == 0)
+			return ModemService::run(argv[1], argc - 2, argv + 2);
 		
 		if (strcmp(argv[1], "test") == 0)
 			return test(argc - 2, argv + 2);
@@ -55,6 +42,8 @@ int main(int argc, char *argv[]) {
 	
 	fprintf(stderr, "usage: usbmodem <action>\n");
 	fprintf(stderr, "  usbmodem daemon <iface>    - start modem daemon\n");
+	fprintf(stderr, "  usbmodem discover          - show available modems\n");
+	fprintf(stderr, "  usbmodem check             - recheck available interfaces\n");
 	
 	return -1;
 }

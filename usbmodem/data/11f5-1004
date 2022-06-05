@@ -1,0 +1,6 @@
+{
+	"desc": "Siemens X75 (2nd COM)",
+	"control": 0,
+	"data": 1,
+	"comment": "need command: echo '11f5 1004' > /sys/bus/usb-serial/drivers/pl2303/new_id"
+}

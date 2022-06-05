@@ -78,19 +78,14 @@ inline std::string hex2bin(const std::string &hex) {
 }
 
 std::string urlencode(const std::string &str);
+std::string urldecode(const std::string &str);
 
 std::string numberFormat(float num, int max_decimals = 0);
 std::string numberFormat(double num, int max_decimals = 0);
-std::string strJoin(const std::vector<std::string> &lines, const std::string &delim);
+std::string strJoin(const std::string &sep, const std::vector<std::string> &lines);
+std::vector<std::string> strSplit(const std::string &sep, const std::string &str);
 std::string strprintf(const char *format, ...)  __attribute__((format(printf, 1, 2)));
 std::string trim(std::string s);
-std::string findUsbIface(const std::string &dev_path, int iface);
-std::string findUsbDevice(int vid, int pid);
-std::string findUsbTTYName(const std::string &iface_path);
-std::string findUsbNetName(const std::string &iface_path);
-std::string findUsbTTY(int vid, int pid, int iface);
-std::string findTTY(const std::string &url);
-std::string findNetByTTY(const std::string &url);
 std::string getDefaultNetmask(const std::string &ip);
 
 /*
