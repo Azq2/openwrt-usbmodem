@@ -14,6 +14,8 @@
 
 #define COUNT_OF(a) (sizeof((a)) / sizeof((a)[0]))
 #define COUNT_OF_S(a) (static_cast<ssize_t>(sizeof((a)) / sizeof((a)[0])))
+#define hasMapKey(m, k) (m.find(k) != m.end())
+#define getMapValue(m, k, def) (m.find(k) != m.end() ? (m[k]) : (def))
 
 void setSignalHandler(int signal, const std::function<void(int)> &callback);
 
@@ -112,5 +114,7 @@ inline std::string getFileBaseName(const std::string &path) {
 	// Why argument non-const in basename()????
 	return basename((char *) path.c_str());
 }
+
+std::string getRealPath(const std::string &path);
 
 bool fileNameCmp(const std::string &a, const std::string &b);

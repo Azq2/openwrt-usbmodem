@@ -54,11 +54,13 @@ class UsbDiscover {
 			uint16_t pid = 0;
 			std::map<std::string, std::string> params;
 		};
+		
+		static std::map<std::string, FILE *> m_locks;
 	protected:
 		static const std::vector<ModemDescr> m_modem_list;
 	
 	public:
-		static int run(int argc, char *argv[]);
+		static int run(const std::string &type, int argc, char *argv[]);
 		static json discover();
 		
 		static std::string mkUsbUrl(const UsbDevUrl &dev_url);
@@ -72,6 +74,16 @@ class UsbDiscover {
 			return findDevice(url, USB_DEV_URL_NET);
 		}
 		
+		static std::string getLockPath(const std::string &dev);
+		static bool tryLockDevice(const std::string &dev);
+		static bool isDeviceLocked(const std::string &dev);
+		static bool unlockDevice(const std::string &dev);
+		
+		std::string getDevUniqId(const UsbDevUrl &url);
+		
+		static bool isSameDevUrls(const std::vector<std::string> &urls);
+		static std::tuple<bool, std::vector<std::string>> resolveUrls(const std::vector<std::string> &urls);
+		static std::vector<std::string> findUsbDevices(const UsbDevUrl &url);
 		static void discoverModem(json &main_json, const std::string &path);
 		static const ModemDescr *findModemDescr(uint16_t vid, uint16_t pid);
 		static std::pair<std::vector<DevItem>, std::vector<DevItem>> findDevices(const std::string &path);

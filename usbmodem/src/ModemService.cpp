@@ -41,7 +41,15 @@ ModemService::~ModemService() {
 		delete m_modem;
 }
 
-bool ModemService::validateOptions() {
+bool ModemService::loadOptions() {
+	auto [section_found, section] = Uci::loadSectionByName("network", "interface", m_iface);
+	if (!section_found) {
+		LOGE("Can't found config for interface: %s\n", m_iface.c_str());
+		return false;
+	}
+	
+	m_uci_options = section.options;
+	
 	if (m_uci_options["proto"] != "usbmodem") {
 		LOGE("Uunsupported protocol: %s\n", m_uci_options["proto"].c_str());
 		return false;
@@ -134,19 +142,10 @@ bool ModemService::init() {
 	
 	m_netifd.setUbus(&m_ubus);
 	
-	if (!Uci::loadIfaceConfig(m_iface, &m_uci_options)) {
-		LOGE("Can't read config for interface: %s\n", m_iface.c_str());
-		return setError("INVALID_CONFIG", true);
-	}
-	
-	if (!validateOptions())
+	if (!loadOptions())
 		return setError("INVALID_CONFIG", true);
 	
-	if (!Uci::loadIfaceFwZone(m_iface, &m_firewall_zone)) {
-		LOGE("Can't find fw3 zone for interface: %s\n", m_iface.c_str());
-		return setError("INVALID_CONFIG", true);
-	}
-	
+	m_firewall_zone = Uci::getFirewallZone(m_iface);
 	m_tty_speed = strToInt(m_uci_options["modem_speed"]);
 	m_tty_path = UsbDiscover::findTTY(m_uci_options["modem_device"]);
 	m_net_iface = UsbDiscover::findNet(m_uci_options["net_device"]);
@@ -497,6 +496,22 @@ int ModemService::start() {
 	return checkError();
 }
 
+static void checkModem(const std::string &iface) {
+	auto [section_found, section] = Uci::loadSectionByName("network", "interface", iface);
+	if (!section_found)
+		return;
+	
+	auto modem_device = getMapValue(section.options, "modem_device", "");
+	auto ppp_device = getMapValue(section.options, "ppp_device", "");
+	auto net_device = getMapValue(section.options, "net_device", "");
+	
+	// If all of these url's have same vid:pid, then use single USB device for them
+	// This needed in case when present two identical modems in USB
+	// (e.g.: prevent worst case when ttyUSB0 from usb1 and ttyUSB1 from usb2)
+	auto [found_same, same_devices] = UsbDiscover::resolveUrls({modem_device, ppp_device, net_device});
+	LOGD("found_same=%d\n", found_same);
+}
+
 int ModemService::run(const std::string &type, int argc, char *argv[]) {
 	if (type == "daemon") {
 		if (!argc) {
@@ -507,9 +522,11 @@ int ModemService::run(const std::string &type, int argc, char *argv[]) {
 		ModemService s(argv[0]);
 		return s.start();
 	} else if (type == "check") {
-		// Uci::getSections
-		
-		LOGD("check...\n");
+		auto sections = Uci::loadSections("network", "interface");
+		for (auto &section: sections) {
+			if (getMapValue(section.options, "proto", "") == "usbmodem")
+				checkModem(section.name);
+		}
 	}
 	return 1;
 }

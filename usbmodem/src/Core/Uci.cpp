@@ -1,90 +1,69 @@
 #include "Uci.h"
+#include "Utils.h"
 #include "Log.h"
 
 #include <uci.h>
 #include <cstring>
 
-bool Uci::loadIfaceConfig(const std::string &iface, std::map<std::string, std::string> *options) {
+std::vector<Uci::Section> Uci::loadSections(const std::string &pkg_name, const std::string &type) {
 	uci_context *context = uci_alloc_context();
-	uci_package *package = nullptr;
-	
 	if (!context)
-		return false;
+		throw new std::runtime_error("uci_alloc_context()");
 	
-	if (uci_load(context, "network", &package) != UCI_OK) {
+	uci_package *pkg = nullptr;
+	if (uci_load(context, pkg_name.c_str(), &pkg) != UCI_OK) {
 		uci_perror(context, "uci_load()");
-		uci_free_context(context);
-		return false;
+		throw new std::runtime_error("uci_load()");
 	}
 	
-	auto section = uci_lookup_section(context, package, iface.c_str());
-	if (!section || strcmp(section->type, "interface") != 0) {
-		LOGE("Can't find config network.%s\n", iface.c_str());
-		uci_free_context(context);
-		return false;
-	}
-	
-	uci_element *option_el;
-	uci_foreach_element(&section->options, option_el) {
-		uci_option *option = uci_to_option(option_el);
-		if (option->type == UCI_TYPE_STRING)
-			options->insert_or_assign(option_el->name, option->v.string);
-	};
-	
-	uci_free_context(context);
-	
-	return true;
-}
-
-bool Uci::loadIfaceFwZone(const std::string &iface, std::string *zone) {
-	uci_context *context = uci_alloc_context();
-	uci_package *package = nullptr;
-	
-	// Default fw3 zone
-	zone->assign("");
-	
-	if (!context)
-		return false;
-	
-	if (uci_load(context, "firewall", &package) != UCI_OK) {
-		uci_perror(context, "uci_load()");
-		uci_free_context(context);
-		return false;
-	}
+	std::vector<Section> result;
 	
 	uci_element *section_el, *option_el, *list_el;
-	uci_foreach_element(&package->sections, section_el) {
-		uci_section *section = uci_to_section(section_el);
+	uci_foreach_element(&pkg->sections, section_el) {
+		uci_section *section_ref = uci_to_section(section_el);
 		
-		if (strcmp(section->type, "zone") == 0) {
-			std::string zone_name;
-			bool found = false;
-			
-			uci_foreach_element(&section->options, option_el) {
-				uci_option *option = uci_to_option(option_el);
-				if (option->type == UCI_TYPE_STRING) {
-					if (strcmp(option_el->name, "name") == 0)
-						zone_name = option->v.string;
-				} else if (option->type == UCI_TYPE_LIST) {
-					if (strcmp(option_el->name, "network") == 0) {
-						uci_foreach_element(&option->v.list, list_el) {
-							if (strcmp(list_el->name, iface.c_str()) == 0) {
-								found = true;
-								break;
-							}
-						}
-					}
+		if (type.size() && strcmp(section_ref->type, type.c_str()) != 0)
+			continue;
+		
+		result.resize(result.size() + 1);
+		Section &section_info = result.back();
+		
+		section_info.name = section_el->name;
+		section_info.type = section_ref->type;
+		
+		uci_foreach_element(&section_ref->options, option_el) {
+			uci_option *option_ref = uci_to_option(option_el);
+			if (option_ref->type == UCI_TYPE_STRING) {
+				section_info.options[option_el->name] = option_ref->v.string;
+			} else if (option_ref->type == UCI_TYPE_LIST) {
+				uci_foreach_element(&option_ref->v.list, list_el) {
+					section_info.lists[option_el->name].push_back(list_el->name);
 				}
-			}
-			
-			if (found) {
-				zone->assign(zone_name);
-				break;
 			}
 		}
 	}
 	
 	uci_free_context(context);
 	
-	return true;
+	return result;
+}
+
+std::string Uci::getFirewallZone(const std::string &iface) {
+	for (auto &section: loadSections("firewall", "zone")) {
+		if (hasMapKey(section.lists, "network")) {
+			for (auto &net: section.lists["network"]) {
+				if (net == iface)
+					return getMapValue(section.options, "name", "");
+			}
+		}
+	}
+	return "";
+}
+
+std::tuple<bool, Uci::Section> Uci::loadSectionByName(const std::string &pkg_name, const std::string &type, const std::string &name) {
+	for (auto &section: loadSections(pkg_name, type)) {
+		if (section.name == name)
+			return {true, section};
+	}
+	return {false, {}};
 }

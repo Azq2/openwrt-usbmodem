@@ -461,6 +461,11 @@ int execFile(const std::string &path, std::vector<std::string> args, std::vector
 	return execvpe(path.c_str(), args_c_array.data(), envs_c_array.data());
 }
 
+std::string getRealPath(const std::string &path) {
+	char buff[PATH_MAX + 1];
+	return realpath(path.c_str(), buff);
+}
+
 bool fileNameCmp(const std::string &a, const std::string &b) {
 	size_t len = std::max(a.size(), b.size());
 	for (auto i = 0; i < len; i++) {

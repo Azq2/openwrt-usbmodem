@@ -35,6 +35,7 @@ add_executable(usbmodem
 	UsbDiscover.cpp
 	UsbDiscoverData.cpp
 	
+	Core/Crc32.cpp
 	Core/Serial.cpp
 	Core/AtChannel.cpp
 	Core/Utils.cpp
@@ -55,6 +56,6 @@ add_executable(usbmodem
 	Core/Semaphore.cpp
 )
 target_include_directories(usbmodem PUBLIC .)
-target_link_libraries(usbmodem -lubox -lubus -luci -lstdc++ -lstdc++fs)
+target_link_libraries(usbmodem -lubox -lubus -luci -lstdc++)
 install(TARGETS usbmodem DESTINATION sbin/)
 # target_precompile_headers(usbmodem PUBLIC Core/Json.h)

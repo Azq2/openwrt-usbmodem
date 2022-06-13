@@ -235,6 +235,9 @@ const MyDropdown = ui.Dropdown.extend({
 			document.head.appendChild(E('style', { id: 'usbmodem-dropdown-styles' }, [`
 				.cbi-dropdown-usbmodem[open] > ul.dropdown > li[unselectable] {
 					opacity: 1;
+					border-top-width: 1px;
+					border-top-style: solid;
+					border-top-color: inherit;
 				}
 				
 				.cbi-dropdown-usbmodem[open] > ul.dropdown > li[unselectable] .hide-close {
@@ -433,8 +436,8 @@ function throttle(callback, time) {
 	}
 }
 
-function loadModems() {
-	return fs.exec("/usr/sbin/usbmodem", ["discover", "modems"]).then((res) => {
+function loadModems(section_id) {
+	return fs.exec("/usr/sbin/usbmodem", ["discover-json", section_id]).then((res) => {
 		let response = JSON.parse(res.stdout.trim());
 		
 		this.value('', _('Custom'));
@@ -451,7 +454,7 @@ function loadModems() {
 
 function loadNetDevices(section_id) {
 	return Promise.all([
-		fs.exec("/usr/sbin/usbmodem", ["discover", "modems"]),
+		fs.exec("/usr/sbin/usbmodem", ["discover-json", section_id]),
 		getNetworkDevices()
 	]).then(([res, interfaces]) => {
 		let response = JSON.parse(res.stdout.trim());
@@ -474,12 +477,12 @@ function loadNetDevices(section_id) {
 }
 
 function loadTTYDevices(section_id) {
-	return fs.exec("/usr/sbin/usbmodem", ["discover", "modems"]).then((res) => {
+	return fs.exec("/usr/sbin/usbmodem", ["discover-json", section_id]).then((res) => {
 		let response = JSON.parse(res.stdout.trim());
 		for (let dev of response.usb) {
 			this.addCategory(dev.name, '<b>ID:</b> %04x:%04x; <b>S/N:</b> %s'.format(dev.vid, dev.pid, dev.serial || '-'));
 			for (let tty of dev.tty)
-				this.value(tty.url, tty.url, tty.title ? `${tty.title} (${tty.name})` : tty.name);
+				this.value(tty.url, tty.url, `tty${tty.id} (${tty.name}${(tty.title ? ' - ' + tty.title : '')})`);
 		}
 		
 		if (response.tty.length > 0) {

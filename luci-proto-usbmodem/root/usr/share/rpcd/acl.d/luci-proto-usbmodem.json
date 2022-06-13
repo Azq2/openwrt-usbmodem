@@ -3,8 +3,7 @@
 		"description": "Grant access to LuCI proto usbmodem",
 		"write": {
 			"file": {
-				"/usr/sbin/usbmodem discover types": ["exec"],
-				"/usr/sbin/usbmodem discover modems": ["exec"]
+				"/usr/sbin/usbmodem discover-json [a-zA-Z0-9_]*": ["exec"]
 			}
 		},
 		"read": {

@@ -3,7 +3,6 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
-#include <filesystem>
 
 #include <Core/Log.h>
 #include <Core/Loop.h>
@@ -30,8 +29,8 @@ static int test(int argc, char *argv[]) {
 
 int main(int argc, char *argv[]) {
 	if (argc > 1) {
-		if (strcmp(argv[1], "discover") == 0)
-			return UsbDiscover::run(argc - 2, argv + 2);
+		if (strcmp(argv[1], "discover") == 0 || strcmp(argv[1], "discover-json") == 0)
+			return UsbDiscover::run(argv[1], argc - 2, argv + 2);
 		
 		if (strcmp(argv[1], "daemon") == 0 || strcmp(argv[1], "check") == 0)
 			return ModemService::run(argv[1], argc - 2, argv + 2);
@@ -43,6 +42,7 @@ int main(int argc, char *argv[]) {
 	fprintf(stderr, "usage: usbmodem <action>\n");
 	fprintf(stderr, "  usbmodem daemon <iface>    - start modem daemon\n");
 	fprintf(stderr, "  usbmodem discover          - show available modems\n");
+	fprintf(stderr, "  usbmodem discover-json     - show available modems (json)\n");
 	fprintf(stderr, "  usbmodem check             - recheck available interfaces\n");
 	
 	return -1;

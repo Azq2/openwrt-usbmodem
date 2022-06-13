@@ -50,7 +50,7 @@ class ModemService {
 		
 		SmsMode m_sms_mode = SMS_MODE_DB;
 		
-		bool validateOptions();
+		bool loadOptions();
 		bool startDhcp();
 		bool stopDhcp();
 		inline bool hasNetDev() {

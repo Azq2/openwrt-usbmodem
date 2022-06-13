@@ -6,7 +6,6 @@ PKG_LICENSE:=GPLv2
 
 ifneq ($(CONFIG_DEBUG),)
 	CMAKE_OPTIONS += -DCMAKE_BUILD_TYPE=Debug
-	PKG_BUILD_PARALLEL := 1
 else
 	CMAKE_OPTIONS += -DCMAKE_BUILD_TYPE=Release
 endif
@@ -18,7 +17,7 @@ define Package/usbmodem
 	SECTION:=net
 	CATEGORY:=Network
 	SUBMENU:=WWAN
-	DEPENDS:=+libubus +libstdcpp +libubox +libuci
+	DEPENDS:=+libubus +libstdcpp +libubox +libuci +zlib
 	
 	ifneq ($(CONFIG_DEBUG),)
 		DEPENDS +=+libasan +libubsan +liblsan +libtsan

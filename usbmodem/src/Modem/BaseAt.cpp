@@ -3,6 +3,8 @@
 #include <unistd.h>
 #include <Core/Loop.h>
 
+// AT+COPS=3,0;+COPS?;+COPS=3,1;+COPS?;+COPS=3,2;+COPS?
+
 BaseAtModem::BaseAtModem() : Modem() {
 	m_at.setVerbose(true);
 	m_at.setSerial(&m_serial);
