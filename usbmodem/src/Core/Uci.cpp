@@ -67,3 +67,10 @@ std::tuple<bool, Uci::Section> Uci::loadSectionByName(const std::string &pkg_nam
 	}
 	return {false, {}};
 }
+
+std::string Uci::getOptionValue(const std::string &pkg_name, const std::string &type, const std::string &name, const std::string &key, const std::string &def) {
+	auto [found, section] = loadSectionByName(pkg_name, type, name);
+	if (found && hasMapKey(section.options, key))
+		return section.options[key];
+	return def;
+}

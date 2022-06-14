@@ -22,8 +22,6 @@
 
 static int test(int argc, char *argv[]) {
 	LOGD("test??? %s\n", urldecode("xuj%3F%3F%3Fpizda+jgurda").c_str());
-	auto found = UsbDiscover::findTTY("usb://201e:10f8/tty1?name=Haier+CE81b&serial=");
-	LOGD("found=%s\n", found.c_str());
 	return 0;
 }
 

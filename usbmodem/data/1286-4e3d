@@ -1,5 +1,5 @@
 {
-	"desc": "ASR1802",
+	"desc": "Marvell ASR1802",
 	"control": 1,
 	"data": 1,
 	"type": "asr1802"

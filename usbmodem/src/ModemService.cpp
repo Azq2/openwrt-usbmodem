@@ -5,168 +5,190 @@
 #include <Core/Uci.h>
 #include <Core/UbusLoop.h>
 
-#include "UsbDiscover.h"
 #include "Modem/Asr1802.h"
 
 ModemService::ModemService(const std::string &iface): m_iface(iface) {
 	m_start_time = getCurrentTimestamp();
-	
 	m_api = new ModemServiceApi(this);
-	
-	// Default options
-	m_uci_options["proto"] = "";
-	m_uci_options["modem_device"] = "";
-	m_uci_options["modem_speed"] = "115200";
-	m_uci_options["ppp_device"] = "";
-	m_uci_options["net_device"] = "";
-	m_uci_options["modem_type"] = "";
-	m_uci_options["auth_type"] = "";
-	m_uci_options["pdp_type"] = "IP";
-	m_uci_options["apn"] = "internet";
-	m_uci_options["username"] = "";
-	m_uci_options["password"] = "";
-	m_uci_options["pincode"] = "";
-	m_uci_options["prefer_dhcp"] = "0";
-	m_uci_options["prefer_sms_to_sim"] = "0";
-	m_uci_options["force_network_restart"] = "0";
-	m_uci_options["connect_timeout"] = "300";
-	m_uci_options["preferred_sms_storage"] = "modem";
-}
-
-ModemService::~ModemService() {
-	if (m_api)
-		delete m_api;
-	
-	if (m_modem)
-		delete m_modem;
 }
 
 bool ModemService::loadOptions() {
+	m_options = {
+		{"proto", ""},
+		
+		{"modem_type", ""},
+		
+		{"control_device", ""},
+		{"control_device_speed", "115200"},
+		
+		{"ppp_device", ""},
+		{"ppp_device_speed", "115200"},
+		
+		{"pdp_type", "IP"},
+		{"apn", "internet"},
+		{"dialnumber", ""},
+		
+		{"auth_type", ""},
+		{"username", ""},
+		{"password", ""},
+		
+		{"pin_code", ""},
+		{"mep_code", ""},
+	};
+	
 	auto [section_found, section] = Uci::loadSectionByName("network", "interface", m_iface);
 	if (!section_found) {
 		LOGE("Can't found config for interface: %s\n", m_iface.c_str());
 		return false;
 	}
 	
-	m_uci_options = section.options;
+	for (auto &it: section.options)
+		m_options[it.first] = it.second;
 	
-	if (m_uci_options["proto"] != "usbmodem") {
-		LOGE("Uunsupported protocol: %s\n", m_uci_options["proto"].c_str());
+	if (m_options["proto"] != "usbmodem") {
+		LOGE("Uunsupported protocol (%s) for interface %s.\n", m_options["proto"].c_str(), m_iface.c_str());
 		return false;
 	}
 	
-	if (!m_uci_options["modem_device"].size()) {
-		LOGE("Please, specify `modem_device` in config.\n");
+	if (m_options["pdp_type"] != "IP" && m_options["pdp_type"] != "IPV6" && m_options["pdp_type"] != "IPV4V6") {
+		LOGE("Invalid PDP type (%s) for interface %s.\n", m_options["pdp_type"].c_str(), m_iface.c_str());
 		return false;
 	}
 	
-	if (!m_uci_options["modem_type"].size()) {
-		LOGE("Please, specify `modem_type` in config.\n");
+	if (m_options["auth_type"] != "" && m_options["auth_type"] != "pap" && m_options["auth_type"] != "chap") {
+		LOGE("Invalid auth type (%s) for interface %s.\n", m_options["auth_type"].c_str(), m_iface.c_str());
 		return false;
 	}
 	
-	if (m_uci_options["pdp_type"] != "IP" && m_uci_options["pdp_type"] != "IPV6" && m_uci_options["pdp_type"] != "IPV4V6") {
-		LOGE("Invalid PDP type: %s\n", m_uci_options["pdp_type"].c_str());
+	m_type = UsbDiscover::getModemTypeFromString(m_options["modem_type"]);
+	if (m_type == UsbDiscover::TYPE_UNKNOWN) {
+		LOGD("Unknown modem type (%s) for interface %s.\n ", m_options["modem_type"].c_str(), m_iface.c_str());
 		return false;
 	}
 	
-	if (m_uci_options["auth_type"] != "" && m_uci_options["auth_type"] != "pap" && m_uci_options["auth_type"] != "chap") {
-		LOGE("Invalid auth type: %s\n", m_uci_options["auth_type"].c_str());
+	if (UsbDiscover::hasControlDev(m_type) && !m_options["control_device"].size()) {
+		LOGD("Please, specify 'control_device' for interface %s.\n", m_iface.c_str());
+		return false;
+	}
+	
+	if (UsbDiscover::hasPppDev(m_type) && !m_options["ppp_device"].size()) {
+		LOGD("Please, specify 'ppp_device' for interface %s.\n", m_iface.c_str());
+		return false;
+	}
+	
+	if (UsbDiscover::hasNetDev(m_type) && !m_options["net_device"].size()) {
+		LOGD("Please, specify 'net_device' for interface %s.\n", m_iface.c_str());
 		return false;
 	}
 	
 	return true;
 }
 
-bool ModemService::startDhcp() {
-	if (m_dhcp_inited) {
-		if (m_uci_options["pdp_type"] == "IP" || m_uci_options["pdp_type"] == "IPV4V6") {
-			if (!m_netifd.dhcpRenew(m_iface + "_4")) {
-				LOGE("Can't send dhcp renew for '%s_4'\n", m_iface.c_str());
-				return false;
-			}
+bool ModemService::resolveDevices(bool lock) {
+	m_control_tty_speed = strToInt(m_options["control_device_speed"], 10, 0);
+	m_ppp_tty_speed = strToInt(m_options["ppp_device_speed"], 10, 0);
+	m_fw_zone = Uci::getFirewallZone(m_iface);
+	
+	if (m_options["device"] != "" && m_options["device"] != "tty" && m_options["device"] != "custom") {
+		auto [found, dev] = UsbDiscover::findDevice(m_options["device"]);
+		if (!found) {
+			LOGE("Device not found: %s\n", m_options["device"].c_str());
+			return false;
 		}
 		
-		if (m_uci_options["pdp_type"] == "IPV6" || m_uci_options["pdp_type"] == "IPV4V6") {
-			if (!m_netifd.dhcpRenew(m_iface + "_6")) {
-				LOGE("Can't send dhcp renew for '%s_6'\n", m_iface.c_str());
-				return false;
-			}
-		}
+		m_control_tty = UsbDiscover::getFromDevice(dev, m_options["control_device"]);
+		m_ppp_tty = UsbDiscover::getFromDevice(dev, m_options["ppp_device"]);
+		m_net_dev = UsbDiscover::getFromDevice(dev, m_options["net_device"]);
 	} else {
-		if (m_uci_options["pdp_type"] == "IP" || m_uci_options["pdp_type"] == "IPV4V6") {
-			if (!m_netifd.createDynamicIface("dhcp", m_iface + "_4", m_iface, m_firewall_zone, m_uci_options)) {
-				LOGE("Can't create dhcp interface '%s_4'\n", m_iface.c_str());
-				return false;
-			}
-		}
-		
-		if (m_uci_options["pdp_type"] == "IPV6" || m_uci_options["pdp_type"] == "IPV4V6") {
-			if (!m_netifd.createDynamicIface("dhcpv6", m_iface + "_4", m_iface, m_firewall_zone, m_uci_options)) {
-				LOGE("Can't create dhcp interface '%s_4'\n", m_iface.c_str());
-				return false;
-			}
-		}
-		
-		m_dhcp_inited = true;
+		m_control_tty = m_options["control_device"];
+		m_ppp_tty = m_options["ppp_device"];
+		m_net_dev = m_options["net_device"];
 	}
+	
+	if (UsbDiscover::hasControlDev(m_type)) {
+		if (!m_control_tty.size() || !isFileExists(m_control_tty)) {
+			LOGE("Control device not found: %s\n",  m_options["control_device"].c_str());
+			return false;
+		}
+		
+		bool is_locked = lock ? !UsbDiscover::tryLockDevice(m_control_tty) : UsbDiscover::isDeviceLocked(m_control_tty);
+		if (is_locked) {
+			LOGE("Control device already in use: %s\n", m_control_tty.c_str());
+			return false;
+		}
+	}
+	
+	if (UsbDiscover::hasPppDev(m_type)) {
+		if (!m_ppp_tty.size() || !isFileExists(m_ppp_tty)) {
+			LOGE("PPP device not found: %s\n",  m_options["ppp_device"].c_str());
+			return false;
+		}
+		
+		bool is_locked = lock ? !UsbDiscover::tryLockDevice(m_ppp_tty) : UsbDiscover::isDeviceLocked(m_ppp_tty);
+		if (is_locked) {
+			LOGE("PPP device already in use: %s\n", m_ppp_tty.c_str());
+			return false;
+		}
+	}
+	
+	if (UsbDiscover::hasNetDev(m_type)) {
+		if (!m_net_dev.size() || !isFileExists("/sys/class/net/" + m_net_dev)) {
+			LOGE("NET device not found: %s\n",  m_options["net_device"].c_str());
+			return false;
+		}
+		
+		bool is_locked = lock ? !UsbDiscover::tryLockDevice(m_net_dev) : UsbDiscover::isDeviceLocked(m_net_dev);
+		if (is_locked) {
+			LOGE("NET device already in use: %s\n", m_net_dev.c_str());
+			return false;
+		}
+	}
+	
 	return true;
 }
 
-bool ModemService::stopDhcp() {
-	if (!m_dhcp_inited)
-		return true;
-	
-	if (m_uci_options["pdp_type"] == "IP" || m_uci_options["pdp_type"] == "IPV4V6") {
-		if (!m_netifd.dhcpRelease(m_iface + "_4")) {
-			LOGE("Can't send dhcp release for '%s_4'\n", m_iface.c_str());
-			return false;
-		}
+bool ModemService::check() {
+	if (!m_ubus.open()) {
+		LOGE("Can't init ubus...\n");
+		return false;
 	}
 	
-	if (m_uci_options["pdp_type"] == "IPV6" || m_uci_options["pdp_type"] == "IPV4V6") {
-		if (!m_netifd.dhcpRelease(m_iface + "_6")) {
-			LOGE("Can't send dhcp release for '%s_6'\n", m_iface.c_str());
-			return false;
-		}
+	m_netifd.setUbus(&m_ubus);
+	
+	if (!loadOptions()) {
+		m_netifd.protoSetAvail(m_iface, false);
+		return false;
 	}
 	
+	if (!resolveDevices(false)) {
+		m_netifd.protoSetAvail(m_iface, false);
+		return false;
+	}
+	
+	m_netifd.protoSetAvail(m_iface, true);
 	return true;
 }
 
 bool ModemService::init() {
 	if (!m_ubus.open()) {
 		LOGE("Can't init ubus...\n");
-		return setError("INTERNAL_ERROR", true);
+		return setError("USBMODEM_INTERNAL_ERROR", true);
 	}
 	
 	m_netifd.setUbus(&m_ubus);
 	
 	if (!loadOptions())
-		return setError("INVALID_CONFIG", true);
+		return setError("USBMODEM_INVALID_CONFIG", true);
 	
-	m_firewall_zone = Uci::getFirewallZone(m_iface);
-	m_tty_speed = strToInt(m_uci_options["modem_speed"]);
-	m_tty_path = UsbDiscover::findTTY(m_uci_options["modem_device"]);
-	m_net_iface = UsbDiscover::findNet(m_uci_options["net_device"]);
-	m_ppp_iface = UsbDiscover::findNet(m_uci_options["ppp_device"]);
-	
-	if (!m_tty_path.size()) {
-		LOGE("Device not found: %s\n", m_uci_options["modem_device"].c_str());
+	if (!resolveDevices(true))
 		return setError("NO_DEVICE");
-	}
 	
-	if (hasNetDev()) {
-		if (!m_net_iface.size()) {
-			LOGE("Network device not found: %s\n", m_uci_options["modem_device"].c_str());
-			return setError("NO_DEVICE");
+	if (UsbDiscover::hasNetDev(m_type)) {
+		// Link modem interface to main interface
+		if (!m_netifd.updateIface(m_iface, m_net_dev, nullptr, nullptr)) {
+			LOGE("Can't init iface...\n");
+			return setError("USBMODEM_INTERNAL_ERROR");
 		}
-	}
-	
-	// Link modem net dev to interface
-	if (!m_netifd.updateIface(m_iface, m_net_iface, nullptr, nullptr)) {
-		LOGE("Can't init iface...\n");
-		return setError("INTERNAL_ERROR");
 	}
 	
 	return true;
@@ -236,32 +258,35 @@ void ModemService::loadSmsFromModem() {
 }
 
 bool ModemService::runModem() {
-	// Get modem driver
-	if (m_uci_options["modem_type"] == "asr1802") {
-		m_modem = new Asr1802Modem();
-	} else {
-		LOGE("Unsupported modem type: %s\n", m_uci_options["modem_type"].c_str());
-		return setError("INVALID_CONFIG", true);
+	switch (m_type) {
+		case UsbDiscover::TYPE_ASR1802:
+			m_modem = new Asr1802Modem();
+		break;
+		
+		default:
+			LOGE("Unsupported modem type: %s\n", m_options["modem_type"].c_str());
+			return setError("USBMODEM_INVALID_CONFIG", true);
+		break;
 	}
 	
 	// Device config
-	m_modem->setOption<std::string>("tty_device", m_tty_path);
-	m_modem->setOption<int>("tty_speed", m_tty_speed);
+	m_modem->setOption<std::string>("tty_device", m_control_tty);
+	m_modem->setOption<int>("tty_speed", m_control_tty_speed);
 	
 	// PDP config
-	m_modem->setOption<std::string>("pdp_type", m_uci_options["pdp_type"]);
-	m_modem->setOption<std::string>("pdp_apn", m_uci_options["apn"]);
-	m_modem->setOption<std::string>("pdp_auth_mode", m_uci_options["auth_type"]);
-	m_modem->setOption<std::string>("pdp_user", m_uci_options["username"]);
-	m_modem->setOption<std::string>("pdp_password", m_uci_options["password"]);
+	m_modem->setOption<std::string>("pdp_type", m_options["pdp_type"]);
+	m_modem->setOption<std::string>("pdp_apn", m_options["apn"]);
+	m_modem->setOption<std::string>("pdp_auth_mode", m_options["auth_type"]);
+	m_modem->setOption<std::string>("pdp_user", m_options["username"]);
+	m_modem->setOption<std::string>("pdp_password", m_options["password"]);
 	
 	// Security codes
-	m_modem->setOption<std::string>("pincode", m_uci_options["pincode"]);
+	m_modem->setOption<std::string>("pincode", m_options["pincode"]);
 	
 	// Other settings
-	m_modem->setOption<bool>("prefer_dhcp", m_uci_options["prefer_dhcp"] == "1");
-	m_modem->setOption<bool>("prefer_sms_to_sim", m_uci_options["prefer_sms_to_sim"] == "1");
-	m_modem->setOption<int>("connect_timeout", strToInt(m_uci_options["connect_timeout"]) * 1000);
+	m_modem->setOption<bool>("prefer_dhcp", m_options["prefer_dhcp"] == "1");
+	m_modem->setOption<bool>("prefer_sms_to_sim", m_options["prefer_sms_to_sim"] == "1");
+	m_modem->setOption<int>("connect_timeout", strToInt(m_options["connect_timeout"]) * 1000);
 	
 	/*
 	m_modem->on<Modem::EvOperatorChanged>([this](const auto &event) {
@@ -299,20 +324,20 @@ bool ModemService::runModem() {
 		}
 		
 		if (m_modem->getIfaceProto() == Modem::IFACE_STATIC) {
-			if (!m_netifd.updateIface(m_iface, m_net_iface, &event.ipv4, &event.ipv6)) {
+			if (!m_netifd.updateIface(m_iface, m_net_dev, &event.ipv4, &event.ipv6)) {
 				LOGE("Can't set IP to interface '%s'\n", m_iface.c_str());
-				setError("INTERNAL_ERROR");
+				setError("USBMODEM_INTERNAL_ERROR");
 			}
 		} else if (m_modem->getIfaceProto() == Modem::IFACE_DHCP) {
 			if (dhcp_delay > 0) {
 				LOGD("Wait %d ms for DHCP recovery...\n", dhcp_delay);
 				Loop::setTimeout([this]() {
 					if (!startDhcp())
-						setError("INTERNAL_ERROR");
+						setError("USBMODEM_INTERNAL_ERROR");
 				}, dhcp_delay);
 			} else {
 				if (!startDhcp())
-					setError("INTERNAL_ERROR");
+					setError("USBMODEM_INTERNAL_ERROR");
 			}
 		}
 		
@@ -343,13 +368,13 @@ bool ModemService::runModem() {
 		LOGD("Internet disconnected, last session %d ms\n", diff);
 		
 		if (m_modem->getIfaceProto() == Modem::IFACE_STATIC) {
-			if (!m_netifd.updateIface(m_iface, m_net_iface, nullptr, nullptr)) {
+			if (!m_netifd.updateIface(m_iface, m_net_dev, nullptr, nullptr)) {
 				LOGE("Can't set IP to interface '%s'\n", m_iface.c_str());
-				setError("INTERNAL_ERROR");
+				setError("USBMODEM_INTERNAL_ERROR");
 			}
 		} else if (m_modem->getIfaceProto() == Modem::IFACE_DHCP) {
 			if (!stopDhcp()) {
-				setError("INTERNAL_ERROR");
+				setError("USBMODEM_INTERNAL_ERROR");
 			}
 		}
 	});
@@ -360,7 +385,7 @@ bool ModemService::runModem() {
 	
 	m_modem->on<Modem::EvIoBroken>([this](const auto &event) {
 		LOGE("TTY device is lost...\n");
-		setError("IO_ERROR");
+		setError("USBMODEM_INTERNAL_ERROR");
 	});
 	
 	m_modem->on<Modem::EvDataConnectTimeout>([this](const auto &event) {
@@ -388,7 +413,7 @@ bool ModemService::runModem() {
 	
 	if (!m_modem->open()) {
 		LOGE("Can't initialize modem.\n");
-		return setError("INIT_ERROR");
+		return setError("USBMODEM_INTERNAL_ERROR");
 	}
 	
 	return true;
@@ -496,22 +521,6 @@ int ModemService::start() {
 	return checkError();
 }
 
-static void checkModem(const std::string &iface) {
-	auto [section_found, section] = Uci::loadSectionByName("network", "interface", iface);
-	if (!section_found)
-		return;
-	
-	auto modem_device = getMapValue(section.options, "modem_device", "");
-	auto ppp_device = getMapValue(section.options, "ppp_device", "");
-	auto net_device = getMapValue(section.options, "net_device", "");
-	
-	// If all of these url's have same vid:pid, then use single USB device for them
-	// This needed in case when present two identical modems in USB
-	// (e.g.: prevent worst case when ttyUSB0 from usb1 and ttyUSB1 from usb2)
-	auto [found_same, same_devices] = UsbDiscover::resolveUrls({modem_device, ppp_device, net_device});
-	LOGD("found_same=%d\n", found_same);
-}
-
 int ModemService::run(const std::string &type, int argc, char *argv[]) {
 	if (type == "daemon") {
 		if (!argc) {
@@ -524,9 +533,76 @@ int ModemService::run(const std::string &type, int argc, char *argv[]) {
 	} else if (type == "check") {
 		auto sections = Uci::loadSections("network", "interface");
 		for (auto &section: sections) {
-			if (getMapValue(section.options, "proto", "") == "usbmodem")
-				checkModem(section.name);
+			if (getMapValue(section.options, "proto", "") == "usbmodem") {
+				ModemService s(section.name);
+				auto found = s.check();
+				LOGD("-> %s: %s\n", section.name.c_str(), found ? "Available" : "Not available");
+			}
 		}
 	}
 	return 1;
+}
+
+bool ModemService::startDhcp() {
+	if (m_dhcp_inited) {
+		if (m_options["pdp_type"] == "IP" || m_options["pdp_type"] == "IPV4V6") {
+			if (!m_netifd.dhcpRenew(m_iface + "_4")) {
+				LOGE("Can't send dhcp renew for '%s_4'\n", m_iface.c_str());
+				return false;
+			}
+		}
+		
+		if (m_options["pdp_type"] == "IPV6" || m_options["pdp_type"] == "IPV4V6") {
+			if (!m_netifd.dhcpRenew(m_iface + "_6")) {
+				LOGE("Can't send dhcp renew for '%s_6'\n", m_iface.c_str());
+				return false;
+			}
+		}
+	} else {
+		if (m_options["pdp_type"] == "IP" || m_options["pdp_type"] == "IPV4V6") {
+			if (!m_netifd.createDynamicIface("dhcp", m_iface + "_4", m_iface, m_fw_zone, m_options)) {
+				LOGE("Can't create dhcp interface '%s_4'\n", m_iface.c_str());
+				return false;
+			}
+		}
+		
+		if (m_options["pdp_type"] == "IPV6" || m_options["pdp_type"] == "IPV4V6") {
+			if (!m_netifd.createDynamicIface("dhcpv6", m_iface + "_4", m_iface, m_fw_zone, m_options)) {
+				LOGE("Can't create dhcp interface '%s_4'\n", m_iface.c_str());
+				return false;
+			}
+		}
+		
+		m_dhcp_inited = true;
+	}
+	return true;
+}
+
+bool ModemService::stopDhcp() {
+	if (!m_dhcp_inited)
+		return true;
+	
+	if (m_options["pdp_type"] == "IP" || m_options["pdp_type"] == "IPV4V6") {
+		if (!m_netifd.dhcpRelease(m_iface + "_4")) {
+			LOGE("Can't send dhcp release for '%s_4'\n", m_iface.c_str());
+			return false;
+		}
+	}
+	
+	if (m_options["pdp_type"] == "IPV6" || m_options["pdp_type"] == "IPV4V6") {
+		if (!m_netifd.dhcpRelease(m_iface + "_6")) {
+			LOGE("Can't send dhcp release for '%s_6'\n", m_iface.c_str());
+			return false;
+		}
+	}
+	
+	return true;
+}
+
+ModemService::~ModemService() {
+	if (m_api)
+		delete m_api;
+	
+	if (m_modem)
+		delete m_modem;
 }

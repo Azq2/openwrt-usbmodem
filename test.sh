@@ -3,7 +3,7 @@
 # Example usage:
 # TEST_ROUTER=root@192.168.1.1 TOPDIR=~/build/openwrt ./test.sh
 
-VERSION=25
+VERSION=29
 DIR=$(readlink -f $0)
 DIR=$(dirname $0)
 MODE=$1
@@ -26,6 +26,8 @@ if [[ $TARGET == "" ]]; then
 fi
 
 export CONFIG_DEBUG=y
+export PKG_USE_NINJA=0
+export PKG_JOBS=-j9
 
 export PATH="$PATH:$TOPDIR/staging_dir/host/bin"
 
@@ -41,7 +43,7 @@ echo "Build..."
 #	make -C "$DIR/luci-app-usbmodem" -j9 install || exit 1
 #fi
 
-make -C "$DIR/usbmodem" -j9 compile || exit 1
+make -C "$DIR/usbmodem" -j9 compile V=sc || exit 1
 #make -C "$DIR/usbmodem" -j9 install || exit 1
 
 if [[ $MODE == "build" ]]; then
@@ -101,7 +103,7 @@ install_file $DIR/usbmodem/files/usbmodem.user												/etc/usbmodem.sh
 install_file $DIR/usbmodem/files/usbmodem.usb												/etc/hotplug.d/tty/30-usbmodem
 
 ssh $TEST_ROUTER killall -9 usbmodem
-install_file $TOPDIR/build_dir/$TARGET/usbmodem/ipkg-install/usr/sbin/usbmodem					/usr/sbin/usbmodem
+install_file $TOPDIR/build_dir/$TARGET/usbmodem/ipkg-install/usr/sbin/usbmodem				/usr/sbin/usbmodem
 
 if [[ $NEED_SETUP != "0" ]];
 then

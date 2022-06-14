@@ -13,7 +13,8 @@ class UsbDiscover {
 			TYPE_ASR1802,
 			TYPE_MBIM,
 			TYPE_QMI,
-			TYPE_NCM
+			TYPE_NCM,
+			TYPE__MAX
 		};
 		
 		enum ModemNetworkType: uint8_t {
@@ -42,17 +43,16 @@ class UsbDiscover {
 			std::string title;
 		};
 		
-		enum UsbDevUrlType {
-			USB_DEV_URL_TTY,
-			USB_DEV_URL_NET
-		};
-		
-		struct UsbDevUrl {
-			UsbDevUrlType type = USB_DEV_URL_TTY;
-			int id = 0;
+		struct DevUrl {
 			uint16_t vid = 0;
 			uint16_t pid = 0;
 			std::map<std::string, std::string> params;
+		};
+		
+		struct Dev {
+			std::string path;
+			std::vector<DevItem> net;
+			std::vector<DevItem> tty;
 		};
 		
 		static std::map<std::string, FILE *> m_locks;
@@ -62,31 +62,47 @@ class UsbDiscover {
 	public:
 		static int run(const std::string &type, int argc, char *argv[]);
 		static json discover();
+		static void discoverModem(json &main_json, const std::string &path);
+		static void discoverConfig(json &main_json);
 		
-		static std::string mkUsbUrl(const UsbDevUrl &dev_url);
-		static std::pair<bool, UsbDevUrl> parseUsbUrl(const std::string &url);
+		/*
+		 * Device URI
+		 * */
+		static std::string mkUsbUrl(const DevUrl &dev_url);
+		static std::pair<bool, DevUrl> parseUsbUrl(const std::string &url);
 		
-		static std::string findDevice(const std::string &url, UsbDevUrlType type);
-		static inline std::string findTTY(const std::string &url) {
-			return findDevice(url, USB_DEV_URL_TTY);
-		}
-		static inline std::string findNet(const std::string &url) {
-			return findDevice(url, USB_DEV_URL_NET);
-		}
+		static std::pair<bool, Dev> findDevice(const std::string &url);
+		static std::string getFromDevice(const Dev &dev, const std::string &path);
 		
+		/*
+		 * Locks
+		 * */
 		static std::string getLockPath(const std::string &dev);
 		static bool tryLockDevice(const std::string &dev);
 		static bool isDeviceLocked(const std::string &dev);
 		static bool unlockDevice(const std::string &dev);
 		
-		std::string getDevUniqId(const UsbDevUrl &url);
+		static std::vector<std::string> getUsbDevicesByUrl(const DevUrl &url);
+		static std::pair<std::vector<DevItem>, std::vector<DevItem>> getUsbDevInterfaces(const std::string &path);
 		
-		static bool isSameDevUrls(const std::vector<std::string> &urls);
-		static std::tuple<bool, std::vector<std::string>> resolveUrls(const std::vector<std::string> &urls);
-		static std::vector<std::string> findUsbDevices(const UsbDevUrl &url);
-		static void discoverModem(json &main_json, const std::string &path);
 		static const ModemDescr *findModemDescr(uint16_t vid, uint16_t pid);
-		static std::pair<std::vector<DevItem>, std::vector<DevItem>> findDevices(const std::string &path);
+		
+		/*
+		 * Utils
+		 * */
+		static bool hasNetDev(ModemType type) {
+			return (type == TYPE_NCM || type == TYPE_ASR1802);
+		}
+		
+		static bool hasPppDev(ModemType type) {
+			return (type == TYPE_PPP);
+		}
+		
+		static bool hasControlDev(ModemType type) {
+			return true;
+		}
+		
 		static const char *getEnumName(ModemType type);
 		static const char *getEnumName(ModemNetworkType type);
+		static ModemType getModemTypeFromString(const std::string &type);
 };

@@ -13,6 +13,7 @@
 
 #include "Modem.h"
 #include "ModemServiceApi.h"
+#include "UsbDiscover.h"
 
 class ModemServiceApi;
 
@@ -30,10 +31,16 @@ class ModemService {
 		ModemServiceApi *m_api = nullptr;
 		SmsDb m_sms;
 		
-		std::map<std::string, std::string> m_uci_options;
-		bool m_dhcp_inited = false;
+		UsbDiscover::ModemType m_type = UsbDiscover::TYPE_UNKNOWN;
+		
+		std::map<std::string, std::string> m_options;
+		
 		std::string m_iface;
-		std::string m_firewall_zone;
+		std::string m_fw_zone;
+		std::string m_control_tty, m_ppp_tty, m_net_dev;
+		int m_control_tty_speed = 0, m_ppp_tty_speed = 0;
+		
+		bool m_dhcp_inited = false;
 		std::string m_error_code;
 		bool m_error_fatal = false;
 		bool m_manual_shutdown = false;
@@ -43,19 +50,13 @@ class ModemService {
 		int64_t m_last_connected = 0;
 		int64_t m_last_disconnected = 0;
 		
-		int m_tty_speed = 0;
-		std::string m_tty_path;
-		std::string m_net_iface;
-		std::string m_ppp_iface;
-		
 		SmsMode m_sms_mode = SMS_MODE_DB;
 		
 		bool loadOptions();
+		bool resolveDevices(bool lock);
+		
 		bool startDhcp();
 		bool stopDhcp();
-		inline bool hasNetDev() {
-			return (m_uci_options["modem_type"] == "asr1802" || m_uci_options["modem_type"] == "ncm");
-		}
 		
 		bool setError(const std::string &code, bool fatal = false);
 		
@@ -77,6 +78,7 @@ class ModemService {
 		static int run(const std::string &type, int argc, char *argv[]);
 		
 		bool init();
+		bool check();
 		bool runModem();
 		void finishModem();
 		int start();

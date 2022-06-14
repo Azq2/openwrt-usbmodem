@@ -7,12 +7,14 @@
 'require ui';
 
 network.registerPatternVirtual(/^usbmodem-.+$/);
+network.registerErrorCode('USBMODEM_INTERNAL_ERROR',  _('Internal error, see logread.'));
+network.registerErrorCode('USBMODEM_INVALID_CONFIG',  _('Internal configuration, see logread.'));
 
 const MODEM_TYPES = {
 	ppp: {
 		title:	_('Classic modem (PPP)'),
 		fields:	[
-			"modem_device",
+			"control_device",
 			"ppp_device",
 			"net_type",
 			"pdp_type",
@@ -25,7 +27,7 @@ const MODEM_TYPES = {
 	ncm: {
 		title:	_('Huawei (NCM)'),
 		fields:	[
-			"modem_device",
+			"control_device",
 			"net_device",
 			"pdp_type",
 			"apn",
@@ -40,7 +42,7 @@ const MODEM_TYPES = {
 	asr1802: {
 		title:	_('Marvell ASR1802'),
 		fields:	[
-			"modem_device",
+			"control_device",
 			"net_device",
 			"pdp_type",
 			"apn",
@@ -56,15 +58,14 @@ const MODEM_TYPES = {
 
 const MODEM_FIELDS = {
 	// General
-	modem: {
+	device: {
 		type:		'rich_select',
 		tab:		'general',
 		title:		_('Modem'),
-		descr:		_('This list contains plugged and detected modems. Choose one for automatic setup.'),
+		descr:		_('This list contains plugged USB modems. Choose one for automatic setup.'),
 		optional:	false,
-		default:	'',
-		global:		true,
-		dummy:		true
+		default:	'-',
+		global:		true
 	},
 	modem_type: {
 		type:		'select',
@@ -75,6 +76,10 @@ const MODEM_FIELDS = {
 		values: {
 			'':		 _('-- Please choose --')
 		},
+		depends: {
+			'device': ['-'],
+			'!reverse': true
+		},
 		validate(section_id, value) {
 			if (value == '')
 				return _('Please choose device type.');
@@ -82,7 +87,7 @@ const MODEM_FIELDS = {
 		},
 		global:		true
 	},
-	modem_device: {
+	control_device: {
 		type:		'rich_select',
 		tab:		'general',
 		title:		_('Control device'),
@@ -258,19 +263,20 @@ const MyDropdown = ui.Dropdown.extend({
 			li.classList.add('cbi-dropdown-category');
 			li.setAttribute('unselectable', '');
 		});
-	},
-	createChoiceElement(sb, value, label) {
-		console.log('createChoiceElement');
-		return ui.Dropdown.prototype.createChoiceElement.apply(this, arguments);
 	}
 });
 
 // Customize ListValue
 const RichListValue = form.ListValue.extend({
 	__name__: 'CBI.RichListValue',
+	isRendered() {
+		return !!this.is_rendered;
+	},
 	renderWidget(section_id, option_index, cfgvalue) {
 		let choices = this.transformChoices() || {};
 		let value = (cfgvalue != null) ? cfgvalue : this.default;
+		
+		this.is_rendered = true;
 		
 		let widget = new MyDropdown(value, choices, {
 			id: this.cbid(section_id),
@@ -287,35 +293,53 @@ const RichListValue = form.ListValue.extend({
 	addCategory(title, descr) {
 		this.category_id = this.category_id || 0;
 		
+		let nodes;
+		let value = '#category-' + this.category_id++;
+		
 		if (descr) {
-			form.ListValue.prototype.value.call(this, '#category-' + this.category_id++, E([], [
+			nodes = E([], [
 				E('div', { 'class': 'hide-close', 'data-type': 'category' }, [
 					E('b', [ title ]),
 					E('br'),
 					E('small', {}, descr)
 				])
-			]));
+			]);
 		} else {
-			form.ListValue.prototype.value.call(this, '#category-' + this.category_id++, E([], [
+			nodes = E([], [
 				E('div', { 'class': 'hide-close', 'data-type': 'category' }, E('b', {}, title))
-			]));
+			]);
+		}
+		
+		// Openwrt Developers, what a hell???
+		if (this.is_rendered) {
+			this.getUIElement(this.section.section).addChoices([value], {[value]: nodes});
+		} else {
+			form.ListValue.prototype.value.call(this, value, nodes);
 		}
 	},
 	value(value, title_open, title_close, description) {
+		let nodes;
 		if (description) {
-			form.ListValue.prototype.value.call(this, value, E([], [
+			nodes = E([], [
 				E('span', { 'class': 'hide-open' }, [ title_open || title_close ]),
 				E('div', { 'class': 'hide-close' }, [
 					E('b', [ title_close || title_open ]),
 					E('br'),
 					E('span', {}, description)
 				])
-			]));
+			]);
 		} else {
-			form.ListValue.prototype.value.call(this, value, E([], [
+			nodes = E([], [
 				E('span', { 'class': 'hide-open' }, [ title_open || title_close ]),
 				E('div', { 'class': 'hide-close' }, [ title_close || title_open ])
-			]));
+			]);
+		}
+		
+		// Openwrt Developers, what a hell???
+		if (this.is_rendered) {
+			this.getUIElement(this.section.section).addChoices([value], {[value]: nodes});
+		} else {
+			form.ListValue.prototype.value.call(this, value, nodes);
 		}
 	}
 });
@@ -342,6 +366,23 @@ return network.registerProtocol('usbmodem', {
 	containsDevice(ifname) {
 		return (network.getIfnameOf(ifname) == this.getIfname());
 	},
+	discoverUsb() {
+		if (!this.discover_promise) {
+			this.discover_promise = fs.exec("/usr/sbin/usbmodem", ["discover-json", this.sid]).then((res) => {
+				return JSON.parse(res.stdout.trim());
+			});
+		}
+		return this.discover_promise;
+	},
+	getUsbDevice(url) {
+		return this.discoverUsb().then((response) => {
+			for (let usb of response.usb) {
+				if (usb.url == url)
+					return usb;
+			}
+			return null;
+		});
+	},
 	renderFormOptions(s) {
 		s.tabs["modem"] || s.tab('modem', _('Modem Settings'));
 		
@@ -365,59 +406,152 @@ return network.registerProtocol('usbmodem', {
 			}
 		}
 		
-		let ignore_reset = false;
+		fields.device.load = (option, section_id) => {
+			return this.discoverUsb().then((response) => {
+				option.value('-', _('-- Please choose --'));
+				option.value('', _('Custom TTY'));
+				
+				for (let usb of response.usb) {
+					let title = usb.name + (usb.plugged ? "" : _(' (unplugged)'));
+					option.value(usb.url, title, title, E('div', {}, [
+						'USB: ' + '%04x:%04x'.format(usb.vid, usb.pid),
+						'; ',
+						'S/N: ' + (usb.serial || '-')
+					]));
+				}
+				
+				return [
+					response.alias,
+					RichListValue.prototype.load.apply(option, [section_id])
+				];
+			}).then(([alias, value]) => {
+				return alias[value] || value;
+			});
+		};
 		
-		let select_modem = throttle(() => {
-			ignore_reset = true;
+		fields.device.onchange = () => {
+			let device = s.getOption('device').formvalue(s.section);
 			
-			let value = s.getOption('modem').getUIElement(s.section).getValue();
-			if (value != '') {
-				let json = JSON.parse(value);
-				
-				if (json.type)
-					s.getOption('modem_type').getUIElement(s.section).setValue(json.type);
-				
-				if (json.control)
-					s.getOption('modem_device').getUIElement(s.section).setValue(json.control);
-				
-				if (json.data)
-					s.getOption('ppp_device').getUIElement(s.section).setValue(json.data);
-				
-				if (json.net_type)
-					s.getOption('net_type').getUIElement(s.section).setValue(json.net_type);
-				
-				if (json.net)
-					s.getOption('net_device').getUIElement(s.section).setValue(json.net);
+			let net_params = ['net_device'];
+			let tty_params = ['control_device', 'ppp_device'];
+			let reset_params = ['control_device', 'ppp_device', 'net_device', 'modem_type', 'net_type'];
+			
+			for (let k of reset_params)
+				s.getOption(k).getUIElement(s.section).setValue('');
+			
+			if (device == '') {
+				this.discoverUsb().then((response) => {
+					for (let k of tty_params)
+						updateTTYList(s.getOption(k), response.tty);
+					
+					for (let k of net_params)
+						updateNetList(s.getOption(k), response.net);
+				});
+			} else {
+				this.getUsbDevice(device).then((usb) => {
+					if (!usb || !usb.modem)
+						return;
+					
+					for (let k of tty_params)
+						updateTTYList(s.getOption(k), usb.tty);
+					
+					for (let k of net_params)
+						updateNetList(s.getOption(k), usb.net);
+					
+					let modem = usb.modem;
+					
+					if (modem.type)
+						s.getOption('modem_type').getUIElement(s.section).setValue(modem.type);
+					
+					if (modem.control)
+						s.getOption('control_device').getUIElement(s.section).setValue(modem.control);
+					
+					if (modem.data)
+						s.getOption('ppp_device').getUIElement(s.section).setValue(modem.data);
+					
+					if (modem.net)
+						s.getOption('net_device').getUIElement(s.section).setValue(modem.net);
+					
+					if (modem.net_type)
+						s.getOption('net_type').getUIElement(s.section).setValue(modem.net_type);
+				});
 			}
+		};
+		
+		fields.net_device.load = (option, section_id) => {
+			option.value('', _('-- Please choose --'));
 			
-			setTimeout(() => {
-				ignore_reset = false;
-			}, 0);
-		});
+			let device = uci.get('network', s.section, 'device');
+			if (device == '') {
+				return this.discoverUsb().then((response) => {
+					updateNetList(option, response.net);
+					return RichListValue.prototype.load.apply(option, [section_id]);
+				});
+			} else {
+				return this.getUsbDevice(device).then((usb) => {
+					usb && updateNetList(option, usb.net);
+					return RichListValue.prototype.load.apply(option, [section_id]);
+				});
+			}
+		}
 		
-		let reset_modem = throttle(() => {
-			if (!ignore_reset)
-				s.getOption('modem').getUIElement(s.section).setValue('');
-		});
-		
-		fields.modem.load = loadModems;
-		fields.modem.onchange = select_modem;
-		
-		fields.modem_device.load = loadTTYDevices;
-		fields.modem_device.onchange = reset_modem;
-		
-		fields.ppp_device.load = loadTTYDevices;
-		fields.ppp_device.onchange = reset_modem;
-		
-		fields.net_device.load = loadNetDevices;
-		fields.net_device.onchange = reset_modem;
-		
-		fields.net_type.onchange = reset_modem;
+		fields.control_device.load = fields.ppp_device.load = (option, section_id) => {
+			option.value('', _('-- Please choose --'));
+			
+			let device = uci.get('network', s.section, 'device');
+			if (device == '') {
+				return this.discoverUsb().then((response) => {
+					updateTTYList(option, response.tty);
+					return RichListValue.prototype.load.apply(option, [section_id]);
+				});
+			} else {
+				return this.getUsbDevice(device).then((usb) => {
+					usb && updateTTYList(option, usb.tty);
+					return RichListValue.prototype.load.apply(option, [section_id]);
+				});
+			}
+		};
 		
 		for (let field_name in fields)
 			createOption(s, field_name, fields[field_name]);
 	}
 });
+
+function updateTTYList(option, tty_list) {
+	if (option.isRendered()) {
+		let widget = option.getUIElement(option.section.section);
+		widget.setValue('');
+		widget.clearChoices();
+	}
+	
+	for (let tty of tty_list) {
+		if (typeof tty == 'string') {
+			option.value(tty, tty);
+		} else if (tty.name) {
+			option.value(tty.path, `${tty.path} (${tty.name})`, `${tty.path} (${tty.name}${(tty.title ? ' - ' + tty.title : '')})`);
+		} else {
+			option.value(tty.path, tty.path);
+		}
+	}
+}
+
+function updateNetList(option, net_list) {
+	if (option.isRendered()) {
+		let widget = option.getUIElement(option.section.section);
+		widget.setValue('');
+		widget.clearChoices();
+	}
+	
+	for (let net of net_list) {
+		if (typeof tty == 'string') {
+			option.value(net, net);
+		} else if (net.name) {
+			option.value(net.path, `${net.path} (${net.name})`, `${net.path} (${net.name}${(net.title ? ' - ' + net.title : '')})`);
+		} else {
+			option.value(net.path, net.path);
+		}
+	}
+}
 
 function throttle(callback, time) {
 	let flag = false;
@@ -436,161 +570,93 @@ function throttle(callback, time) {
 	}
 }
 
-function loadModems(section_id) {
-	return fs.exec("/usr/sbin/usbmodem", ["discover-json", section_id]).then((res) => {
-		let response = JSON.parse(res.stdout.trim());
-		
-		this.value('', _('Custom'));
-		
-		for (let modem of response.modems) {
-			this.value(JSON.stringify(modem), modem.name, modem.name, E('div', {}, [
-				'USB: ' + '%04x:%04x'.format(modem.vid, modem.pid),
-				'; ',
-				'S/N: ' + (modem.serial || '-')
-			]));
-		}
-	});
-}
-
-function loadNetDevices(section_id) {
-	return Promise.all([
-		fs.exec("/usr/sbin/usbmodem", ["discover-json", section_id]),
-		getNetworkDevices()
-	]).then(([res, interfaces]) => {
-		let response = JSON.parse(res.stdout.trim());
-		for (let dev of response.usb) {
-			if (dev.net.length > 0) {
-				this.addCategory(dev.name, '<b>ID:</b> %04x:%04x; <b>S/N:</b> %s'.format(dev.vid, dev.pid, dev.serial || '-'));
-				for (let net of dev.net)
-					this.value(net.url, net.url, net.title ? `${net.title} (${net.name})` : net.name);
-			}
-		}
-		
-		if (interfaces.length > 0) {
-			this.addCategory(_('Other ethernets'));
-			for (let iface of interfaces)
-				this.value(iface, iface);
-		}
-		
-		return RichListValue.prototype.load.apply(this, [section_id]);
-	});
-}
-
-function loadTTYDevices(section_id) {
-	return fs.exec("/usr/sbin/usbmodem", ["discover-json", section_id]).then((res) => {
-		let response = JSON.parse(res.stdout.trim());
-		for (let dev of response.usb) {
-			this.addCategory(dev.name, '<b>ID:</b> %04x:%04x; <b>S/N:</b> %s'.format(dev.vid, dev.pid, dev.serial || '-'));
-			for (let tty of dev.tty)
-				this.value(tty.url, tty.url, `tty${tty.id} (${tty.name}${(tty.title ? ' - ' + tty.title : '')})`);
-		}
-		
-		if (response.tty.length > 0) {
-			this.addCategory(_('Other TTY\'s'));
-			
-			for (let tty of response.tty)
-				this.value(tty, tty);
-		}
-		
-		return RichListValue.prototype.load.apply(this, [section_id]);
-	});
-}
-
-function getNetworkDevices() {
-	let callback = rpc.declare({
-		object: 'network.device',
-		method: 'status'
-	});
-	return callback().then((result) => {
-		let interfaces = [];
-		for (let iface in result) {
-			if (result[iface].devtype == "ethernet")
-				interfaces.push(iface);
-		}
-		return interfaces.sort();
-	});
-}
-
-function createOption(s, name, field) {
-	let widget;
-	let descr = Array.isArray(field.descr) ? field.descr.join('<br />') : field.descr;
+function createOption(s, name, config) {
+	let option;
+	let descr = Array.isArray(config.descr) ? config.descr.join('<br />') : config.descr;
 	
-	switch (field.type) {
+	switch (config.type) {
 		case "select":
-			widget = s.taboption(field.tab, form.ListValue, name, field.title, descr);
+			option = s.taboption(config.tab, form.ListValue, name, config.title, descr);
 		break;
 		
 		case "rich_select":
-			widget = s.taboption(field.tab, RichListValue, name, field.title, descr);
+			option = s.taboption(config.tab, RichListValue, name, config.title, descr);
 		break;
 		
 		case "checkbox":
-			widget = s.taboption(field.tab, form.Flag, name, field.title, descr);
+			option = s.taboption(config.tab, form.Flag, name, config.title, descr);
 		break;
 		
 		case "text":
-			widget = s.taboption(field.tab, form.Value, name, field.title, descr);
+			option = s.taboption(config.tab, form.Value, name, config.title, descr);
 		break;
 		
 		case "password":
-			widget = s.taboption(field.tab, form.Value, name, field.title, descr);
-			widget.password = true;
+			option = s.taboption(config.tab, form.Value, name, config.title, descr);
+			option.password = true;
 		break;
 		
 		default:
-			console.error('Unknown type: ' + field.type);
+			console.error('Unknown type: ' + config.type);
 			return null;
 		break;
 	}
 	
-	if (field.optional != null)
-		widget.optional = field.optional;
+	if (config.optional != null)
+		option.optional = config.optional;
 	
-	if (field.default != null)
-		widget.default = field.default;
+	if (config.default != null)
+		option.default = config.default;
 	
-	if (field.optional)
-		widget.rmempty = true;
+	if (config.optional)
+		option.rmempty = true;
 	
-	if (field.onchange)
-		widget.onchange = field.onchange;
+	if (config.onchange)
+		option.onchange = config.onchange;
 	
-	if (field.load)
-		widget.load = field.load;
+	if (config.load) {
+		option.load = function () {
+			return config.load.apply(this, [this, ...arguments]);
+		};
+	}
 	
-	if (field.dummy) {
-		widget.remove = () => {};
-		widget.write = () => {};
+	if (config.dummy) {
+		option.remove = () => {};
+		option.write = () => {};
 	} else {
-		widget.ucioption = name;
+		option.ucioption = name;
 	}
 	
-	if (field.values) {
-		for (let k in field.values)
-			widget.value(k, field.values[k]);
+	if (config.values) {
+		for (let k in config.values)
+			option.value(k, config.values[k]);
 	}
 	
-	if (field.validate) {
-		if (typeof field.validate == 'string') {
-			widget.datatype = field.validate;
+	if (config.validate) {
+		if (typeof config.validate == 'string') {
+			option.datatype = config.validate;
 		} else {
-			widget.validate = field.validate;
+			option.validate = config.validate;
 		}
 	}
 	
 	let depends = {};
-	if (field.depends) {
-		for (let k in field.depends) {
-			if (field.depends[k].length > 1) {
-				depends[k] = new RegExp('^(' + field.depends[k].join('|') + ')$', 'i');
+	if (config.depends) {
+		for (let k in config.depends) {
+			if (k.charAt(0) == '!') {
+				depends[k] = config.depends[k];
 			} else {
-				depends[k] = field.depends[k][0];
+				if (config.depends[k].length > 1) {
+					depends[k] = new RegExp('^(' + config.depends[k].join('|') + ')$', 'i');
+				} else {
+					depends[k] = config.depends[k][0];
+				}
 			}
 		}
 	}
 	
 	if (Object.keys(depends).length)
-		widget.depends(depends);
+		option.depends(depends);
 }
 
 function deepClone(v) {

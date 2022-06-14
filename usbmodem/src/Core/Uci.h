@@ -18,4 +18,5 @@ class Uci {
 		static std::string getFirewallZone(const std::string &iface);
 		static std::vector<Section> loadSections(const std::string &pkg_name, const std::string &type = "");
 		static std::tuple<bool, Section> loadSectionByName(const std::string &pkg_name, const std::string &type, const std::string &name);
+		static std::string getOptionValue(const std::string &pkg_name, const std::string &type, const std::string &name, const std::string &key, const std::string &def = "");
 };
