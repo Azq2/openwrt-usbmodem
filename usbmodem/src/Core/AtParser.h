@@ -28,6 +28,7 @@ class AtParser {
 		AtParser() { }
 		
 		static int getArgCnt(const std::string &value);
+		static std::string stripPrefix(const std::string &value);
 		
 		inline AtParser &reset() {
 			m_cursor = m_str;

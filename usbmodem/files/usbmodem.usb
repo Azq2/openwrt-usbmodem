@@ -1,10 +1,3 @@
 #!/bin/sh
-. /lib/functions.sh
-. /lib/netifd/netifd-proto.sh
-
-case "$DEVICENAME" in
-	cdc-wdm*)
-	tty*)
-		usbmodem check
-	;;
-esac
+[[ $ACTION = "bind" || $ACTION = "unbind" ]] || exit 0;
+usbmodem check

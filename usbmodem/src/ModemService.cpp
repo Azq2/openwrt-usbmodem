@@ -6,6 +6,7 @@
 #include <Core/UbusLoop.h>
 
 #include "Modem/Asr1802.h"
+#include "Modem/GenericPpp.h"
 
 ModemService::ModemService(const std::string &iface): m_iface(iface) {
 	m_start_time = getCurrentTimestamp();
@@ -90,7 +91,7 @@ bool ModemService::resolveDevices(bool lock) {
 	m_fw_zone = Uci::getFirewallZone(m_iface);
 	
 	if (m_options["device"] != "" && m_options["device"] != "tty" && m_options["device"] != "custom") {
-		auto [found, dev] = UsbDiscover::findDevice(m_options["device"]);
+		auto [found, dev] = UsbDiscover::findDevice(m_options["device"], m_iface);
 		if (!found) {
 			LOGE("Device not found: %s\n", m_options["device"].c_str());
 			return false;
@@ -111,8 +112,7 @@ bool ModemService::resolveDevices(bool lock) {
 			return false;
 		}
 		
-		bool is_locked = lock ? !UsbDiscover::tryLockDevice(m_control_tty) : UsbDiscover::isDeviceLocked(m_control_tty);
-		if (is_locked) {
+		if (lock && !UsbDiscover::tryLockDevice(m_control_tty, m_iface)) {
 			LOGE("Control device already in use: %s\n", m_control_tty.c_str());
 			return false;
 		}
@@ -124,8 +124,7 @@ bool ModemService::resolveDevices(bool lock) {
 			return false;
 		}
 		
-		bool is_locked = lock ? !UsbDiscover::tryLockDevice(m_ppp_tty) : UsbDiscover::isDeviceLocked(m_ppp_tty);
-		if (is_locked) {
+		if (lock && !UsbDiscover::tryLockDevice(m_ppp_tty, m_iface)) {
 			LOGE("PPP device already in use: %s\n", m_ppp_tty.c_str());
 			return false;
 		}
@@ -137,8 +136,7 @@ bool ModemService::resolveDevices(bool lock) {
 			return false;
 		}
 		
-		bool is_locked = lock ? !UsbDiscover::tryLockDevice(m_net_dev) : UsbDiscover::isDeviceLocked(m_net_dev);
-		if (is_locked) {
+		if (lock && !UsbDiscover::tryLockDevice(m_net_dev, m_iface)) {
 			LOGE("NET device already in use: %s\n", m_net_dev.c_str());
 			return false;
 		}
@@ -155,15 +153,11 @@ bool ModemService::check() {
 	
 	m_netifd.setUbus(&m_ubus);
 	
-	if (!loadOptions()) {
-		m_netifd.protoSetAvail(m_iface, false);
+	if (!loadOptions()) 
 		return false;
-	}
 	
-	if (!resolveDevices(false)) {
-		m_netifd.protoSetAvail(m_iface, false);
+	if (!resolveDevices(false))
 		return false;
-	}
 	
 	m_netifd.protoSetAvail(m_iface, true);
 	return true;
@@ -261,6 +255,10 @@ bool ModemService::runModem() {
 	switch (m_type) {
 		case UsbDiscover::TYPE_ASR1802:
 			m_modem = new Asr1802Modem();
+		break;
+		
+		case UsbDiscover::TYPE_PPP:
+			m_modem = new GenericPppModem();
 		break;
 		
 		default:

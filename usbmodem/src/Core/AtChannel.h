@@ -56,7 +56,8 @@ class AtChannel {
 			NUMERIC,
 			NO_RESPONSE,
 			DIAL,
-			NO_PREFIX
+			NO_PREFIX,
+			NO_PREFIX_ALL
 		};
 	protected:
 		struct UnsolHandler {
@@ -148,6 +149,12 @@ class AtChannel {
 		inline Response sendCommandNoPrefix(const std::string &cmd, int timeout = 0) {
 			Response response;
 			sendCommand(NO_PREFIX, cmd, "", &response, timeout);
+			return response;
+		}
+		
+		inline Response sendCommandNoPrefixAll(const std::string &cmd, int timeout = 0) {
+			Response response;
+			sendCommand(NO_PREFIX_ALL, cmd, "", &response, timeout);
 			return response;
 		}
 		

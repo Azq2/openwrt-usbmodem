@@ -173,6 +173,10 @@ class BaseAtModem: public Modem {
 		bool findBestSmsStorage(bool prefer_sim);
 		
 		static inline float decodeRSSI(int rssi) {
+			return -(rssi >= 99 ? NAN : 113 - rssi * 2);
+		}
+		
+		static inline float decodeRSSI_V2(int rssi) {
 			return -(rssi >= 99 ? NAN : 111 - rssi);
 		}
 		
@@ -257,6 +261,7 @@ class BaseAtModem: public Modem {
 		virtual IfaceProto getIfaceProto() override;
 		virtual int getDelayAfterDhcpRelease() override;
 		virtual std::pair<bool, std::string> sendAtCommand(const std::string &cmd, int timeout) override;
+		virtual std::vector<Capability> getCapabilities() override;
 		
 		/*
 		 * Modem configuration

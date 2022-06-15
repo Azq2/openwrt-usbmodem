@@ -16,11 +16,20 @@ BaseAtModem::BaseAtModem() : Modem() {
 bool BaseAtModem::execAtList(const char **commands, bool break_on_fail) {
 	bool success = true;
 	while (*commands) {
-		if (m_at.sendCommandNoResponse(*commands) != 0) {
+		bool cmd_success = false;
+		for (auto &cmd: strSplit("|", *commands)) {
+			if (!cmd.size() || m_at.sendCommandNoResponse(cmd) == 0) {
+				cmd_success = true;
+				break;
+			}
+		}
+		
+		if (!cmd_success) {
 			success = false;
 			if (break_on_fail)
 				break;
 		}
+		
 		commands++;
 	}
 	return success;
@@ -137,7 +146,7 @@ int BaseAtModem::getDelayAfterDhcpRelease() {
 }
 
 std::pair<bool, std::string> BaseAtModem::sendAtCommand(const std::string &cmd, int timeout) {
-	auto response = m_at.sendCommandNoPrefix(cmd, timeout);
+	auto response = m_at.sendCommandNoPrefixAll(cmd, timeout);
 	
 	std::string out;
 	
@@ -186,4 +195,8 @@ bool BaseAtModem::setOption(const std::string &name, const std::any &value) {
 		return true;
 	}
 	return false;
+}
+
+std::vector<BaseAtModem::Capability> BaseAtModem::getCapabilities() {
+	return {};
 }

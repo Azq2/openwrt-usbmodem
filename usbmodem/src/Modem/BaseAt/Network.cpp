@@ -82,17 +82,20 @@ BaseAtModem::CregTech BaseAtModem::techToCreg(NetworkTech tech) {
 }
 
 void BaseAtModem::handleCsq(const std::string &event) {
-	int rssi, ecio;
+	int rssi, ber;
 	bool parsed = AtParser(event)
 		.parseInt(&rssi)
-		.parseInt(&ecio)
+		.parseInt(&ber)
 		.success();
 	
 	if (!parsed)
 		return;
 	
 	// RSSI (Received signal strength)
-	m_signal.rssi_dbm = -(rssi >= 99 ? NAN : 113 - (rssi * 2));
+	m_signal.rssi_dbm = decodeRSSI(rssi);
+	
+	// Bit Error
+	m_signal.bit_err_pct = decodeRERR(ber);
 }
 
 void BaseAtModem::handleCesq(const std::string &event) {
@@ -111,7 +114,7 @@ void BaseAtModem::handleCesq(const std::string &event) {
 		return;
 	
 	// RSSI (Received signal strength)
-	m_signal.rssi_dbm = decodeRSSI(rssi);
+	m_signal.rssi_dbm = decodeRSSI_V2(rssi);
 	
 	// Bit Error
 	m_signal.bit_err_pct = decodeRERR(ber);
@@ -356,8 +359,8 @@ std::tuple<bool, std::vector<BaseAtModem::Operator>> BaseAtModem::searchOperator
 		return {false, {}};
 	
 	for (auto opearator_info: operators_raw) {
-		int status = 0;
-		int tech = 0;
+		int status = OPERATOR_STATUS_UNKNOWN;
+		int tech = CREG_TECH_UNKNOWN;
 		std::string name_short;
 		std::string name_long;
 		std::string name_numeric;
@@ -365,14 +368,25 @@ std::tuple<bool, std::vector<BaseAtModem::Operator>> BaseAtModem::searchOperator
 		if (!opearator_info.size())
 			break;
 		
-		bool success = AtParser(opearator_info)
-			.reset()
-			.parseInt(&status, 10)
-			.parseString(&name_long)
-			.parseString(&name_short)
-			.parseString(&name_numeric)
-			.parseInt(&tech, 10)
-			.success();
+		bool success;
+		if (AtParser::getArgCnt(opearator_info) == 4) {
+			success = AtParser(opearator_info)
+				.reset()
+				.parseInt(&status, 10)
+				.parseString(&name_long)
+				.parseString(&name_short)
+				.parseString(&name_numeric)
+				.success();
+		} else {
+			success = AtParser(opearator_info)
+				.reset()
+				.parseInt(&status, 10)
+				.parseString(&name_long)
+				.parseString(&name_short)
+				.parseString(&name_numeric)
+				.parseInt(&tech, 10)
+				.success();
+		}
 		
 		if (name_numeric.size() != 5)
 			success = false;
@@ -382,7 +396,7 @@ std::tuple<bool, std::vector<BaseAtModem::Operator>> BaseAtModem::searchOperator
 			
 			Operator &op = operators.back();
 			op.mcc = strToInt(name_numeric.substr(0, 3), 10, -1);
-			op.mnc = strToInt(name_numeric.substr(3, 2), 10, -1);
+			op.mnc = strToInt(name_numeric.substr(3), 10, -1);
 			op.name = name_long;
 			op.tech = cregToTech(static_cast<CregTech>(tech));
 			op.status = OPERATOR_STATUS_UNKNOWN;
@@ -391,7 +405,7 @@ std::tuple<bool, std::vector<BaseAtModem::Operator>> BaseAtModem::searchOperator
 			if ((status >= 0 && status < 4))
 				op.status = static_cast<OperatorStatus>(status);
 		} else {
-			LOGE("Invalid operator entry: %s", opearator_info.c_str());
+			LOGE("Invalid operator entry: %s\n", opearator_info.c_str());
 		}
 	}
 	

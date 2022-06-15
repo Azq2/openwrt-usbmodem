@@ -166,9 +166,15 @@ void AtChannel::handleLine() {
 			} else {
 				handleUnsolicitedLine();
 			}
-		} else if (m_curr_type == NO_PREFIX) {
+		} else if (m_curr_type == NO_PREFIX_ALL) {
 			m_curr_response->lines.push_back(m_buffer);
 			handleUnsolicitedLine();
+		} else if (m_curr_type == NO_PREFIX) {
+			if (m_buffer[0] == '+' || m_buffer[0] == '*' || m_buffer[0] == '^' || m_buffer[0] == '!') {
+				handleUnsolicitedLine();
+			} else {
+				m_curr_response->lines.push_back(m_buffer);
+			}
 		} else if (m_curr_type == NUMERIC) {
 			if (m_curr_prefix.size() > 0 && strStartsWith(m_buffer, m_curr_prefix)) {
 				m_curr_response->lines.push_back(m_buffer);
@@ -181,7 +187,7 @@ void AtChannel::handleLine() {
 			if (strStartsWith(m_buffer, m_curr_prefix)) {
 				m_curr_response->lines.push_back(m_buffer);
 			} else if (m_curr_response->lines.size() > 0) {
-				if (m_buffer[0] == '+' || m_buffer[0] == '*' || m_buffer[0] == '^') {
+				if (m_buffer[0] == '+' || m_buffer[0] == '*' || m_buffer[0] == '^' || m_buffer[0] == '!') {
 					handleUnsolicitedLine();
 				} else {
 					m_curr_response->lines.back() += "\r\n" + m_buffer;
@@ -261,7 +267,7 @@ int AtChannel::sendCommand(ResultType type, const std::string &cmd, const std::s
 		LOGE("[ %s ] error = %d, status = %s\n", cmd.c_str(), response->error, response->status.c_str());
 	
 	if (m_verbose) {
-		if (type != NO_PREFIX) {
+		if (type != NO_PREFIX_ALL) {
 			for (auto i = 0; i < response->lines.size(); i++)
 				LOGD("AT << %s\n", response->lines[i].c_str());
 		}

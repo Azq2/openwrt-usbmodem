@@ -261,3 +261,15 @@ bool Asr1802Modem::setOption(const std::string &name, const std::any &value) {
 	
 	return false;
 }
+
+std::vector<Asr1802Modem::Capability> Asr1802Modem::getCapabilities() {
+	return {
+		CAP_SMS,
+		CAP_USSD,
+		CAP_CALLS,
+		CAP_SET_NETWORK_MODE,
+		CAP_SET_ROAMING_MODE,
+		CAP_NETWORK_SEARCH,
+		CAP_NETMON,
+	};
+}

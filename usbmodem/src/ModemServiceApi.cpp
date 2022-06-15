@@ -53,7 +53,8 @@ void ModemServiceApi::apiGetModemInfo(std::shared_ptr<UbusRequest> req) {
 			{"vendor", modem_info.vendor},
 			{"model", modem_info.model},
 			{"version", modem_info.version},
-			{"imei", modem_info.imei}
+			{"imei", modem_info.imei},
+			{"capabilities", m_modem->getCapabilities()}
 		});
 	}, 0);
 }

@@ -71,15 +71,15 @@ class UsbDiscover {
 		static std::string mkUsbUrl(const DevUrl &dev_url);
 		static std::pair<bool, DevUrl> parseUsbUrl(const std::string &url);
 		
-		static std::pair<bool, Dev> findDevice(const std::string &url);
+		static std::pair<bool, Dev> findDevice(const std::string &url, const std::string &allow_owner);
 		static std::string getFromDevice(const Dev &dev, const std::string &path);
 		
 		/*
 		 * Locks
 		 * */
 		static std::string getLockPath(const std::string &dev);
-		static bool tryLockDevice(const std::string &dev);
-		static bool isDeviceLocked(const std::string &dev);
+		static bool tryLockDevice(const std::string &dev, const std::string &owner);
+		static bool isDeviceLocked(const std::string &dev, const std::string &allow_owner);
 		static bool unlockDevice(const std::string &dev);
 		
 		static std::vector<std::string> getUsbDevicesByUrl(const DevUrl &url);

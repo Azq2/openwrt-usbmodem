@@ -26,7 +26,7 @@ std::string UsbDiscover::getLockPath(const std::string &dev) {
 	return strprintf("/var/run/usbmodem-%zu-%x-%s.lock", real_path.size(), crc, getFileBaseName(real_path).c_str());
 }
 
-bool UsbDiscover::tryLockDevice(const std::string &dev) {
+bool UsbDiscover::tryLockDevice(const std::string &dev, const std::string &owner) {
 	std::string path = getLockPath(dev);
 	
 	FILE *fp = fopen(path.c_str(), "w+");
@@ -37,6 +37,8 @@ bool UsbDiscover::tryLockDevice(const std::string &dev) {
 		fclose(fp);
 		return false;
 	}
+	
+	fwrite(owner.c_str(), 1, owner.size(), fp);
 	
 	m_locks[path] = fp;
 	
@@ -55,7 +57,7 @@ bool UsbDiscover::unlockDevice(const std::string &dev) {
 	return true;
 }
 
-bool UsbDiscover::isDeviceLocked(const std::string &dev) {
+bool UsbDiscover::isDeviceLocked(const std::string &dev, const std::string &allow_owner) {
 	std::string path = getLockPath(dev);
 	
 	FILE *fp = fopen(path.c_str(), "r");
@@ -64,7 +66,7 @@ bool UsbDiscover::isDeviceLocked(const std::string &dev) {
 	
 	if (flock(fileno(fp), LOCK_EX | LOCK_NB) != 0) {
 		fclose(fp);
-		return true;
+		return allow_owner.size() && tryReadFile(path) == allow_owner;
 	}
 	
 	flock(fileno(fp), LOCK_UN);
@@ -144,7 +146,7 @@ std::vector<std::string> UsbDiscover::getUsbDevicesByUrl(const DevUrl &url) {
 	return devices;
 }
 
-std::pair<bool, UsbDiscover::Dev> UsbDiscover::findDevice(const std::string &url) {
+std::pair<bool, UsbDiscover::Dev> UsbDiscover::findDevice(const std::string &url, const std::string &allow_owner) {
 	auto [valid, parsed_url] = parseUsbUrl(url);
 	if (!valid)
 		return {false, {}};
@@ -154,14 +156,14 @@ std::pair<bool, UsbDiscover::Dev> UsbDiscover::findDevice(const std::string &url
 		auto [net_list, tty_list] = getUsbDevInterfaces(path);
 		
 		for (auto &tty: tty_list) {
-			if (isDeviceLocked("/dev/" + tty.name)) {
+			if (isDeviceLocked("/dev/" + tty.name, allow_owner)) {
 				used = true;
 				break;
 			}
 		}
 		
 		for (auto &net: net_list) {
-			if (isDeviceLocked(net.name)) {
+			if (isDeviceLocked(net.name, allow_owner)) {
 				used = true;
 				break;
 			}

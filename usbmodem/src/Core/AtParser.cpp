@@ -158,6 +158,20 @@ int AtParser::getArgCnt(const std::string &value) {
 	return count;
 }
 
+std::string AtParser::stripPrefix(const std::string &value) {
+	if (value[0] == '+' || value[0] == '*' || value[0] == '^' || value[0] == '!') {
+		size_t index = value.find(':');
+		if (index != std::string::npos) {
+			for (auto i = 1; i < index; i++) {
+				if (!isdigit(value[i]) && !isalpha(value[i]) && value[i] != '_')
+					return value;
+			}
+			return value.substr(index);
+		}
+	}
+	return value;
+}
+
 const char *AtParser::skipSpaces(const char *cursor) {
 	while (isspace(*cursor) && *cursor != '\n')
 		cursor++;

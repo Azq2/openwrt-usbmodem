@@ -5,27 +5,21 @@ std::tuple<bool, BaseAtModem::ModemInfo> BaseAtModem::getModemInfo() {
 		AtChannel::Response response;
 		ModemInfo info;
 		
-		response = m_at.sendCommand("AT+CGMI", "+CGMI");
+		response = m_at.sendCommandNoPrefix("AT+CGMI");
+		info.vendor = response.error ? "" : AtParser::stripPrefix(response.data());
 		
-		if (response.error || !AtParser(response.data()).parseString(&info.vendor).success())
-			info.vendor = "";
+		response = m_at.sendCommandNoPrefix("AT+CGMM");
+		info.model = response.error ? "" : AtParser::stripPrefix(response.data());
 		
-		response = m_at.sendCommand("AT+CGMM", "+CGMM");
-		if (response.error || !AtParser(response.data()).parseString(&info.model).success())
-			info.model = "";
-		
-		response = m_at.sendCommand("AT+CGMR", "+CGMR");
-		if (response.error || !AtParser(response.data()).parseString(&info.version).success())
-			info.version = "";
+		response = m_at.sendCommandNoPrefix("AT+CGMR");
+		info.version = response.error ? "" : AtParser::stripPrefix(response.data());
 		
 		response = m_at.sendCommandNumericOrWithPrefix("AT+CGSN", "+CGSN");
 		if (response.error) {
 			// Some CDMA modems not support CGSN, but supports GSN
 			response = m_at.sendCommandNumericOrWithPrefix("AT+GSN", "+GSN");
 		}
-		
-		if (response.error || !AtParser(response.data()).parseString(&info.imei).success())
-			info.imei = "";
+		info.imei = response.error ? "unknown" : response.data();
 		
 		return info;
 	});

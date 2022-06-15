@@ -39,7 +39,7 @@ void BaseAtModem::startSimPolling() {
 			
 			case 13:	// SIM failure
 			case 15:	// SIM wrong
-				LOGD("SIM not failure\n");
+				LOGD("SIM failure\n");
 				setSimState(SIM_ERROR);
 			break;
 			

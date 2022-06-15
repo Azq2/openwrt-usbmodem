@@ -209,6 +209,16 @@ class Modem {
 			std::string version;
 		};
 		
+		enum Capability {
+			CAP_SMS,
+			CAP_USSD,
+			CAP_CALLS,
+			CAP_SET_NETWORK_MODE,
+			CAP_SET_ROAMING_MODE,
+			CAP_NETWORK_SEARCH,
+			CAP_NETMON,
+		};
+		
 		/*
 		 * Events
 		 * */
@@ -348,6 +358,7 @@ class Modem {
 		virtual IfaceProto getIfaceProto() = 0;
 		virtual int getDelayAfterDhcpRelease() = 0;
 		virtual std::pair<bool, std::string> sendAtCommand(const std::string &cmd, int timeout) = 0;
+		virtual std::vector<Capability> getCapabilities() = 0;
 		
 		/*
 		 * Enums

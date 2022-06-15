@@ -24,6 +24,7 @@ class Asr1802Modem: public BaseAtModem {
 		bool init() override;
 		bool setOption(const std::string &name, const std::any &value) override;
 		int getCommandTimeout(const std::string &cmd) override;
+		std::vector<Capability> getCapabilities() override;
 		
 		/*
 		 * Network

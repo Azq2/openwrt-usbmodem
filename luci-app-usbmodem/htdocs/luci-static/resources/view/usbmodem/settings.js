@@ -133,9 +133,11 @@ return view.extend({
 		
 		for (let row of list) {
 			let code = '%03d%02d'.format(row.mcc, row.mnc);
+			let title = (row.tech == 'UNKNOWN' ? row.name : row.name + ' ' + usbmodem.TECH[row.tech]);
+			
 			table.appendChild(E('tr', { 'class': 'tr cbi-section-table-row' }, [
 				E('td', { 'class': 'td cbi-value-field left top' }, [ code ]),
-				E('td', { 'class': 'td cbi-value-field left top' }, [ row.name + ' ' + usbmodem.TECH[row.tech] ]),
+				E('td', { 'class': 'td cbi-value-field left top' }, [ title ]),
 				E('td', { 'class': 'td cbi-value-field left top' }, [ usbmodem.OPERATOR_STATUS[row.status] ]),
 				E('td', { 'class': 'td cbi-value-field left top' }, [
 					E('button', {
