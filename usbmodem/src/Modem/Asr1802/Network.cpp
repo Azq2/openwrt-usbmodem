@@ -50,7 +50,37 @@ void Asr1802Modem::handleCesq(const std::string &event) {
 			requestEngInfo();
 		}, 0);
 	} else {
-		BaseAtModem::handleCesq(event);
+		int rssi, ber, rscp, ecio, rsrq, rsrp;
+		
+		bool parsed = AtParser(event)
+			.parseInt(&rssi)
+			.parseInt(&ber)
+			.parseInt(&rscp)
+			.parseInt(&ecio)
+			.parseInt(&rsrq)
+			.parseInt(&rsrp)
+			.success();
+		
+		if (!parsed)
+			return;
+		
+		// RSSI (Received signal strength)
+		m_signal.rssi_dbm = decodeRSSI_V2(rssi);
+		
+		// Bit Error
+		m_signal.bit_err_pct = decodeRERR(ber);
+		
+		// RSCP (Received signal code power)
+		m_signal.rscp_dbm = decodeRSCP(rscp);
+		
+		// Ec/lo
+		m_signal.ecio_db = decodeECIO(ecio);
+		
+		// RSRQ (Reference signal received quality)
+		m_signal.rsrq_db = decodeRSRQ(rsrq);
+		
+		// RSRP (Reference signal received power)
+		m_signal.rsrp_dbm = decodeRSRP(rsrp);
 	}
 }
 

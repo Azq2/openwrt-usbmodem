@@ -92,55 +92,28 @@ void BaseAtModem::handleCsq(const std::string &event) {
 		return;
 	
 	// RSSI (Received signal strength)
-	m_signal.rssi_dbm = decodeRSSI(rssi);
+	m_signal.rssi_dbm = decodeSignal(rssi, 113, 2, 99);
 	
 	// Bit Error
 	m_signal.bit_err_pct = decodeRERR(ber);
-}
-
-void BaseAtModem::handleCesq(const std::string &event) {
-	int rssi, ber, rscp, ecio, rsrq, rsrp;
-	
-	bool parsed = AtParser(event)
-		.parseInt(&rssi)
-		.parseInt(&ber)
-		.parseInt(&rscp)
-		.parseInt(&ecio)
-		.parseInt(&rsrq)
-		.parseInt(&rsrp)
-		.success();
-	
-	if (!parsed)
-		return;
-	
-	// RSSI (Received signal strength)
-	m_signal.rssi_dbm = decodeRSSI_V2(rssi);
-	
-	// Bit Error
-	m_signal.bit_err_pct = decodeRERR(ber);
-	
-	// RSCP (Received signal code power)
-	m_signal.rscp_dbm = decodeRSCP(rscp);
-	
-	// Ec/lo
-	m_signal.ecio_db = decodeECIO(ecio);
-	
-	// RSRQ (Reference signal received quality)
-	m_signal.rsrq_db = decodeRSRQ(rsrq);
-	
-	// RSRP (Reference signal received power)
-	m_signal.rsrp_dbm = decodeRSRP(rsrp);
 }
 
 void BaseAtModem::handleCreg(const std::string &event) {
 	Creg *reg = nullptr;
+	bool is_manual = false;
 	
 	if (strStartsWith(event, "+CREG")) {
 		reg = &m_creg;
+		is_manual = (m_manual_creg_req == "CREG");
+		m_manual_creg_req = "";
 	} else if (strStartsWith(event, "+CGREG")) {
 		reg = &m_cgreg;
+		is_manual = (m_manual_creg_req == "CGREG");
+		m_manual_creg_req = "";
 	} else if (strStartsWith(event, "+CEREG")) {
 		reg = &m_cereg;
+		is_manual = (m_manual_creg_req == "CEREG");
+		m_manual_creg_req = "";
 	} else {
 		// Invalid data
 		return;
@@ -150,70 +123,47 @@ void BaseAtModem::handleCreg(const std::string &event) {
 	int tech = CREG_TECH_UNKNOWN, stat = CREG_NOT_REGISTERED;
 	bool parsed = false;
 	
-	switch (AtParser::getArgCnt(event)) {
-		/* +CREG: <stat> */
-		/* +CGREG: <stat> */
-		/* +CEREG: <stat> */
+	AtParser parser(event);
+	
+	int arg_count = AtParser::getArgCnt(event);
+	if (is_manual) {
+		// skip <n>
+		if (!parser.parseNextSkip())
+			return;
+		arg_count--;
+	}
+	
+	switch (arg_count) {
+		// <stat>
 		case 1:
-			parsed = AtParser(event)
+			parsed = parser
 				.parseInt(&stat)
 				.success();
 		break;
 		
-		/* +CREG: <n>, <stat> */
-		/* +CGREG: <n>, <stat> */
-		/* +CEREG: <n>, <stat> */
-		case 2:
-			parsed = AtParser(event)
-				.parseSkip()
+		// <stat>,<lac>,<ci>
+		case 3:
+			parsed = parser
 				.parseInt(&stat)
+				.parseUInt(&loc_id, 16)
+				.parseUInt(&cell_id, 16)
 				.success();
 		break;
 		
-		/* +CREG: <state>, <lac>, <cid>, <act> */
-		/* +CEREG: <state>, <lac>, <cid>, <act> */
+		// <stat>,<lac>,<ci>,<act>
+		// <stat>,<lac>,<ci>,<act>,<rac>
 		case 4:
-			parsed = AtParser(event)
-				.parseInt(&stat)
-				.parseUInt(&loc_id, 16)
-				.parseUInt(&cell_id, 16)
-				.parseInt(&tech)
-				.success();
-		break;
-		
-		/* +CREG: <n>, <state>, <lac>, <cid>, <act> */
-		/* +CEREG: <n>, <state>, <lac>, <cid>, <act> */
-		/* +CGREG: <state>, <lac>, <cid>, <act>, <rac> */
 		case 5:
-			if (strStartsWith(event, "+CGREG")) {
-				parsed = AtParser(event)
-					.parseInt(&stat)
-					.parseUInt(&loc_id, 16)
-					.parseUInt(&cell_id, 16)
-					.parseInt(&tech)
-					.parseSkip()
-					.success();
-			} else {
-				parsed = AtParser(event)
-					.parseSkip()
-					.parseInt(&stat)
-					.parseUInt(&loc_id, 16)
-					.parseUInt(&cell_id, 16)
-					.parseInt(&tech)
-					.success();
-			}
-		break;
-		
-		/* +CGREG: <n>, <state>, <lac>, <cid>, <act>, <rac> */
-		case 6:
-			parsed = AtParser(event)
-				.parseSkip()
+			parsed = parser
 				.parseInt(&stat)
 				.parseUInt(&loc_id, 16)
 				.parseUInt(&cell_id, 16)
 				.parseInt(&tech)
-				.parseSkip()
 				.success();
+		break;
+		
+		default:
+			LOGE("Invalid CREG format: %s\n", event.c_str());
 		break;
 	}
 	
@@ -224,10 +174,12 @@ void BaseAtModem::handleCreg(const std::string &event) {
 	
 	reg->status = static_cast<CregStatus>(stat);
 	reg->tech = static_cast<CregTech>(tech);
-	reg->loc_id = loc_id & 0xFFFF;
-	reg->cell_id = cell_id & 0xFFFF;
+	reg->loc_id = loc_id;
+	reg->cell_id = cell_id;
 	
-	handleNetworkChange();
+	Loop::setTimeout([this]() {
+		handleNetworkChange();
+	}, 0);
 }
 
 void BaseAtModem::handleNetworkChange() {
@@ -251,6 +203,10 @@ void BaseAtModem::handleNetworkChange() {
 		m_cell_info.loc_id = m_creg.loc_id;
 	}
 	
+	// Some modems not reporting <act> on CREG :(
+	if (new_tech == TECH_UNKNOWN)
+		new_tech = getTechFromCops();
+	
 	if (m_net_reg != new_net_reg) {
 		m_net_reg = new_net_reg;
 		m_net_cache_version++;
@@ -264,87 +220,79 @@ void BaseAtModem::handleNetworkChange() {
 	}
 }
 
+BaseAtModem::NetworkTech BaseAtModem::getTechFromCops() {
+	auto response = m_at.sendCommand("AT+COPS?", "+COPS");
+	if (response.error)
+		return TECH_UNKNOWN;
+	
+	if (AtParser::getArgCnt(response.data()) <= 3)
+		return TECH_GSM;
+	
+	int tech;
+	bool success = AtParser(response.data())
+			.parseSkip() // mode
+			.parseSkip() // format
+			.parseSkip() // name
+			.parseInt(&tech) // tech
+			.success();
+	return success ? cregToTech(static_cast<CregTech>(tech)) : TECH_UNKNOWN;
+}
+
 std::tuple<bool, BaseAtModem::Operator> BaseAtModem::getCurrentOperator() {
 	if (m_net_reg == NET_NOT_REGISTERED || m_net_reg == NET_SEARCHING)
 		return {true, {}};
 	
 	return cached<Operator>(__func__, [this]() {
 		bool success;
-		std::string id;
 		std::string name;
 		int format;
 		int mode;
-		int creg;
+		int tech;
 		
-		Operator op;
-		AtChannel::Response response;
-		
-		// Parse long name
-		if (m_at.sendCommandNoResponse("AT+COPS=3,0") != 0)
-			return std::any();
-		
-		response = m_at.sendCommand("AT+COPS?", "+COPS");
+		auto response = m_at.sendCommandMultiline("AT+COPS=3,0;+COPS?;+COPS=3,2;+COPS?", "+COPS");
 		if (response.error)
 			return std::any();
-		
-		success = AtParser(response.data())
-			.parseSkip()
-			.parseSkip()
-			.parseString(&name)
-			.success();
-		
-		if (!success)
-			return std::any();
-		
-		// Parse numeric name
-		if (m_at.sendCommandNoResponse("AT+COPS=3,2") != 0)
-			return std::any();
-		
-		response = m_at.sendCommand("AT+COPS?", "+COPS");
-		if (response.error)
-			return std::any();
-		
-		success = AtParser(response.data())
-			.parseInt(&mode)
-			.parseInt(&format)
-			.parseString(&id)
-			.parseInt(&creg)
-			.success();
-		
-		if (!success)
-			return std::any();
-		
-		if (id.size() != 5) {
-			LOGE("Invalid MCC/MNC: %s\n", id.c_str());
-			return std::any();
-		}
 		
 		Operator value;
-		value.mcc = strToInt(id.substr(0, 3), 10, -1);
-		value.mnc = strToInt(id.substr(3, 2), 10, -1);
-		value.name = !name.size() ? strprintf("%03d %02d", value.mcc, value.mnc) : name;
-		value.tech = cregToTech(static_cast<CregTech>(creg));
-		value.status = OPERATOR_STATUS_REGISTERED;
-		value.reg = (mode == 0 ? OPERATOR_REG_AUTO : OPERATOR_REG_MANUAL);
+		for (auto &line: response.lines) {
+			if (AtParser::getArgCnt(line) < 3)
+				return std::any();
+			
+			if (AtParser::getArgCnt(line) == 3) {
+				success = AtParser(line)
+					.parseInt(&mode)
+					.parseInt(&format)
+					.parseString(&name)
+					.success();
+			} else {
+				success = AtParser(line)
+					.parseInt(&mode)
+					.parseInt(&format)
+					.parseString(&name)
+					.parseInt(&tech)
+					.success();
+			}
+			
+			if (!success)
+				return std::any();
+			
+			if (format == 2) {
+				value.mcc = strToInt(name.substr(0, 3), 10, -1);
+				value.mnc = strToInt(name.substr(3), 10, -1);
+			} else {
+				value.name = name;
+			}
+			
+			value.tech = cregToTech(static_cast<CregTech>(tech));
+			value.status = OPERATOR_STATUS_REGISTERED;
+			value.reg = (mode == 0 ? OPERATOR_REG_AUTO : OPERATOR_REG_MANUAL);
+		}
+		
+		if (!value.name.size())
+			value.name = strprintf("%03d %02d", value.mcc, value.mnc);
+		
 		return std::any(value);
 	}, m_net_cache_version);
-}
-
-void BaseAtModem::stopNetWatchdog() {
-	if (m_connect_timeout_id >= 0) {
-		Loop::clearTimeout(m_connect_timeout_id);
-		m_connect_timeout_id = -1;
-	}
-}
-
-void BaseAtModem::startNetWatchdog() {
-	if (m_connect_timeout_id >= 0 || m_connect_timeout <= 0)
-		return;
-	
-	m_connect_timeout_id = Loop::setTimeout([this]() {
-		m_connect_timeout_id = -1;
-		emit<EvDataConnectTimeout>({});
-	}, m_connect_timeout);
 }
 
 std::tuple<bool, std::vector<BaseAtModem::Operator>> BaseAtModem::searchOperators() {

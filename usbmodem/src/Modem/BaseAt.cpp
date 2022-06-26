@@ -117,6 +117,18 @@ bool BaseAtModem::open() {
 		}
 	});
 	
+	m_at.setAnyCommandCallback([this](const std::string &cmd) {
+		if (cmd == "AT+CREG?") {
+			m_manual_creg_req = "CREG";
+		} else if (cmd == "AT+CEREG?") {
+			m_manual_creg_req = "CEREG";
+		} else if (cmd == "AT+CGREG?") {
+			m_manual_creg_req = "CGREG";
+		} else {
+			m_manual_creg_req = "";
+		}
+	});
+	
 	m_at.start();
 	
 	if (!handshake()) {
@@ -186,9 +198,6 @@ bool BaseAtModem::setOption(const std::string &name, const std::any &value) {
 		return true;
 	} else if (name == "pincode") {
 		m_pincode = std::any_cast<std::string>(value);
-		return true;
-	} else if (name == "connect_timeout") {
-		m_connect_timeout = std::any_cast<int>(value);
 		return true;
 	} else if (name == "prefer_sms_to_sim") {
 		m_prefer_sms_to_sim = std::any_cast<bool>(value);

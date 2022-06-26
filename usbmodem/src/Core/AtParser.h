@@ -13,7 +13,7 @@ class AtParser {
 		bool m_success = false;
 		
 		static const char *parseNextArg(const char *str, const char **start, const char **end);
-		static bool parseNumeric(const char *start, const char *end, int base, bool is_unsigned, void *out);
+		static bool parseNumeric(const char *start, const char *end, int base, bool is_unsigned, bool is64, void *out);
 		
 		static const char *skipSpaces(const char *cursor);
 	public:
@@ -80,6 +80,16 @@ class AtParser {
 			return *this;
 		}
 		
+		inline AtParser &parseInt64(int64_t *value, int base = 10) {
+			parseNextInt64(value, base);
+			return *this;
+		}
+		
+		inline AtParser &parseUInt64(uint64_t *value, int base = 10) {
+			parseNextUInt64(value, base);
+			return *this;
+		}
+		
 		inline AtParser &parseBool(bool *value) {
 			parseNextBool(value);
 			return *this;
@@ -108,6 +118,8 @@ class AtParser {
 		bool parseNextString(std::string *value);
 		bool parseNextInt(int32_t *value, int base = 10);
 		bool parseNextUInt(uint32_t *value, int base = 10);
+		bool parseNextInt64(int64_t *value, int base = 10);
+		bool parseNextUInt64(uint64_t *value, int base = 10);
 		bool parseNextBool(bool *value);
 		bool parseNextArray(std::vector<std::string> *values);
 		bool parseNextList(std::vector<std::string> *values);

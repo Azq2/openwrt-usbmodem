@@ -16,6 +16,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <linux/limits.h>
 #include <libgen.h>
 
 using namespace std;
@@ -251,27 +252,18 @@ std::string converOctalIpv6(const std::string &value) {
 	return out;
 }
 
-std::string getDefaultNetmask(const std::string &ip) {
+std::string long2ip(uint32_t ip) {
+	const char *str = inet_ntoa({.s_addr = ip});
+	if (!str)
+		throw std::runtime_error(strprintf("inet_ntoa(0x%08X) failed", ip));
+	return str;
+}
+
+uint32_t ip2long(const std::string &ip) {
 	in_addr addr;
 	if (inet_aton(ip.c_str(), &addr) != 1)
-		return "";
-	
-	uint8_t first_octet = (ntohl(addr.s_addr) >> 24) & 0xFF;
-	
-	// Cass A
-	if (first_octet <= 127) {
-		return "255.0.0.0";
-	}
-	// Class B
-	else if (first_octet <= 191) {
-		return "255.255.0.0";
-	}
-	// Class C
-	else if (first_octet <= 223) {
-		return "255.255.255.0";
-	}
-	
-	return "";
+		return 0;
+	return ntohl(addr.s_addr);
 }
 
 int getIpType(const std::string &raw_ip, bool allow_dec_v6) {
@@ -463,7 +455,8 @@ int execFile(const std::string &path, std::vector<std::string> args, std::vector
 
 std::string getRealPath(const std::string &path) {
 	char buff[PATH_MAX + 1];
-	return realpath(path.c_str(), buff);
+	auto result = realpath(path.c_str(), buff);
+	return result ? result : path.c_str();
 }
 
 bool fileNameCmp(const std::string &a, const std::string &b) {

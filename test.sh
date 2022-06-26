@@ -16,16 +16,17 @@ fi
 if [[ $TEST_ROUTER == "" ]]; then
 	# Test router
 	#TEST_ROUTER=root@192.168.2.1
-	TEST_ROUTER=root@192.168.122.54
+	#TEST_ROUTER=root@192.168.122.54
+	TEST_ROUTER=root@192.168.3.1
 fi
 
 if [[ $TARGET == "" ]]; then
-	#export TARGET=target-mipsel_24kc_musl
+	export TARGET=target-mipsel_24kc_musl
 	#export TARGET=target-x86_64_musl
-	export TARGET=target-x86_64_glibc
+	#export TARGET=target-x86_64_glibc
 fi
 
-export CONFIG_DEBUG=y
+#export CONFIG_DEBUG=y
 export PKG_USE_NINJA=0
 export PKG_JOBS=-j9
 
@@ -108,8 +109,8 @@ install_file $TOPDIR/build_dir/$TARGET/usbmodem/ipkg-install/usr/sbin/usbmodem		
 if [[ $NEED_SETUP != "0" ]];
 then
 	echo "Need setup..."
-	ssh $TEST_ROUTER /etc/init.d/rpcd restart
-	ssh $TEST_ROUTER /etc/init.d/network restart
+#	ssh $TEST_ROUTER /etc/init.d/rpcd restart
+#	ssh $TEST_ROUTER /etc/init.d/network restart
 	ssh $TEST_ROUTER touch /tmp/usbmodem_ok.$VERSION
 	exit 0
 fi

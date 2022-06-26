@@ -156,6 +156,10 @@ const char *Modem::getEnumName(NetworkMode state, bool is_human_readable) {
 			case NET_MODE_3G_4G_AUTO:		return "3G/4G (auto)";
 			case NET_MODE_3G_4G_PREFER_3G:	return "3G/4G (prefer 3G)";
 			case NET_MODE_3G_4G_PREFER_4G:	return "3G/4G (prefer 4G)";
+			
+			case NET_MODE_ORDER_2G_3G_4G:	return "Order: 2G > 3G > 4G";
+			case NET_MODE_ORDER_3G_2G_4G:	return "Order: 3G > 2G > 4G";
+			case NET_MODE_ORDER_4G_2G_3G:	return "Order: 4G > 2G > 3G";
 		}
 		return "Unknown";
 	} else {
@@ -181,6 +185,10 @@ const char *Modem::getEnumName(NetworkMode state, bool is_human_readable) {
 			case NET_MODE_3G_4G_AUTO:		return "3G_4G_AUTO";
 			case NET_MODE_3G_4G_PREFER_3G:	return "3G_4G_PREFER_3G";
 			case NET_MODE_3G_4G_PREFER_4G:	return "3G_4G_PREFER_4G";
+			
+			case NET_MODE_ORDER_2G_3G_4G:	return "ORDER_2G_3G_4G";
+			case NET_MODE_ORDER_3G_2G_4G:	return "ORDER_3G_2G_4G";
+			case NET_MODE_ORDER_4G_2G_3G:	return "ORDER_4G_2G_3G";
 		}
 		return "UNKNOWN";
 	}

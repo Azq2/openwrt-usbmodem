@@ -242,7 +242,6 @@ void Asr1802Modem::handleConnect() {
 	bool is_update = (m_data_state == CONNECTED);
 	
 	m_data_state = CONNECTED;
-	m_connect_errors = 0;
 	
 	emit<EvDataConnected>({
 		.is_update	= is_update,
@@ -254,7 +253,6 @@ void Asr1802Modem::handleConnect() {
 void Asr1802Modem::handleConnectError() {
 	LOGE("Can't get PDP context info...\n");
 	handleDisconnect();
-	restartNetwork();
 }
 
 void Asr1802Modem::handleDisconnect() {
@@ -300,15 +298,7 @@ void Asr1802Modem::startDataConnection() {
 		if (dial()) {
 			handleConnect();
 		} else {
-			m_connect_errors++;
 			handleDisconnect();
-			
-			if (m_connect_errors > 10) {
-				m_connect_errors = 0;
-				
-				LOGD("Trying restart modem network by entering to flight mode...\n");
-				restartNetwork();
-			}
 			
 			// Try reconnect after few seconds
 			m_manual_connect_timeout = Loop::setTimeout([this]() {
@@ -317,9 +307,4 @@ void Asr1802Modem::startDataConnection() {
 			}, 1000);
 		}
 	}, 0);
-}
-
-void Asr1802Modem::restartNetwork() {
-	setRadioOn(false);
-	setRadioOn(true);
 }

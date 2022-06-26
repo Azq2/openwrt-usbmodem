@@ -29,6 +29,10 @@ add_executable(usbmodem
 	Modem/Asr1802/Network.cpp
 	Modem/Asr1802/EngMode.cpp
 	
+	Modem/HuaweiNcm.cpp
+	Modem/HuaweiNcm/Data.cpp
+	Modem/HuaweiNcm/Network.cpp
+	
 	Modem/GenericPpp.cpp
 	
 	ModemService.cpp

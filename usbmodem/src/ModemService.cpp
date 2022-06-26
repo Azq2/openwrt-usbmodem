@@ -7,6 +7,7 @@
 
 #include "Modem/Asr1802.h"
 #include "Modem/GenericPpp.h"
+#include "Modem/HuaweiNcm.h"
 
 ModemService::ModemService(const std::string &iface): m_iface(iface) {
 	m_start_time = getCurrentTimestamp();
@@ -96,7 +97,6 @@ bool ModemService::resolveDevices(bool lock) {
 			LOGE("Device not found: %s\n", m_options["device"].c_str());
 			return false;
 		}
-		
 		m_control_tty = UsbDiscover::getFromDevice(dev, m_options["control_device"]);
 		m_ppp_tty = UsbDiscover::getFromDevice(dev, m_options["ppp_device"]);
 		m_net_dev = UsbDiscover::getFromDevice(dev, m_options["net_device"]);
@@ -253,6 +253,10 @@ void ModemService::loadSmsFromModem() {
 
 bool ModemService::runModem() {
 	switch (m_type) {
+		case UsbDiscover::TYPE_NCM:
+			m_modem = new HuaweiNcmModem();
+		break;
+		
 		case UsbDiscover::TYPE_ASR1802:
 			m_modem = new Asr1802Modem();
 		break;
@@ -377,17 +381,13 @@ bool ModemService::runModem() {
 		}
 	});
 	
-	m_modem->on<Modem::EvSimStateChaned>([this](const auto &event) {
+	m_modem->on<Modem::EvSimStateChanged>([this](const auto &event) {
 		LOGD("[sim] %s\n", Modem::getEnumName(event.state, true));
 	});
 	
 	m_modem->on<Modem::EvIoBroken>([this](const auto &event) {
 		LOGE("TTY device is lost...\n");
 		setError("USBMODEM_INTERNAL_ERROR");
-	});
-	
-	m_modem->on<Modem::EvDataConnectTimeout>([this](const auto &event) {
-		LOGE("Internet connection timeout...\n");
 	});
 	
 	m_modem->on<Modem::EvSmsReady>([this](const auto &event) {

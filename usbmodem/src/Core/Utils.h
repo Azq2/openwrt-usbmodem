@@ -11,6 +11,7 @@
 #include <cstring>
 #include <vector>
 #include <functional>
+#include <libgen.h>
 
 #define COUNT_OF(a) (sizeof((a)) / sizeof((a)[0]))
 #define COUNT_OF_S(a) (static_cast<ssize_t>(sizeof((a)) / sizeof((a)[0])))
@@ -64,6 +65,9 @@ static inline int hex2byte(char c) {
 
 int strToInt(const std::string &s, int base = 10, int default_value = 0);
 
+std::string long2ip(uint32_t ip);
+uint32_t ip2long(const std::string &ip);
+
 std::string converOctalIpv6(const std::string &value);
 int getIpType(const std::string &raw_ip, bool allow_dec_v6 = false);
 bool normalizeIp(std::string *raw_ip, int require_ipv = 0, bool allow_dec_v6 = false);
@@ -88,7 +92,6 @@ std::string strJoin(const std::string &sep, const std::vector<std::string> &line
 std::vector<std::string> strSplit(const std::string &sep, const std::string &str);
 std::string strprintf(const char *format, ...)  __attribute__((format(printf, 1, 2)));
 std::string trim(std::string s);
-std::string getDefaultNetmask(const std::string &ip);
 
 /*
  * File utils

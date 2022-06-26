@@ -16,6 +16,7 @@ class AtChannel {
 		static const std::string empty_line;
 		
 		typedef std::function<int(const std::string &cmd)> TimeoutSetCallback;
+		typedef std::function<void(const std::string &cmd)> AnyCmdCallback;
 		
 		enum Errors {
 			AT_SUCCESS		= 0,
@@ -82,6 +83,7 @@ class AtChannel {
 		Semaphore m_cmd_sem;
 		std::mutex at_cmd_mutex;
 		TimeoutSetCallback m_timeout_callback;
+		AnyCmdCallback m_any_cmd_callback;
 		int m_default_at_timeout = 10 * 1000;
 		bool m_busy = false;
 		
@@ -115,6 +117,10 @@ class AtChannel {
 		
 		inline void setDefaultTimeoutCallback(const TimeoutSetCallback &callback) {
 			m_timeout_callback = callback;
+		}
+		
+		inline void setAnyCommandCallback(const AnyCmdCallback &callback) {
+			m_any_cmd_callback = callback;
 		}
 		
 		void readerLoop();

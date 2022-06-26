@@ -139,11 +139,8 @@ bool Asr1802Modem::init() {
 			// Detect, if already have internet
 			if (m_data_state == DISCONNECTED) {
 				int cid = getCurrentPdpCid();
-				if (cid > 0) {
+				if (cid > 0)
 					handleConnect();
-				} else if (cid < 0) {
-					restartNetwork();
-				}
 			}
 			
 			// Sync state
@@ -156,18 +153,13 @@ bool Asr1802Modem::init() {
 	
 	on<EvDataDisconnected>([this](const auto &event) {
 		startDataConnection();
-		startNetWatchdog();
-	});
-	
-	on<EvDataConnected>([this](const auto &event) {
-		stopNetWatchdog();
 	});
 	
 	on<EvTechChanged>([this](const auto &event) {
 		startDataConnection();
 	});
 	
-	on<EvSimStateChaned>([this](const auto &event) {
+	on<EvSimStateChanged>([this](const auto &event) {
 		if (event.state == SIM_READY) {
 			Loop::setTimeout([this]() {
 				intiSms();
@@ -179,7 +171,6 @@ bool Asr1802Modem::init() {
 	if (!setRadioOn(true))
 		return false;
 	
-	startNetWatchdog();
 	startSimPolling();
 	startEngPolling();
 	

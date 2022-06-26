@@ -65,7 +65,7 @@ void BaseAtModem::startSimPolling() {
 void BaseAtModem::setSimState(SimState new_state) {
 	if (new_state != m_sim_state) {
 		m_sim_state = new_state;
-		emit<EvSimStateChaned>({.state = m_sim_state});
+		emit<EvSimStateChanged>({.state = m_sim_state});
 	}
 }
 

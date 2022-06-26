@@ -64,6 +64,10 @@ class Modem {
 			NET_MODE_3G_4G_AUTO,
 			NET_MODE_3G_4G_PREFER_3G,
 			NET_MODE_3G_4G_PREFER_4G,
+			
+			NET_MODE_ORDER_2G_3G_4G,
+			NET_MODE_ORDER_3G_2G_4G,
+			NET_MODE_ORDER_4G_2G_3G,
 		};
 		
 		struct NetworkSignal {
@@ -71,6 +75,7 @@ class Modem {
 			float bit_err_pct = NAN;
 			float rscp_dbm = NAN;
 			float ecio_db = NAN;
+			float sinr_db = NAN;
 			float rsrq_db = NAN;
 			float rsrp_dbm = NAN;
 			float div_rsrq_db = NAN;
@@ -146,8 +151,8 @@ class Modem {
 		};
 		
 		struct NetworkCell {
-			uint16_t loc_id = 0;
-			uint16_t cell_id = 0;
+			uint32_t loc_id = 0;
+			uint32_t cell_id = 0;
 		};
 		
 		struct NetworkNeighborCell {
@@ -155,8 +160,8 @@ class Modem {
 			float rssi_dbm = NAN;
 			int mcc = 0;
 			int mnc = 0;
-			uint16_t loc_id = 0;
-			uint16_t cell_id = 0;
+			uint32_t loc_id = 0;
+			uint32_t cell_id = 0;
 			int freq = 0;
 		};
 		
@@ -251,15 +256,12 @@ class Modem {
 		struct EvOperatorChanged { };
 		
 		// Event when SIM status changed
-		struct EvSimStateChaned {
+		struct EvSimStateChanged {
 			SimState state;
 		};
 		
 		// Event when tty device is unrecoverable broken
 		struct EvIoBroken { };
-		
-		// Event when connection timeout reached
-		struct EvDataConnectTimeout { };
 		
 		// Event when SMS subsystem is ready
 		struct EvSmsReady { };

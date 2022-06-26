@@ -247,6 +247,9 @@ int AtChannel::sendCommand(ResultType type, const std::string &cmd, const std::s
 	if (m_verbose)
 		LOGD("AT >> %s\n", cmd.c_str());
 	
+	if (m_any_cmd_callback)
+		m_any_cmd_callback(cmd);
+	
 	// Write AT command to modem
 	std::string complete_cmd = cmd + "\r";
 	int ret = m_serial->write(complete_cmd.c_str(), complete_cmd.size(), getNewTimeout(start, timeout));

@@ -76,7 +76,7 @@ bool Netifd::updateIface(const std::string &iface, const std::string &ifname, co
 		// IPv4 Routes
 		json route_item = {{"target", "0.0.0.0"}, {"netmask", "0"}};
 		if (ipv4->gw.size() > 0)
-			ipaddr_item["gateway"] = ipv4->gw;
+			route_item["gateway"] = ipv4->gw;
 		request["routes"].push_back(route_item);
 		
 		// IPv4 DNS
@@ -98,7 +98,7 @@ bool Netifd::updateIface(const std::string &iface, const std::string &ifname, co
 		// IPv6 Routes
 		json route_item = {{"target", "::"}, {"netmask", "0"}};
 		if (ipv6->gw.size() > 0)
-			ipaddr_item["gateway"] = ipv6->gw;
+			route_item["gateway"] = ipv6->gw;
 		request["routes6"].push_back(route_item);
 		
 		// IPv6 DNS
@@ -108,6 +108,8 @@ bool Netifd::updateIface(const std::string &iface, const std::string &ifname, co
 		if (ipv6->dns2.size() > 0 && ipv6->dns1 != ipv6->dns2)
 			request["dns"].push_back(ipv6->dns2);
 	}
+	
+	LOGD("request=%s\n", request.dump(2).c_str());
 	
 	return m_ubus->call("network.interface", "notify_proto", request);
 }

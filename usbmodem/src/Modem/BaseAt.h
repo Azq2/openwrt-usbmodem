@@ -51,8 +51,8 @@ class BaseAtModem: public Modem {
 		struct Creg {
 			CregStatus status = CREG_NOT_REGISTERED;
 			CregTech tech = CREG_TECH_UNKNOWN;
-			uint16_t loc_id = 0;
-			uint16_t cell_id = 0;
+			uint32_t loc_id = 0;
+			uint32_t cell_id = 0;
 			
 			bool isRegistered() const;
 			NetworkTech toNetworkTech() const;
@@ -122,21 +122,19 @@ class BaseAtModem: public Modem {
 		NetworkReg m_net_reg = NET_NOT_REGISTERED;
 		NetworkCell m_cell_info = {};
 		
-		int m_connect_timeout = 0;
-		int m_connect_timeout_id = -1;
-		int m_net_cache_version = 0;
+		std::string m_manual_creg_req;
 		
-		void stopNetWatchdog();
-		void startNetWatchdog();
+		int m_net_cache_version = 0;
 		
 		static NetworkTech cregToTech(CregTech creg_tech);
 		static CregTech techToCreg(NetworkTech tech);
 		
 		virtual void handleCmt(const std::string &event);
-		virtual void handleCesq(const std::string &event);
 		virtual void handleCsq(const std::string &event);
 		virtual void handleCreg(const std::string &event);
 		virtual void handleNetworkChange();
+		
+		NetworkTech getTechFromCops();
 		
 		/*
 		 * USSD internals
@@ -171,6 +169,10 @@ class BaseAtModem: public Modem {
 		
 		bool discoverSmsStorages();
 		bool findBestSmsStorage(bool prefer_sim);
+		
+		static inline float decodeSignal(int value, float from, float step = 1, int max = 99) {
+			return -(value >= max ? NAN : from - (static_cast<float>(value) * step));
+		}
 		
 		static inline float decodeRSSI(int rssi) {
 			return -(rssi >= 99 ? NAN : 113 - rssi * 2);

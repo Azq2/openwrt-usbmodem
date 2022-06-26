@@ -67,9 +67,6 @@ bool GenericPppModem::init() {
 		m_at.onUnsolicited("+CSQ", [this](const std::string &event) {
 			handleCsq(event);
 		});
-		m_at.onUnsolicited("+CESQ", [this](const std::string &event) {
-			handleCesq(event);
-		});
 	}
 	
 	m_at.onUnsolicited("+CPIN", [this](const std::string &event) {
@@ -89,7 +86,7 @@ bool GenericPppModem::init() {
 	
 	requestSignalInfo();
 	
-	on<EvSimStateChaned>([this](const auto &event) {
+	on<EvSimStateChanged>([this](const auto &event) {
 		if (event.state == SIM_READY) {
 			Loop::setTimeout([this]() {
 				intiSms();

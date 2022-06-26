@@ -21,7 +21,7 @@ bool AtParser::parseNextInt(int32_t *value, int base) {
 	m_cursor = parseNextArg(m_cursor, &start, &end);
 	arg_cnt++;
 	
-	if (parseNumeric(start, end, base, false, value))
+	if (parseNumeric(start, end, base, false, false, value))
 		return true;
 	
 	LOGE("AtParser:%s: can't parse #%d argument in '%s'\n", __FUNCTION__, arg_cnt, m_str);
@@ -35,7 +35,35 @@ bool AtParser::parseNextUInt(uint32_t *value, int base) {
 	m_cursor = parseNextArg(m_cursor, &start, &end);
 	arg_cnt++;
 	
-	if (parseNumeric(start, end, base, true, value))
+	if (parseNumeric(start, end, base, true, false, value))
+		return true;
+	
+	LOGE("AtParser:%s: can't parse #%d argument in '%s'\n", __FUNCTION__, arg_cnt, m_str);
+	
+	m_success = false;
+	return false;
+}
+
+bool AtParser::parseNextInt64(int64_t *value, int base) {
+	const char *start, *end;
+	m_cursor = parseNextArg(m_cursor, &start, &end);
+	arg_cnt++;
+	
+	if (parseNumeric(start, end, base, false, true, value))
+		return true;
+	
+	LOGE("AtParser:%s: can't parse #%d argument in '%s'\n", __FUNCTION__, arg_cnt, m_str);
+	
+	m_success = false;
+	return false;
+}
+
+bool AtParser::parseNextUInt64(uint64_t *value, int base) {
+	const char *start, *end;
+	m_cursor = parseNextArg(m_cursor, &start, &end);
+	arg_cnt++;
+	
+	if (parseNumeric(start, end, base, true, true, value))
 		return true;
 	
 	LOGE("AtParser:%s: can't parse #%d argument in '%s'\n", __FUNCTION__, arg_cnt, m_str);
@@ -58,18 +86,28 @@ bool AtParser::parseNextBool(bool *value) {
 	return false;
 }
 
-bool AtParser::parseNumeric(const char *start, const char *end, int base, bool is_unsigned, void *out) {
+bool AtParser::parseNumeric(const char *start, const char *end, int base, bool is_unsigned, bool is64, void *out) {
 	char *number_end = nullptr;
 	
 	if (!start)
 		return false;
 	
-	if (is_unsigned) {
-		uint32_t *ptr = static_cast<uint32_t*>(out);
-		*ptr = strtoul(start, &number_end, base);
+	if (is64) {
+		if (is_unsigned) {
+			uint64_t *ptr = static_cast<uint64_t*>(out);
+			*ptr = strtoull(start, &number_end, base);
+		} else {
+			int64_t *ptr = static_cast<int64_t*>(out);
+			*ptr = strtoull(start, &number_end, base);
+		}
 	} else {
-		int32_t *ptr = static_cast<int32_t*>(out);
-		*ptr = strtoul(start, &number_end, base);
+		if (is_unsigned) {
+			uint32_t *ptr = static_cast<uint32_t*>(out);
+			*ptr = strtoul(start, &number_end, base);
+		} else {
+			int32_t *ptr = static_cast<int32_t*>(out);
+			*ptr = strtoul(start, &number_end, base);
+		}
 	}
 	return number_end != start && number_end <= end;
 }
