@@ -64,10 +64,6 @@ class Modem {
 			NET_MODE_3G_4G_AUTO,
 			NET_MODE_3G_4G_PREFER_3G,
 			NET_MODE_3G_4G_PREFER_4G,
-			
-			NET_MODE_ORDER_2G_3G_4G,
-			NET_MODE_ORDER_3G_2G_4G,
-			NET_MODE_ORDER_4G_2G_3G,
 		};
 		
 		struct NetworkSignal {
@@ -128,6 +124,12 @@ class Modem {
 			SMS_STORAGE_ME			= 1,	// Phone
 			SMS_STORAGE_SM			= 2,	// Sim
 			SMS_STORAGE_UNKNOWN		= 0xFF
+		};
+		
+		enum SmsPreferredStorage {
+			SMS_PREFER_SIM,
+			SMS_PREFER_MODEM,
+			SMS_PREFER_EXTERNAL,
 		};
 		
 		struct SmsStorageCapacity {

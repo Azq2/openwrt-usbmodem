@@ -71,6 +71,21 @@ return baseclass.extend({
 			return result.filter((v) => v.proto == "usbmodem");
 		});
 	},
+	getTechType(tech) {
+		let types = {
+			GSM:			"2g",
+			GSM_COMPACT:	"2g",
+			GPRS:			"2g",
+			EDGE:			"2g",
+			UMTS:			"3g",
+			HSDPA:			"3g",
+			HSUPA:			"3g",
+			HSPA:			"3g",
+			HSPAP:			"3g",
+			LTE:			"4g",
+		};
+		return types[tech] || "unknown";
+	},
 	isSimError(state) {
 		switch (state) {
 			case "PIN1_LOCK":	return true;

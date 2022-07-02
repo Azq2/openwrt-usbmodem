@@ -49,30 +49,39 @@ return view.extend({
 			net_section.push(_('Operator name'), network.operator.name + (network.operator.registration == 'MANUAL' ? _(' (manual)') : ''));
 		
 		if (network.signal.rssi_dbm !== null) {
-			let title = _('%s dBm (%d%%)').format(network.signal.rssi_dbm, network.signal.quality);
-			net_section.push(_("RSSI"), usbmodem.view.renderNetIndicator(network.signal.quality, title));
+			if (network.signal.rscp_dbm !== null) {
+				net_section.push(_("RSSI"), usbmodem.view.renderSignal('rssi_3g', network.signal.rssi_dbm));
+			} else if (network.signal.rsrp_dbm !== null || network.signal.rsrq_db !== null) {
+				net_section.push(_("RSSI"), usbmodem.view.renderSignal('rssi_4g', network.signal.rssi_dbm));
+			} else {
+				net_section.push(_("RSSI"), usbmodem.view.renderSignal('rssi_2g', network.signal.rssi_dbm));
+			}
 		}
 		
 		if (network.signal.rscp_dbm !== null)
-			net_section.push(_("RSCP"), _('%s dBm').format(network.signal.rscp_dbm));
+			net_section.push(_("RSCP"), usbmodem.view.renderSignal('rscp', network.signal.rscp_dbm));
 		
 		if (network.signal.rsrp_dbm !== null)
-			net_section.push(_("RSRP"), _('%s dBm').format(network.signal.rsrp_dbm));
+			net_section.push(_("RSRP"), usbmodem.view.renderSignal('rsrp', network.signal.rsrp_dbm));
 		if (network.signal.rsrq_db !== null)
-			net_section.push(_("RSRQ"), _('%s dB').format(network.signal.rsrq_db));
+			net_section.push(_("RSRQ"), usbmodem.view.renderSignal('rsrq', network.signal.rsrq_db));
 		
+		/*
 		if (network.signal.main_rsrp_dbm !== null)
-			net_section.push(_("Main RSRP"), _('%s dBm').format(network.signal.main_rsrp_dbm));
+			net_section.push(_("Main RSRP"), usbmodem.view.renderSignal('rsrp', network.signal.main_rsrp_dbm));
 		if (network.signal.main_rsrq_db !== null)
-			net_section.push(_("Main RSRQ"), _('%s dB').format(network.signal.main_rsrq_db));
+			net_section.push(_("Main RSRQ"), usbmodem.view.renderSignal('rsrq', network.signal.main_rsrq_db));
 		
 		if (network.signal.div_rsrp_dbm !== null)
-			net_section.push(_("Div RSRP"), _('%s dBm').format(network.signal.div_rsrp_dbm));
+			net_section.push(_("Div RSRP"), usbmodem.view.renderSignal('rsrp', network.signal.div_rsrp_dbm));
 		if (network.signal.div_rsrq_db !== null)
-			net_section.push(_("Div RSRQ"), _('%s dB').format(network.signal.div_rsrq_db));
+			net_section.push(_("Div RSRQ"), usbmodem.view.renderSignal('rsrq', network.signal.div_rsrq_db));
+		*/
 		
+		if (network.signal.sinr_db !== null)
+			net_section.push(_("SINR"), usbmodem.view.renderSignal('sinr', network.signal.sinr_db));
 		if (network.signal.ecio_db !== null)
-			net_section.push(_("Ec/io"), _('%s dB').format(network.signal.ecio_db));
+			net_section.push(_("Ec/io"), usbmodem.view.renderSignal('ecio', network.signal.ecio_db));
 		if (network.signal.bit_err_pct !== null)
 			net_section.push(_("Bit errors"), '%s%%'.format(network.signal.bit_err_pct));
 		

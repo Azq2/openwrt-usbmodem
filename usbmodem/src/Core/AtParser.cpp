@@ -204,7 +204,10 @@ std::string AtParser::stripPrefix(const std::string &value) {
 				if (!isdigit(value[i]) && !isalpha(value[i]) && value[i] != '_')
 					return value;
 			}
-			return value.substr(index);
+			
+			std::string str;
+			if (AtParser(value).parseString(&str).success())
+				return str;
 		}
 	}
 	return value;

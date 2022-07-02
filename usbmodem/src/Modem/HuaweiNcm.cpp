@@ -52,9 +52,6 @@ bool HuaweiNcmModem::init() {
 	m_at.onUnsolicited("+CUSD", [this](const std::string &event) {
 		handleCusd(event);
 	});
-	m_at.onUnsolicited("+CGEV", [this](const std::string &event) {
-		handleCgev(event);
-	});
 	m_at.onUnsolicited("^HCSQ", [this](const std::string &event) {
 		handleHcsq(event);
 	});
@@ -95,6 +92,12 @@ bool HuaweiNcmModem::init() {
 			}, 1000);
 		}
 	});
+	
+	if (!customInit())
+		return false;
+	
+	if (!setDataRoaming(m_allow_roaming))
+		return false;
 	
 	if (!syncApn())
 		return false;
@@ -158,15 +161,11 @@ int HuaweiNcmModem::getCommandTimeout(const std::string &cmd) {
 }
 
 bool HuaweiNcmModem::setOption(const std::string &name, const std::any &value) {
-	if (BaseAtModem::setOption(name, value))
-		return true;
-	
 	if (name == "prefer_dhcp") {
 		m_prefer_dhcp = std::any_cast<bool>(value);
 		return true;
 	}
-	
-	return false;
+	return BaseAtModem::setOption(name, value);
 }
 
 std::vector<HuaweiNcmModem::Capability> HuaweiNcmModem::getCapabilities() {

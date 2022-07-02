@@ -75,7 +75,6 @@ class BaseAtModem: public Modem {
 		
 		int m_speed = 115200;
 		std::string m_tty;
-		std::string m_iface;
 		
 		std::string m_pdp_type;
 		std::string m_pdp_apn;
@@ -84,6 +83,8 @@ class BaseAtModem: public Modem {
 		std::string m_pdp_password;
 		
 		std::string m_pincode;
+		
+		std::string m_modem_init = "";
 	protected:
 		BaseAtModem();
 		
@@ -93,6 +94,7 @@ class BaseAtModem: public Modem {
 		virtual bool ping(int tries = 3);
 		virtual bool handshake(int tries = 3);
 		virtual int getCommandTimeout(const std::string &cmd);
+		virtual bool customInit();
 		
 		bool execAtList(const char **commands, bool break_on_fail);
 		
@@ -125,6 +127,7 @@ class BaseAtModem: public Modem {
 		std::string m_manual_creg_req;
 		
 		int m_net_cache_version = 0;
+		bool m_allow_roaming = true;
 		
 		static NetworkTech cregToTech(CregTech creg_tech);
 		static CregTech techToCreg(NetworkTech tech);
@@ -151,7 +154,7 @@ class BaseAtModem: public Modem {
 		 * SMS internals
 		 * */
 		bool m_sms_ready = false;
-		bool m_prefer_sms_to_sim = false;
+		SmsPreferredStorage m_sms_preferred_storage = SMS_PREFER_MODEM;
 		bool m_storages_loaded = false;
 		std::vector<SmsStorage> m_sms_all_storages[3];
 		SmsStorage m_sms_mem[3] = {SMS_STORAGE_UNKNOWN, SMS_STORAGE_UNKNOWN, SMS_STORAGE_UNKNOWN};
@@ -205,6 +208,10 @@ class BaseAtModem: public Modem {
 		
 		inline bool isPacketServiceReady() {
 			return (m_net_reg == NET_REGISTERED_HOME || m_net_reg == NET_REGISTERED_ROAMING);
+		}
+		
+		inline bool isRoamingNetwork() {
+			return (m_net_reg == NET_REGISTERED_ROAMING);
 		}
 	public:
 		virtual ~BaseAtModem() { }

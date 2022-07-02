@@ -39,8 +39,8 @@ return baseclass.extend({
 	TECH: {
 		UNKNOWN:		_("Unknown"),
 		NO_SERVICE:		_("No service"),
-		GSM:			_("GSM"),
-		GSM_COMPACT:	_("GSM Compact"),
+		GSM:			_("2G (GSM)"),
+		GSM_COMPACT:	_("2G (GSM Compact)"),
 		GPRS:			_("2G (GPRS)"),
 		EDGE:			_("2G (EDGE)"),
 		UMTS:			_("3G (UMTS)"),

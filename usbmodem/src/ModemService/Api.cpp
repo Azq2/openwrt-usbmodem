@@ -1,4 +1,4 @@
-#include "ModemServiceApi.h"
+#include "../ModemServiceApi.h"
 
 #include <Core/AtChannel.h>
 #include <Core/GsmUtils.h>
@@ -87,10 +87,6 @@ void ModemServiceApi::apiGetNetworkInfo(std::shared_ptr<UbusRequest> req) {
 			return;
 		}
 		
-		double quality = 0;
-		if (!std::isnan(net_info.signal.rssi_dbm))
-			quality = rssiToPercent(net_info.signal.rssi_dbm, -100, -50);
-		
 		reply(req, {
 			{"ipv4", {
 				{"ip", net_info.ipv4.ip},
@@ -117,7 +113,7 @@ void ModemServiceApi::apiGetNetworkInfo(std::shared_ptr<UbusRequest> req) {
 				{"main_rsrp_dbm", net_info.signal.main_rsrp_dbm},
 				{"div_rsrq_db", net_info.signal.div_rsrq_db},
 				{"div_rsrp_dbm", net_info.signal.div_rsrp_dbm},
-				{"quality", quality}
+				{"sinr_db", net_info.signal.sinr_db},
 			}},
 			{"cell", {
 				{"cell_id", net_info.cell.cell_id},

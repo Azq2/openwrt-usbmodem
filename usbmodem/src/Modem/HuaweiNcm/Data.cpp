@@ -20,6 +20,8 @@ bool HuaweiNcmModem::syncApn() {
 		auth_type = 1;
 	if (m_pdp_auth_mode == "chap")
 		auth_type = 2;
+	if (m_pdp_auth_mode == "auto")
+		auth_type = 3;
 	
 	for (int i = 0; i < 2; i++) {
 		cmd = strprintf("AT+CGDCONT=%d,\"%s\",\"%s\"", i, m_pdp_type.c_str(), m_pdp_apn.c_str());
@@ -37,16 +39,6 @@ bool HuaweiNcmModem::syncApn() {
 		}
 	}
 	
-	return true;
-}
-
-bool HuaweiNcmModem::dial() {
-	std::string cmd;
-	auto response = m_at.sendCommandDial("AT^NDISDUP=1,1");
-	if (response.error) {
-		LOGD("Dial error: %s\n", response.status.c_str());
-		return false;
-	}
 	return true;
 }
 
@@ -199,6 +191,9 @@ void HuaweiNcmModem::startDataConnection() {
 	if (m_data_state != DISCONNECTED)
 		return;
 	
+	if (!m_allow_roaming && isRoamingNetwork())
+		return;
+	
 	m_data_state = CONNECTING;
 	emit<EvDataConnecting>({});
 	
@@ -211,7 +206,7 @@ void HuaweiNcmModem::startDataConnection() {
 				return;
 		}
 		
-		if (dial()) {
+		if (m_at.sendCommandNoResponse("AT^NDISDUP=1,1") == 0) {
 			handleConnect();
 		} else {
 			handleDisconnect();

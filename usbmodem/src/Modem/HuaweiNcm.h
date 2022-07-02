@@ -35,27 +35,13 @@ class HuaweiNcmModem: public BaseAtModem {
 		int m_pdp_context = DEFAULT_PDP_CONTEXT;
 		static std::map<NetworkMode, std::string> m_mode2id;
 		
-		bool dial();
 		bool syncApn();
 		void startDataConnection();
 		
 		bool readDhcpV4();
 		bool readDhcpV6();
 		
-		IfaceProto getIfaceProto() override;
-		int getDelayAfterDhcpRelease() override;
-		
-		void handleCgev(const std::string &event);
 		void handleHcsq(const std::string &event);
-		
-		std::tuple<bool, std::vector<NetworkMode>> getNetworkModes() override;
-		bool setNetworkMode(NetworkMode new_mode) override;
-		std::tuple<bool, NetworkMode> getCurrentNetworkMode() override;
-		
-		std::tuple<bool, bool> isRoamingEnabled() override;
-		bool setDataRoaming(bool enable) override;
-		
-		std::tuple<bool, std::vector<NetworkNeighborCell>> getNeighboringCell() override;
 		
 		void handleConnect();
 		void handleDisconnect();
@@ -68,6 +54,24 @@ class HuaweiNcmModem: public BaseAtModem {
 		bool isRadioOn();
 	public:
 		HuaweiNcmModem() : BaseAtModem() { }
+		
+		/*
+		 * Network
+		 * */
+		IfaceProto getIfaceProto() override;
+		int getDelayAfterDhcpRelease() override;
+		
+		virtual std::tuple<bool, std::vector<Operator>> searchOperators() override;
+		virtual bool setOperator(OperatorRegMode mode, int mcc = -1, int mnc = -1, NetworkTech tech = TECH_UNKNOWN) override;
+		
+		std::tuple<bool, std::vector<NetworkMode>> getNetworkModes() override;
+		bool setNetworkMode(NetworkMode new_mode) override;
+		std::tuple<bool, NetworkMode> getCurrentNetworkMode() override;
+		
+		std::tuple<bool, bool> isRoamingEnabled() override;
+		bool setDataRoaming(bool enable) override;
+		
+		std::tuple<bool, std::vector<NetworkNeighborCell>> getNeighboringCell() override;
 		
 		bool close() override;
 		

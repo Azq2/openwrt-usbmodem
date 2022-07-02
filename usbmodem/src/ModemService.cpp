@@ -5,10 +5,6 @@
 #include <Core/Uci.h>
 #include <Core/UbusLoop.h>
 
-#include "Modem/Asr1802.h"
-#include "Modem/GenericPpp.h"
-#include "Modem/HuaweiNcm.h"
-
 ModemService::ModemService(const std::string &iface): m_iface(iface) {
 	m_start_time = getCurrentTimestamp();
 	m_api = new ModemServiceApi(this);
@@ -21,10 +17,10 @@ bool ModemService::loadOptions() {
 		{"modem_type", ""},
 		
 		{"control_device", ""},
-		{"control_device_speed", "115200"},
+		{"control_device_baudrate", "115200"},
 		
 		{"ppp_device", ""},
-		{"ppp_device_speed", "115200"},
+		{"ppp_device_baudrate", "115200"},
 		
 		{"pdp_type", "IP"},
 		{"apn", "internet"},
@@ -87,8 +83,8 @@ bool ModemService::loadOptions() {
 }
 
 bool ModemService::resolveDevices(bool lock) {
-	m_control_tty_speed = strToInt(m_options["control_device_speed"], 10, 0);
-	m_ppp_tty_speed = strToInt(m_options["ppp_device_speed"], 10, 0);
+	m_control_tty_baudrate = strToInt(m_options["control_device_baudrate"], 10, 0);
+	m_ppp_tty_baudrate = strToInt(m_options["ppp_device_baudrate"], 10, 0);
 	m_fw_zone = Uci::getFirewallZone(m_iface);
 	
 	if (m_options["device"] != "" && m_options["device"] != "tty" && m_options["device"] != "custom") {
@@ -186,240 +182,6 @@ bool ModemService::init() {
 	}
 	
 	return true;
-}
-
-void ModemService::loadSmsFromModem() {
-	switch (m_sms_mode) {
-		case SMS_MODE_MIRROR:
-		{
-			if (!m_sms.ready()) {
-				if (m_modem->getSmsStorage() == Modem::SMS_STORAGE_MT) {
-					m_sms.setStorageType(SmsDb::STORAGE_SIM_AND_MODEM);
-				} else if (m_modem->getSmsStorage() == Modem::SMS_STORAGE_ME) {
-					m_sms.setStorageType(SmsDb::STORAGE_MODEM);
-				} else if (m_modem->getSmsStorage() == Modem::SMS_STORAGE_SM) {
-					m_sms.setStorageType(SmsDb::STORAGE_SIM);
-				} else {
-					LOGE("Unknown storage type!\n");
-					return;
-				}
-				
-				auto capacity = m_modem->getSmsCapacity();
-				m_sms.setMaxCapacity(capacity.total);
-				
-				m_sms.init();
-				
-				// Loading all messages to DB
-				auto [success, messages] = m_modem->getSmsList(Modem::SMS_LIST_ALL);
-				if (!success || !m_sms.add(messages))
-					LOGE("[sms] Failed to load exists messages from sim/modem.\n");
-			} else {
-				// Loading unread messages to DB
-				auto [success, messages] = m_modem->getSmsList(Modem::SMS_LIST_UNREAD);
-				if (!success || !m_sms.add(messages))
-					LOGE("[sms] Failed to load exists messages from sim/modem.\n");
-			}
-		}
-		break;
-		
-		case SMS_MODE_DB:
-		{
-			if (!m_sms.ready()) {
-				m_sms.setStorageType(SmsDb::STORAGE_FILESYSTEM);
-				m_sms.init();
-				
-				if (!m_sms.load()) {
-					LOGE("[sms] Failed to load sms database.\n");
-				}
-			}
-			
-			// Loading all messages to DB
-			auto [success, messages] = m_modem->getSmsList(Modem::SMS_LIST_ALL);
-			if (success && m_sms.add(messages)) {
-				if (m_sms.save()) {
-					// And now deleting all read SMS, because we need enough storage for new messages
-					if (!m_modem->deleteReadedSms())
-						LOGE("[sms] Failed to delete already readed SMS.\n");
-				} else {
-					LOGE("[sms] Failed to save sms database.\n");
-				}
-			} else {
-				LOGE("[sms] Failed to load exists messages from sim/modem.\n");
-			}
-		}
-		break;
-	}
-}
-
-bool ModemService::runModem() {
-	switch (m_type) {
-		case UsbDiscover::TYPE_NCM:
-			m_modem = new HuaweiNcmModem();
-		break;
-		
-		case UsbDiscover::TYPE_ASR1802:
-			m_modem = new Asr1802Modem();
-		break;
-		
-		case UsbDiscover::TYPE_PPP:
-			m_modem = new GenericPppModem();
-		break;
-		
-		default:
-			LOGE("Unsupported modem type: %s\n", m_options["modem_type"].c_str());
-			return setError("USBMODEM_INVALID_CONFIG", true);
-		break;
-	}
-	
-	// Device config
-	m_modem->setOption<std::string>("tty_device", m_control_tty);
-	m_modem->setOption<int>("tty_speed", m_control_tty_speed);
-	
-	// PDP config
-	m_modem->setOption<std::string>("pdp_type", m_options["pdp_type"]);
-	m_modem->setOption<std::string>("pdp_apn", m_options["apn"]);
-	m_modem->setOption<std::string>("pdp_auth_mode", m_options["auth_type"]);
-	m_modem->setOption<std::string>("pdp_user", m_options["username"]);
-	m_modem->setOption<std::string>("pdp_password", m_options["password"]);
-	
-	// Security codes
-	m_modem->setOption<std::string>("pincode", m_options["pincode"]);
-	
-	// Other settings
-	m_modem->setOption<bool>("prefer_dhcp", m_options["prefer_dhcp"] == "1");
-	m_modem->setOption<bool>("prefer_sms_to_sim", m_options["prefer_sms_to_sim"] == "1");
-	m_modem->setOption<int>("connect_timeout", strToInt(m_options["connect_timeout"]) * 1000);
-	
-	/*
-	m_modem->on<Modem::EvOperatorChanged>([this](const auto &event) {
-		Modem::Operator op = m_modem->getOperator();
-		if (op.reg != Modem::OPERATOR_REG_NONE)
-			LOGD("Operator: %s - %s %s\n", op.id.c_str(), op.name.c_str(), Modem::getTechName(op.tech));
-	});
-	*/
-	
-	m_modem->on<Modem::EvNetworkChanged>([this](const auto &event) {
-		LOGD("[network] %s\n", Modem::getEnumName(event.status, true));
-	});
-	
-	m_modem->on<Modem::EvTechChanged>([this](const auto &event) {
-		LOGD("[network] Tech: %s\n", Modem::getEnumName(event.tech, true));
-	});
-	
-	m_modem->on<Modem::EvDataConnected>([this](const auto &event) {
-		int dhcp_delay = 0;
-		if (event.is_update) {
-			int diff = getCurrentTimestamp() - m_last_connected;
-			m_last_connected = getCurrentTimestamp();
-			dhcp_delay = m_modem->getDelayAfterDhcpRelease();
-			LOGD("Internet connection changed, last session %d ms\n", diff);
-		} else {
-			m_last_connected = getCurrentTimestamp();
-			if (m_last_disconnected) {
-				int diff = m_last_connected - m_last_disconnected;
-				dhcp_delay = std::max(0, m_modem->getDelayAfterDhcpRelease() - diff);
-				LOGD("Internet connected, downtime %d ms\n", diff);
-			} else {
-				int diff = m_last_connected - m_start_time;
-				LOGD("Internet connected, init time %d ms\n", diff);
-			}
-		}
-		
-		if (m_modem->getIfaceProto() == Modem::IFACE_STATIC) {
-			if (!m_netifd.updateIface(m_iface, m_net_dev, &event.ipv4, &event.ipv6)) {
-				LOGE("Can't set IP to interface '%s'\n", m_iface.c_str());
-				setError("USBMODEM_INTERNAL_ERROR");
-			}
-		} else if (m_modem->getIfaceProto() == Modem::IFACE_DHCP) {
-			if (dhcp_delay > 0) {
-				LOGD("Wait %d ms for DHCP recovery...\n", dhcp_delay);
-				Loop::setTimeout([this]() {
-					if (!startDhcp())
-						setError("USBMODEM_INTERNAL_ERROR");
-				}, dhcp_delay);
-			} else {
-				if (!startDhcp())
-					setError("USBMODEM_INTERNAL_ERROR");
-			}
-		}
-		
-		if (event.ipv4.ip.size() > 0) {
-			LOGD(
-				"-> IPv4: ip=%s, gw=%s, mask=%s, dns1=%s, dns2=%s\n",
-				event.ipv4.ip.c_str(), event.ipv4.gw.c_str(), event.ipv4.mask.c_str(),
-				event.ipv4.dns1.c_str(), event.ipv4.dns2.c_str()
-			);
-		}
-		
-		if (event.ipv6.ip.size() > 0) {
-			LOGD(
-				"-> IPv6: ip=%s, gw=%s, mask=%s, dns1=%s, dns2=%s\n",
-				event.ipv6.ip.c_str(), event.ipv6.gw.c_str(), event.ipv6.mask.c_str(),
-				event.ipv6.dns1.c_str(), event.ipv6.dns2.c_str()
-			);
-		}
-	});
-	
-	m_modem->on<Modem::EvDataConnecting>([this](const auto &event) {
-		LOGD("Connecting to internet...\n");
-	});
-	
-	m_modem->on<Modem::EvDataDisconnected>([this](const auto &event) {
-		m_last_disconnected = getCurrentTimestamp();
-		int diff = m_last_disconnected - m_last_connected;
-		LOGD("Internet disconnected, last session %d ms\n", diff);
-		
-		if (m_modem->getIfaceProto() == Modem::IFACE_STATIC) {
-			if (!m_netifd.updateIface(m_iface, m_net_dev, nullptr, nullptr)) {
-				LOGE("Can't set IP to interface '%s'\n", m_iface.c_str());
-				setError("USBMODEM_INTERNAL_ERROR");
-			}
-		} else if (m_modem->getIfaceProto() == Modem::IFACE_DHCP) {
-			if (!stopDhcp()) {
-				setError("USBMODEM_INTERNAL_ERROR");
-			}
-		}
-	});
-	
-	m_modem->on<Modem::EvSimStateChanged>([this](const auto &event) {
-		LOGD("[sim] %s\n", Modem::getEnumName(event.state, true));
-	});
-	
-	m_modem->on<Modem::EvIoBroken>([this](const auto &event) {
-		LOGE("TTY device is lost...\n");
-		setError("USBMODEM_INTERNAL_ERROR");
-	});
-	
-	m_modem->on<Modem::EvSmsReady>([this](const auto &event) {
-		LOGD("[sms] SMS subsystem ready!\n");
-		Loop::setTimeout([this]() {
-			loadSmsFromModem();
-		}, 0);
-	});
-	
-	m_modem->on<Modem::EvNewDecodedSms>([this](const auto &event) {
-		LOGD("[sms] received new sms! (decoded)\n");
-		
-	});
-	
-	m_modem->on<Modem::EvNewStoredSms>([this](const auto &event) {
-		LOGD("[sms] received new sms! (stored)\n");
-		Loop::setTimeout([this]() {
-			loadSmsFromModem();
-		}, 0);
-	});
-	
-	if (!m_modem->open()) {
-		LOGE("Can't initialize modem.\n");
-		return setError("USBMODEM_INTERNAL_ERROR");
-	}
-	
-	return true;
-}
-
-void ModemService::finishModem() {
-	if (m_modem)
-		m_modem->close();
 }
 
 bool ModemService::setError(const std::string &code, bool fatal) {
@@ -539,62 +301,6 @@ int ModemService::run(const std::string &type, int argc, char *argv[]) {
 		}
 	}
 	return 1;
-}
-
-bool ModemService::startDhcp() {
-	if (m_dhcp_inited) {
-		if (m_options["pdp_type"] == "IP" || m_options["pdp_type"] == "IPV4V6") {
-			if (!m_netifd.dhcpRenew(m_iface + "_4")) {
-				LOGE("Can't send dhcp renew for '%s_4'\n", m_iface.c_str());
-				return false;
-			}
-		}
-		
-		if (m_options["pdp_type"] == "IPV6" || m_options["pdp_type"] == "IPV4V6") {
-			if (!m_netifd.dhcpRenew(m_iface + "_6")) {
-				LOGE("Can't send dhcp renew for '%s_6'\n", m_iface.c_str());
-				return false;
-			}
-		}
-	} else {
-		if (m_options["pdp_type"] == "IP" || m_options["pdp_type"] == "IPV4V6") {
-			if (!m_netifd.createDynamicIface("dhcp", m_iface + "_4", m_iface, m_fw_zone, m_options)) {
-				LOGE("Can't create dhcp interface '%s_4'\n", m_iface.c_str());
-				return false;
-			}
-		}
-		
-		if (m_options["pdp_type"] == "IPV6" || m_options["pdp_type"] == "IPV4V6") {
-			if (!m_netifd.createDynamicIface("dhcpv6", m_iface + "_4", m_iface, m_fw_zone, m_options)) {
-				LOGE("Can't create dhcp interface '%s_4'\n", m_iface.c_str());
-				return false;
-			}
-		}
-		
-		m_dhcp_inited = true;
-	}
-	return true;
-}
-
-bool ModemService::stopDhcp() {
-	if (!m_dhcp_inited)
-		return true;
-	
-	if (m_options["pdp_type"] == "IP" || m_options["pdp_type"] == "IPV4V6") {
-		if (!m_netifd.dhcpRelease(m_iface + "_4")) {
-			LOGE("Can't send dhcp release for '%s_4'\n", m_iface.c_str());
-			return false;
-		}
-	}
-	
-	if (m_options["pdp_type"] == "IPV6" || m_options["pdp_type"] == "IPV4V6") {
-		if (!m_netifd.dhcpRelease(m_iface + "_6")) {
-			LOGE("Can't send dhcp release for '%s_6'\n", m_iface.c_str());
-			return false;
-		}
-	}
-	
-	return true;
 }
 
 ModemService::~ModemService() {

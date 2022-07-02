@@ -10,21 +10,47 @@ network.registerPatternVirtual(/^usbmodem-.+$/);
 network.registerErrorCode('USBMODEM_INTERNAL_ERROR',  _('Internal error, see logread.'));
 network.registerErrorCode('USBMODEM_INVALID_CONFIG',  _('Internal configuration, see logread.'));
 
+const AUTH_V1 = {
+	'':			_('None'),
+	pap:		_('PAP'),
+	chap:		_('CHAP'),
+	auto:		_('PAP+CHAP'),
+};
+
+const AUTH_V2 = {
+	'':			_('None'),
+	pap:		_('PAP'),
+	chap:		_('CHAP'),
+};
+
+const AUTH_PPP = {
+	'':			_('None'),
+	auto:		_('PAP+CHAP'),
+};
+
 const MODEM_TYPES = {
 	ppp: {
+		auth: AUTH_PPP,
 		title:	_('Classic modem (PPP)'),
 		fields:	[
 			"control_device",
+			"control_device_baudrate",
 			"ppp_device",
-			"net_type",
+			"ppp_device_baudrate",
 			"pdp_type",
+			"dialnumber",
 			"apn",
+			"auth_type",
 			"username",
 			"password",
-			"pin_code"
+			"pin_code",
+			"sms_storage",
+			"allow_roaming",
+			"modem_init"
 		]
 	},
 	ncm: {
+		auth: AUTH_V1,
 		title:	_('Huawei (NCM)'),
 		fields:	[
 			"control_device",
@@ -35,11 +61,14 @@ const MODEM_TYPES = {
 			"username",
 			"password",
 			"pin_code",
-			"mep_code",
-			"prefer_dhcp"
+			"prefer_dhcp",
+			"sms_storage",
+			"allow_roaming",
+			"modem_init"
 		]
 	},
 	asr1802: {
+		auth: AUTH_V2,
 		title:	_('Marvell ASR1802'),
 		fields:	[
 			"control_device",
@@ -51,7 +80,10 @@ const MODEM_TYPES = {
 			"password",
 			"pin_code",
 			"mep_code",
-			"prefer_dhcp"
+			"prefer_dhcp",
+			"sms_storage",
+			"allow_roaming",
+			"modem_init"
 		]
 	}
 };
@@ -65,7 +97,8 @@ const MODEM_FIELDS = {
 		descr:		_('This list contains plugged USB modems. Choose one for automatic setup.'),
 		optional:	false,
 		default:	'-',
-		global:		true
+		global:		true,
+		create:		true
 	},
 	modem_type: {
 		type:		'select',
@@ -97,7 +130,8 @@ const MODEM_FIELDS = {
 			if (value == '')
 				return _('Please choose device.');
 			return true;
-		}
+		},
+		create:		true
 	},
 	ppp_device: {
 		type:		'rich_select',
@@ -109,7 +143,8 @@ const MODEM_FIELDS = {
 			if (value == '')
 				return _('Please choose device.');
 			return true;
-		}
+		},
+		create:		true
 	},
 	net_device: {
 		type:		'rich_select',
@@ -121,24 +156,26 @@ const MODEM_FIELDS = {
 			if (value == '')
 				return _('Please choose device.');
 			return true;
-		}
-	},
-	net_type: {
-		type:		'select',
-		tab:		'general',
-		title:		_('Network type'),
-		optional:	false,
-		default:	'gsm',
-		values: {
-			gsm:		_('GSM/UMTS/LTE'),
-			cdma:		_('CDMA/EV-DO')
-		}
+		},
+		create:		true
 	},
 	
-	// PDP settings
+	// Connection
+	allow_roaming: {
+		type:		'checkbox',
+		tab:		'connection',
+		subsection:	'modem',
+		title:		_('Allow roaming'),
+		descr: [
+			_('On modems, which not support this feature, modem will connect to roaming network, but don\'t initiate data session.')
+		],
+		default:	true,
+		optional:	true
+	},
 	pdp_type: {
 		type:		'select',
-		tab:		'modem',
+		tab:		'connection',
+		subsection:	'modem',
 		title:		_('PDP type'),
 		optional:	false,
 		default:	'IP',
@@ -146,14 +183,20 @@ const MODEM_FIELDS = {
 			IP:			_('IP'),
 			IPV6:		_('IPV6'),
 			IPV4V6:		_('IPV4V6'),
-		},
-		depends: {
-			network_type: ['gsm']
 		}
+	},
+	dialnumber: {
+		type:		'text',
+		tab:		'connection',
+		subsection:	'modem',
+		title:		_('Dial number'),
+		default:	'*99***1#',
+		optional:	true
 	},
 	apn: {
 		type:		'text',
-		tab:		'modem',
+		tab:		'connection',
+		subsection:	'modem',
 		title:		_('APN'),
 		default:	'internet',
 		optional:	true,
@@ -163,42 +206,76 @@ const MODEM_FIELDS = {
 			if (!/^[\w\d._-]+$/i.test(value))
 				return _('Invalid APN');
 			return true;
-		},
-		depends: {
-			network_type: ['gsm']
 		}
 	},
 	auth_type: {
-		type:		'select',
-		tab:		'modem',
+		type:		'rich_select',
+		tab:		'connection',
+		subsection:	'modem',
 		title:		_('Auth type'),
 		optional:	false,
-		default:	'',
-		values: {
-			'':			_('None'),
-			pap:		_('PAP'),
-			chap:		_('CHAP'),
-		}
+		default:	''
 	},
 	username: {
 		type:		'text',
-		tab:		'modem',
+		tab:		'connection',
+		subsection:	'modem',
 		title:		_('Username'),
 		default:	'',
-		optional:	true
+		optional:	true,
+		depends: {
+			auth_type: ['pap', 'chap', 'auto']
+		}
 	},
 	password: {
 		type:		'password',
-		tab:		'modem',
+		tab:		'connection',
+		subsection:	'modem',
 		title:		_('Password'),
 		default:	'',
-		optional:	true
+		optional:	true,
+		depends: {
+			auth_type: ['pap', 'chap', 'auto']
+		}
 	},
 	
-	// Security
+	// Advanced
+	control_device_baudrate: {
+		type:		'rich_select',
+		tab:		'advanced',
+		subsection:	'modem',
+		title:		_('Control device baudrate'),
+		optional:	false,
+		default:	'',
+		values:		{
+			'':		{title: _('Auto')},
+			57600:	{title: '57600'},
+			115200:	{title: '115200'},
+			230400:	{title: '230400'},
+			460800:	{title: '460800'},
+		},
+		create:		true
+	},
+	ppp_device_baudrate: {
+		type:		'rich_select',
+		tab:		'advanced',
+		subsection:	'modem',
+		title:		_('PPP device baudrate'),
+		optional:	false,
+		default:	'',
+		values:		{
+			'':		{title: _('Auto')},
+			57600:	{title: '57600'},
+			115200:	{title: '115200'},
+			230400:	{title: '230400'},
+			460800:	{title: '460800'},
+		},
+		create:		true
+	},
 	pin_code: {
 		type:		'text',
-		tab:		'modem',
+		tab:		'advanced',
+		subsection:	'modem',
 		title:		_('PIN code'),
 		descr:		_('PIN code for automatic unlocking SIM card.'),
 		default:	'',
@@ -207,26 +284,64 @@ const MODEM_FIELDS = {
 	},
 	mep_code: {
 		type:		'text',
-		tab:		'modem',
+		tab:		'advanced',
+		subsection:	'modem',
 		title:		_('MEP code'),
 		descr:		_('MEP code for automatic unlocking Modem (simlock).'),
 		default:	'',
 		optional:	true
 	},
-	
-	// Misc
 	prefer_dhcp: {
 		type:		'checkbox',
-		tab:		'modem',
+		tab:		'advanced',
+		subsection:	'modem',
 		title:		_('Force use DHCP'),
 		descr: [
-			_('By default, the usbmodem daemon monitors IP address changes and manually sets it to a static interface.'),
-			_('This is the fastest way to reconnect to the Internet when the ISP resets the session.'),
-			_('But a rollback to DHCP is also available (for worth case).')
+			_('By default we use static interface and polling IP/gw/mask from modem using AT commands.'),
+			_('This is faster way for connection. But DHCP also available as fallback.')
 		],
 		default:	'',
 		optional:	true
-	}
+	},
+	modem_init: {
+		type:		'textarea',
+		tab:		'advanced',
+		subsection:	'modem',
+		title:		_('Custom initialization'),
+		descr: [
+			_('One AT command per line.')
+		],
+		default:	'',
+		optional:	true
+	},
+	
+	// SMS
+	sms_storage: {
+		type:		'rich_select',
+		tab:		'sms',
+		subsection:	'modem',
+		title:		_('SMS storage'),
+		optional:	false,
+		default:	'modem',
+		values: {
+			sim:		{
+				title:	_('SIM'),
+				descr:	_('Storing new messages in SIM card. Usually, only 10 sms available.')
+			},
+			modem:		{
+				title:	_('Modem'),
+				descr:	_('Storing new messages in modem/phone memory. Usually, 10-100 sms available.')
+			},
+			router:		{
+				title:	_('Router'),
+				descr:	_('Storing new messages in openwrt filesystem. This provides a lot of memory for sms.')
+			},
+			tmp:		{
+				title:	_('Temporary'),
+				descr:	_('Storing new messages in /tmp. This provides a lot of memory for sms, but all data lost after reboot.')
+			},
+		}
+	},
 };
 
 // Customize dropdown
@@ -269,9 +384,6 @@ const MyDropdown = ui.Dropdown.extend({
 // Customize ListValue
 const RichListValue = form.ListValue.extend({
 	__name__: 'CBI.RichListValue',
-	isRendered() {
-		return !!this.is_rendered;
-	},
 	renderWidget(section_id, option_index, cfgvalue) {
 		let choices = this.transformChoices() || {};
 		let value = (cfgvalue != null) ? cfgvalue : this.default;
@@ -281,7 +393,7 @@ const RichListValue = form.ListValue.extend({
 		let widget = new MyDropdown(value, choices, {
 			id: this.cbid(section_id),
 			sort: this.keylist,
-			create: true,
+			create: this.create,
 			optional: this.optional || this.rmempty,
 			select_placeholder: _('-- Please choose --'),
 			custom_placeholder: this.custom_placeholder || this.placeholder,
@@ -386,6 +498,14 @@ return network.registerProtocol('usbmodem', {
 	renderFormOptions(s) {
 		s.tabs["modem"] || s.tab('modem', _('Modem Settings'));
 		
+		let modem_section = s.taboption('modem', form.SectionValue, '_device', form.NamedSection, s.section, 'interface');
+		modem_section.subsection.addremove = false;
+		modem_section.subsection.anonymous = true;
+		
+		modem_section.subsection.tab('connection', _('Connection'));
+		modem_section.subsection.tab('sms', _('SMS'));
+		modem_section.subsection.tab('advanced', _('Advanced'));
+		
 		let fields = deepClone(MODEM_FIELDS);
 		for (let type in MODEM_TYPES) {
 			let type_info = MODEM_TYPES[type];
@@ -397,6 +517,8 @@ return network.registerProtocol('usbmodem', {
 					console.error(`Unknown field: ${field_name}`);
 					continue;
 				}
+				
+				fields[field_name].used = true;
 				
 				if (!fields[field_name].global) {
 					fields[field_name].depends ||= {};
@@ -434,7 +556,7 @@ return network.registerProtocol('usbmodem', {
 			
 			let net_params = ['net_device'];
 			let tty_params = ['control_device', 'ppp_device'];
-			let reset_params = ['control_device', 'ppp_device', 'net_device', 'modem_type', 'net_type'];
+			let reset_params = ['control_device', 'ppp_device', 'net_device', 'modem_type'];
 			
 			for (let k of reset_params)
 				s.getOption(k).getUIElement(s.section).setValue('');
@@ -471,9 +593,6 @@ return network.registerProtocol('usbmodem', {
 					
 					if (modem.net)
 						s.getOption('net_device').getUIElement(s.section).setValue(modem.net);
-					
-					if (modem.net_type)
-						s.getOption('net_type').getUIElement(s.section).setValue(modem.net_type);
 				});
 			}
 		};
@@ -512,14 +631,34 @@ return network.registerProtocol('usbmodem', {
 			}
 		};
 		
-		for (let field_name in fields)
-			createOption(s, field_name, fields[field_name]);
+		fields.auth_type.load = (option, section_id) => {
+			let modem_type = uci.get('network', s.section, 'modem_type');
+			updateAuthList(option, MODEM_TYPES[modem_type].auth);
+		};
+		
+		fields.modem_type.onchange = () => {
+			let modem_type = s.getOption('modem_type').formvalue(s.section);
+			updateAuthList(modem_section.subsection.getOption('auth_type'), MODEM_TYPES[modem_type].auth);
+		};
+		
+		for (let field_name in fields) {
+			let config = fields[field_name];
+			if (config.used || config.global) {
+				if (config.subsection == 'modem') {
+					createOption(modem_section.subsection, field_name, config);
+				} else {
+					createOption(s, field_name, config);
+				}
+			} else {
+				console.warn(`Unused field: ${field_name}`);
+			}
+		}
 	}
 });
 
 function updateTTYList(option, tty_list) {
-	if (option.isRendered()) {
-		let widget = option.getUIElement(option.section.section);
+	let widget = getUIElement(option);
+	if (widget) {
 		widget.setValue('');
 		widget.clearChoices();
 	}
@@ -536,8 +675,8 @@ function updateTTYList(option, tty_list) {
 }
 
 function updateNetList(option, net_list) {
-	if (option.isRendered()) {
-		let widget = option.getUIElement(option.section.section);
+	let widget = getUIElement(option);
+	if (widget) {
 		widget.setValue('');
 		widget.clearChoices();
 	}
@@ -551,6 +690,24 @@ function updateNetList(option, net_list) {
 			option.value(net.path, net.path);
 		}
 	}
+}
+
+function updateAuthList(option, auth_list) {
+	let widget = getUIElement(option), keys;
+	if (widget) {
+		widget.setValue('');
+		widget.clearChoices();
+	}
+	
+	for (let k in auth_list)
+		option.value(k, auth_list[k]);	
+}
+
+function getUIElement(option) {
+	try {
+		return option.getUIElement(option.section.section);
+	} catch (e) { }
+	return null;
 }
 
 function throttle(callback, time) {
@@ -591,6 +748,10 @@ function createOption(s, name, config) {
 			option = s.taboption(config.tab, form.Value, name, config.title, descr);
 		break;
 		
+		case "textarea":
+			option = s.taboption(config.tab, form.TextValue, name, config.title, descr);
+		break;
+		
 		case "password":
 			option = s.taboption(config.tab, form.Value, name, config.title, descr);
 			option.password = true;
@@ -607,6 +768,9 @@ function createOption(s, name, config) {
 	
 	if (config.default != null)
 		option.default = config.default;
+	
+	if (config.create)
+		option.create = true;
 	
 	if (config.optional)
 		option.rmempty = true;
@@ -628,8 +792,15 @@ function createOption(s, name, config) {
 	}
 	
 	if (config.values) {
-		for (let k in config.values)
-			option.value(k, config.values[k]);
+		if (config.type == 'rich_select') {
+			for (let k in config.values) {
+				let item = config.values[k];
+				option.value(k, item.title, item.title, item.descr);
+			}
+		} else {
+			for (let k in config.values)
+				option.value(k, config.values[k]);
+		}
 	}
 	
 	if (config.validate) {

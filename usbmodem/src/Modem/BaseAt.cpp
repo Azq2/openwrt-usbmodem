@@ -3,8 +3,6 @@
 #include <unistd.h>
 #include <Core/Loop.h>
 
-// AT+COPS=3,0;+COPS?;+COPS=3,1;+COPS?;+COPS=3,2;+COPS?
-
 BaseAtModem::BaseAtModem() : Modem() {
 	m_at.setVerbose(true);
 	m_at.setSerial(&m_serial);
@@ -83,6 +81,17 @@ int BaseAtModem::getCommandTimeout(const std::string &cmd) {
 	
 	// Default timeout
 	return 0;
+}
+
+bool BaseAtModem::customInit() {
+	if (m_modem_init.size()) {
+		for (auto cmd: strSplit("\n", m_modem_init)) {
+			cmd = trim(cmd);
+			if (cmd.size() > 0)
+				m_at.sendCommandNoResponse(cmd.c_str());
+		}
+	}
+	return true;
 }
 
 bool BaseAtModem::open() {
@@ -172,14 +181,11 @@ std::pair<bool, std::string> BaseAtModem::sendAtCommand(const std::string &cmd, 
 }
 
 bool BaseAtModem::setOption(const std::string &name, const std::any &value) {
-	if (name == "tty_speed") {
+	if (name == "tty_baudrate") {
 		m_speed = std::any_cast<int>(value);
 		return true;
 	} else if (name == "tty_device") {
 		m_tty = std::any_cast<std::string>(value);
-		return true;
-	} else if (name == "iface") {
-		m_iface = std::any_cast<std::string>(value);
 		return true;
 	} else if (name == "pdp_type") {
 		m_pdp_type = std::any_cast<std::string>(value);
@@ -196,11 +202,17 @@ bool BaseAtModem::setOption(const std::string &name, const std::any &value) {
 	} else if (name == "pdp_password") {
 		m_pdp_password = std::any_cast<std::string>(value);
 		return true;
-	} else if (name == "pincode") {
+	} else if (name == "pin_code") {
 		m_pincode = std::any_cast<std::string>(value);
 		return true;
-	} else if (name == "prefer_sms_to_sim") {
-		m_prefer_sms_to_sim = std::any_cast<bool>(value);
+	} else if (name == "sms_storage") {
+		m_sms_preferred_storage = std::any_cast<SmsPreferredStorage>(value);
+		return true;
+	} else if (name == "modem_init") {
+		m_modem_init = std::any_cast<std::string>(value);
+		return true;
+	} else if (name == "allow_roaming") {
+		m_allow_roaming = std::any_cast<bool>(value);
 		return true;
 	}
 	return false;

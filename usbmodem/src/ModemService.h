@@ -38,7 +38,7 @@ class ModemService {
 		std::string m_iface;
 		std::string m_fw_zone;
 		std::string m_control_tty, m_ppp_tty, m_net_dev;
-		int m_control_tty_speed = 0, m_ppp_tty_speed = 0;
+		int m_control_tty_baudrate = 0, m_ppp_tty_baudrate = 0;
 		
 		bool m_dhcp_inited = false;
 		std::string m_error_code;
@@ -73,6 +73,10 @@ class ModemService {
 		
 		inline std::string iface() const {
 			return m_iface;
+		}
+		
+		inline bool getBoolOption(const std::string &k) {
+			return k == "1" || k == "true";
 		}
 		
 		static int run(const std::string &type, int argc, char *argv[]);

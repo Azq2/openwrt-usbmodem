@@ -345,10 +345,13 @@ std::tuple<bool, std::vector<BaseAtModem::Operator>> BaseAtModem::searchOperator
 			Operator &op = operators.back();
 			op.mcc = strToInt(name_numeric.substr(0, 3), 10, -1);
 			op.mnc = strToInt(name_numeric.substr(3), 10, -1);
-			op.name = name_long;
+			op.name = name_short.size() ? name_short : name_long;
 			op.tech = cregToTech(static_cast<CregTech>(tech));
 			op.status = OPERATOR_STATUS_UNKNOWN;
 			op.reg = OPERATOR_REG_NONE;
+			
+			if (!op.name.size())
+				op.name = strprintf("%03d %02d", op.mcc, op.mnc);
 			
 			if ((status >= 0 && status < 4))
 				op.status = static_cast<OperatorStatus>(status);
@@ -366,8 +369,7 @@ bool BaseAtModem::setOperator(OperatorRegMode mode, int mcc, int mnc, NetworkTec
 	if (mode == OPERATOR_REG_NONE) {
 		return m_at.sendCommandNoResponse("AT+COPS=2") == 0;
 	} else if (mode == OPERATOR_REG_AUTO) {
-		if (m_at.sendCommandNoResponse("AT+COPS=2") != 0)
-			return false;
+		m_at.sendCommandNoResponse("AT+COPS=2");
 		return m_at.sendCommandNoResponse("AT+COPS=0") == 0;
 	} else {
 		std::string at_cmd;

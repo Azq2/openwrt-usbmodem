@@ -1,6 +1,7 @@
 #include "../HuaweiNcm.h"
 #include <Core/Loop.h>
 #include <cinttypes>
+#include <unistd.h>
 
 std::map<HuaweiNcmModem::NetworkMode, std::string> HuaweiNcmModem::m_mode2id = {
 	{HuaweiNcmModem::NET_MODE_AUTO, "00"},
@@ -21,10 +22,6 @@ std::map<HuaweiNcmModem::NetworkMode, std::string> HuaweiNcmModem::m_mode2id = {
 	
 	{HuaweiNcmModem::NET_MODE_3G_4G_PREFER_3G, "0203"},
 	{HuaweiNcmModem::NET_MODE_3G_4G_PREFER_4G, "0302"},
-	
-	{HuaweiNcmModem::NET_MODE_ORDER_2G_3G_4G, "010203"},
-	{HuaweiNcmModem::NET_MODE_ORDER_3G_2G_4G, "020103"},
-	{HuaweiNcmModem::NET_MODE_ORDER_4G_2G_3G, "030102"},
 };
 
 void HuaweiNcmModem::handleHcsq(const std::string &event) {
@@ -72,24 +69,6 @@ void HuaweiNcmModem::handleHcsq(const std::string &event) {
 		m_signal.rsrp_dbm = decodeSignal(rsrp, 141, 1, 255);
 		m_signal.sinr_db = decodeSignal(sinr, 21, 0.2, 255);
 		m_signal.rsrq_db = decodeSignal(rsrq, 20, 0.5, 255);
-	}
-}
-		
-void HuaweiNcmModem::handleCgev(const std::string &event) {
-	// "DEACT" and "DETACH" mean disconnect
-	if (event.find("DEACT") != std::string::npos || event.find("DETACH") != std::string::npos) {
-		Loop::setTimeout([this]() {
-			handleDisconnect();
-		}, 0);
-	}
-	// Other events handle as "connection changed"
-	else {
-		// Ignore this event for 3G/EDGE
-		if (m_tech == TECH_LTE) {
-			Loop::setTimeout([this]() {
-				handleConnect();
-			}, 0);
-		}
 	}
 }
 
@@ -172,10 +151,6 @@ std::tuple<bool, std::vector<HuaweiNcmModem::NetworkMode>> HuaweiNcmModem::getNe
 		
 		NET_MODE_3G_4G_PREFER_3G,
 		NET_MODE_3G_4G_PREFER_4G,
-		
-		NET_MODE_ORDER_2G_3G_4G,
-		NET_MODE_ORDER_3G_2G_4G,
-		NET_MODE_ORDER_4G_2G_3G
 	}};
 }
 
@@ -209,4 +184,15 @@ bool HuaweiNcmModem::setNetworkMode(NetworkMode new_mode) {
 
 std::tuple<bool, std::vector<HuaweiNcmModem::NetworkNeighborCell>> HuaweiNcmModem::getNeighboringCell() {
 	return {true, {}};
+}
+
+std::tuple<bool, std::vector<HuaweiNcmModem::Operator>> HuaweiNcmModem::searchOperators() {
+	m_at.sendCommandNoResponse("AT+CGATT=0");
+	handleDisconnect();
+	return BaseAtModem::searchOperators();
+}
+
+bool HuaweiNcmModem::setOperator(OperatorRegMode mode, int mcc, int mnc, NetworkTech tech) {
+	// m_at.sendCommandNoResponse("AT+CGATT=0");
+	return BaseAtModem::setOperator(mode, mcc, mnc, tech);
 }

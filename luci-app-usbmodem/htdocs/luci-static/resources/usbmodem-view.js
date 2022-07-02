@@ -4,6 +4,46 @@
 let deferred_cnt = 0;
 
 return baseclass.extend({
+	renderSignal(type, value) {
+		let signals_types = {
+			// 2G (GSM)
+			rssi_2g:	[_('dBm'), [-109, -100, -85, -70]],
+			
+			// 3G (UMTS)
+			rssi_3g:	[_('dBm'), [-109, -100, -85, -70]],
+			ecio:		[_('dB'), [-20, -15, -10, -6]],
+			rscp:		[_('dBm'), [-95, -85, -75, -60]],
+			
+			// 4G (LTE)
+			rssi_4g:	[_('dBm'), [-95, -85, -75, -65]],
+			rsrp:		[_('dBm'), [-99, -95, -90, -80]],
+			rsrq:		[_('dB'), [-19, -17, -15, -10]],
+			sinr:		[_('dB'), [0, 6, 13, 20]],
+		};
+		
+		let signal_cfg = signals_types[type];
+		if (!signal_cfg)
+			return +value.toFixed(2);
+		
+		let scale = signal_cfg[1];
+		let icon = L.resource('icons/signal-0.png');
+		
+		if (value >= scale[3]) {
+			icon = L.resource('icons/signal-75-100.png');
+		} else if (value >= scale[2]) {
+			icon = L.resource('icons/signal-50-75.png');
+		} else if (value >= scale[1]) {
+			icon = L.resource('icons/signal-25-50.png');
+		} else if (value >= scale[0]) {
+			icon = L.resource('icons/signal-0-25.png');
+		}
+		
+		let title = +value.toFixed(2) + ' ' + signal_cfg[0];
+		return E('span', { class: 'ifacebadge' }, [
+			E('img', { src: icon, title: title }),
+			E('span', { }, [ title ])
+		]);
+	},
 	showBusyWarning(flag) {
 		if (flag) {
 			deferred_cnt++;

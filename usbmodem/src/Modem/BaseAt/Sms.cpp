@@ -25,7 +25,8 @@ bool BaseAtModem::intiSms() {
 		return false;
 	
 	// Find best SMS storage
-	if (!findBestSmsStorage(m_prefer_sms_to_sim))
+	bool prefer_sim = (m_sms_preferred_storage == SMS_PREFER_SIM);
+	if (!findBestSmsStorage(prefer_sim))
 		return false;
 	
 	// Set SMS storage
@@ -159,15 +160,6 @@ bool BaseAtModem::findBestSmsStorage(bool prefer_sim) {
 		return true;
 	}
 	
-	std::vector<SmsStorage> prefer_storages = {
-		SMS_STORAGE_MT,
-		SMS_STORAGE_ME,
-		SMS_STORAGE_SM
-	};
-	
-	if (prefer_sim)
-		prefer_storages = {SMS_STORAGE_SM};
-	
 	if (isSmsStorageSupported(2, SMS_STORAGE_MT)) {
 		if (isSmsStorageSupported(0, SMS_STORAGE_SM) && isSmsStorageSupported(1, SMS_STORAGE_SM)) {
 			m_sms_mem[0] = SMS_STORAGE_SM;
@@ -183,6 +175,15 @@ bool BaseAtModem::findBestSmsStorage(bool prefer_sim) {
 			}
 		}
 	}
+	
+	std::vector<SmsStorage> prefer_storages = {
+		SMS_STORAGE_MT,
+		SMS_STORAGE_ME,
+		SMS_STORAGE_SM
+	};
+	
+	if (prefer_sim)
+		prefer_storages = {SMS_STORAGE_SM};
 	
 	for (auto &storage: prefer_storages) {
 		if (isSmsStorageSupported(1, storage) && isSmsStorageSupported(2, storage)) {

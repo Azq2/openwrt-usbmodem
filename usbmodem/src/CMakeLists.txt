@@ -36,7 +36,10 @@ add_executable(usbmodem
 	Modem/GenericPpp.cpp
 	
 	ModemService.cpp
-	ModemServiceApi.cpp
+	ModemService/Api.cpp
+	ModemService/Sms.cpp
+	ModemService/Dhcp.cpp
+	ModemService/Modem.cpp
 	
 	UsbDiscover.cpp
 	UsbDiscoverData.cpp

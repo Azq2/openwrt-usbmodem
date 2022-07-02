@@ -3,7 +3,7 @@
 # Example usage:
 # TEST_ROUTER=root@192.168.1.1 TOPDIR=~/build/openwrt ./test.sh
 
-VERSION=29
+VERSION=31
 DIR=$(readlink -f $0)
 DIR=$(dirname $0)
 MODE=$1
@@ -109,8 +109,8 @@ install_file $TOPDIR/build_dir/$TARGET/usbmodem/ipkg-install/usr/sbin/usbmodem		
 if [[ $NEED_SETUP != "0" ]];
 then
 	echo "Need setup..."
-#	ssh $TEST_ROUTER /etc/init.d/rpcd restart
-#	ssh $TEST_ROUTER /etc/init.d/network restart
+	ssh $TEST_ROUTER /etc/init.d/rpcd restart
+	ssh $TEST_ROUTER /etc/init.d/network restart
 	ssh $TEST_ROUTER touch /tmp/usbmodem_ok.$VERSION
 	exit 0
 fi
